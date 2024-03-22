@@ -1170,74 +1170,74 @@ def main(args):
             if global_step >= args.max_train_steps:
                 break
             
-            # ==================================================
-            # validation part
-            # ==================================================
-            if accelerator.is_main_process:
-                if epoch!=0 and args.validation_prompt is not None and epoch % args.validation_epochs == 0:
-                    print('epoch',epoch)
-                    print('args.validation_epochs',args.validation_epochs)
-                    print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
-                    print('args.validation_prompt',args.validation_prompt)
-                    logger.info(
-                        f"Running validation... /n Generating {args.num_validation_images} images with prompt:"
-                        f" {args.validation_prompt}."
-                    )
-                    # create pipeline
-                    
-                    vae = AutoencoderKL.from_single_file(
-                        vae_path
-                    )
-                    validation_pipeline = StableDiffusionXLPipeline.from_single_file(
-                        args.model_path,variant=weight_dtype, use_safetensors=True, 
-                        vae=vae,
-                        unet=unet,
-                        torch_dtype=weight_dtype).to("cuda")
-                    # if args.prediction_type is not None:
-                    #     scheduler_args = {"prediction_type": args.prediction_type}
-                    #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+        # ==================================================
+        # validation part
+        # ==================================================
+        if accelerator.is_main_process:
+            if epoch!=0 and args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+                print('epoch',epoch)
+                print('args.validation_epochs',args.validation_epochs)
+                print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
+                print('args.validation_prompt',args.validation_prompt)
+                logger.info(
+                    f"Running validation... /n Generating {args.num_validation_images} images with prompt:"
+                    f" {args.validation_prompt}."
+                )
+                # create pipeline
+                
+                vae = AutoencoderKL.from_single_file(
+                    vae_path
+                )
+                validation_pipeline = StableDiffusionXLPipeline.from_single_file(
+                    args.model_path,variant=weight_dtype, use_safetensors=True, 
+                    vae=vae,
+                    unet=unet,
+                    torch_dtype=weight_dtype)
+                # if args.prediction_type is not None:
+                #     scheduler_args = {"prediction_type": args.prediction_type}
+                #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
 
-                    validation_pipeline = validation_pipeline.to(accelerator.device)
-                    validation_pipeline.set_progress_bar_config(disable=True)
-                    steps = 30
-                    
-                    compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+                validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
+                validation_pipeline.set_progress_bar_config(disable=True)
+                steps = 30
+                
+                compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-                    conditioning, pooled = compel(args.validation_prompt)
-                    # run inference
-                    # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-                    # pipeline_args = {"prompt": args.validation_prompt}
+                conditioning, pooled = compel(args.validation_prompt)
+                # run inference
+                # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+                # pipeline_args = {"prompt": args.validation_prompt}
 
-                    with torch.cuda.amp.autocast():
-                        images = validation_pipeline(prompt_embeds=conditioning, 
-                                        pooled_prompt_embeds=pooled, 
-                                        num_inference_steps=steps,
-                                        guidance_scale=7,
-                                        width=args.resolution, 
-                                        height=args.resolution
-                                        ).images
+                with torch.cuda.amp.autocast():
+                    images = validation_pipeline(prompt_embeds=conditioning, 
+                                    pooled_prompt_embeds=pooled, 
+                                    num_inference_steps=steps,
+                                    guidance_scale=7,
+                                    width=args.resolution, 
+                                    height=args.resolution
+                                    ).images
 
-                    for tracker in accelerator.trackers:
-                        if tracker.name == "tensorboard":
-                            np_images = np.stack([np.asarray(img) for img in images])
-                            tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-                        if tracker.name == "wandb":
-                            tracker.log(
-                                {
-                                    "validation": [
-                                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-                                        for i, image in enumerate(images)
-                                    ]
-                                }
-                            )
+                for tracker in accelerator.trackers:
+                    if tracker.name == "tensorboard":
+                        np_images = np.stack([np.asarray(img) for img in images])
+                        tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+                    if tracker.name == "wandb":
+                        tracker.log(
+                            {
+                                "validation": [
+                                    wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+                                    for i, image in enumerate(images)
+                                ]
+                            }
+                        )
 
-                    del validation_pipeline
-                    gc.collect()
-                    torch.cuda.empty_cache()
-            # ==================================================
-            # end validation part
-            # ==================================================
-        
+                del validation_pipeline
+                gc.collect()
+                torch.cuda.empty_cache()
+        # ==================================================
+        # end validation part
+        # ==================================================
+    
     accelerator.wait_for_everyone()
     # ==================================================
     # validation part after training
