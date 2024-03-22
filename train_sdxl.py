@@ -66,6 +66,7 @@ from tqdm import tqdm
 from PIL import Image 
 from compel import Compel, ReturnedEmbeddingsType
 
+import json
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
@@ -459,6 +460,29 @@ def parse_args(input_args=None):
             " training using `--resume_from_checkpoint`."
         ),
     )
+
+
+    parser.add_argument(
+        "--validation_prompt",
+        type=str,
+        default=None,
+        help="A prompt that is used during validation to verify that the model is learning.",
+    )
+    parser.add_argument(
+        "--num_validation_images",
+        type=int,
+        default=1,
+        help="Number of images that should be generated during validation with `validation_prompt`.",
+    )
+    parser.add_argument(
+        "--validation_epochs",
+        type=int,
+        default=1,
+        help=(
+            "Run fine-tuning validation every X epochs. The validation process consists of running the prompt"
+            " `args.validation_prompt` multiple times: `args.num_validation_images`."
+        ),
+    )
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
@@ -487,7 +511,9 @@ def main(args):
     args.model_path = 'F:/models/Stable-diffusion/sdxl/b9/openxl2_b9.safetensors'
     args.gradient_accumulation_steps = 1
     args.mixed_precision = "fp16"
-    args.report_to = "tensorboard"
+    # args.report_to = "tensorboard"
+    
+    args.report_to = "wandb"
     args.enable_xformers_memory_efficient_attention = True
     args.gradient_checkpointing = True
     args.allow_tf32 = True
@@ -501,7 +527,8 @@ def main(args):
 
     args.adam_weight_decay = 1e-2
     args.adam_epsilon = 1e-08
-    args.train_data_dir = 'F:/ImageSet/training_script_testset_sdxl_train_validation/train/test'
+    # args.train_data_dir = 'F:/ImageSet/training_script_testset_sdxl_train_validation/train/test'
+    args.train_data_dir = 'F:/ImageSet/training_script_cotton_doll/train'
     args.dataset_name = None
     args.cache_dir = None
     args.caption_column = None
@@ -526,8 +553,9 @@ def main(args):
     args.max_grad_norm = 1.0
     args.save_name = "test_run"
     args.checkpointing_steps = 500
-    args.validation_prompt = ""
-    args.validation_epochs = 0
+    args.validation_prompt = "cotton doll, chef_hat, hat, :3, no_humans, solo, looking_at_viewer, blush_stickers, sitting, buttons, chef, "
+    args.validation_epochs = 5
+    args.num_validation_images = 1
 
     vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
@@ -717,16 +745,28 @@ def main(args):
         # the train files and val files split first before the training
         if args.train_data_dir is not None:
             data_files["train"] = os.path.join(args.train_data_dir, "**")
+            def read_caption(folder,file):
+                # assume the caption file is the same as the image file
+                # and ext is .txt
+                caption_file = file.replace('.jpg', '.txt')
+                prompt = open(os.path.join(folder, caption_file)).read()
+                dirname = os.path.basename(folder)
+                return f'{{"file_name": "{dirname}/{file}","text":"{prompt}"}}\n'
+
             # create metadata.jsonl if not exist
             if 'metadata.jsonl' not in os.listdir(args.train_data_dir):
                 metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w')
-                for file in os.listdir(args.train_data_dir):
-                    if file.endswith('.jpg'):
-                        # assume the caption file is the same as the image file
-                        # and ext is .txt
-                        caption_file = file.replace('.jpg', '.txt')
-                        prompt = open(os.path.join(args.train_data_dir, caption_file)).read()
-                        metadata_file.write(f'{{"file_name": "{file}","text":"{prompt}"}}/n')
+                for item in os.listdir(args.train_data_dir):
+                    # check item is dir or file
+                    item_path = os.path.join(args.train_data_dir, item)
+                    if os.path.isdir(item_path):
+                        folder_path = item_path
+                        for file in os.listdir(folder_path):
+                            if file.endswith('.jpg'):
+                                metadata_file.write(read_caption(folder_path,file))
+                    else:
+                        if file.endswith('.jpg'):
+                            metadata_file.write(read_caption(folder_path,file))
                 metadata_file.close()
         dataset = load_dataset(
             "imagefolder",
@@ -1133,60 +1173,67 @@ def main(args):
             # ==================================================
             # validation part
             # ==================================================
-            # if accelerator.is_main_process:
-            #     if args.validation_prompt is not None and epoch % args.validation_epochs == 0:
-            #         logger.info(
-            #             f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-            #             f" {args.validation_prompt}."
-            #         )
-            #         # create pipeline
-            #         vae = AutoencoderKL.from_pretrained(
-            #             vae_path,
-            #             subfolder="vae" if args.pretrained_vae_model_name_or_path is None else None,
-            #             revision=args.revision,
-            #             variant=args.variant,
-            #         )
-            #         pipeline = StableDiffusionXLPipeline.from_pretrained(
-            #             args.pretrained_model_name_or_path,
-            #             vae=vae,
-            #             unet=accelerator.unwrap_model(unet),
-            #             revision=args.revision,
-            #             variant=args.variant,
-            #             torch_dtype=weight_dtype,
-            #         )
-            #         if args.prediction_type is not None:
-            #             scheduler_args = {"prediction_type": args.prediction_type}
-            #             pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+            if accelerator.is_main_process:
+                if epoch!=0 and args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+                    print('epoch',epoch)
+                    print('args.validation_epochs',args.validation_epochs)
+                    print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
+                    print('args.validation_prompt',args.validation_prompt)
+                    logger.info(
+                        f"Running validation... /n Generating {args.num_validation_images} images with prompt:"
+                        f" {args.validation_prompt}."
+                    )
+                    # create pipeline
+                    
+                    vae = AutoencoderKL.from_single_file(
+                        vae_path
+                    )
+                    validation_pipeline = StableDiffusionXLPipeline.from_single_file(
+                        args.model_path,variant=weight_dtype, use_safetensors=True, 
+                        vae=vae,
+                        unet=unet,
+                        torch_dtype=weight_dtype).to("cuda")
+                    # if args.prediction_type is not None:
+                    #     scheduler_args = {"prediction_type": args.prediction_type}
+                    #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
 
-            #         pipeline = pipeline.to(accelerator.device)
-            #         pipeline.set_progress_bar_config(disable=True)
+                    validation_pipeline = validation_pipeline.to(accelerator.device)
+                    validation_pipeline.set_progress_bar_config(disable=True)
+                    steps = 30
+                    
+                    compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-            #         # run inference
-            #         generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-            #         pipeline_args = {"prompt": args.validation_prompt}
+                    conditioning, pooled = compel(args.validation_prompt)
+                    # run inference
+                    # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+                    # pipeline_args = {"prompt": args.validation_prompt}
 
-            #         with torch.cuda.amp.autocast():
-            #             images = [
-            #                 pipeline(**pipeline_args, generator=generator, num_inference_steps=25).images[0]
-            #                 for _ in range(args.num_validation_images)
-            #             ]
+                    with torch.cuda.amp.autocast():
+                        images = validation_pipeline(prompt_embeds=conditioning, 
+                                        pooled_prompt_embeds=pooled, 
+                                        num_inference_steps=steps,
+                                        guidance_scale=7,
+                                        width=args.resolution, 
+                                        height=args.resolution
+                                        ).images
 
-            #         for tracker in accelerator.trackers:
-            #             if tracker.name == "tensorboard":
-            #                 np_images = np.stack([np.asarray(img) for img in images])
-            #                 tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-            #             if tracker.name == "wandb":
-            #                 tracker.log(
-            #                     {
-            #                         "validation": [
-            #                             wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-            #                             for i, image in enumerate(images)
-            #                         ]
-            #                     }
-            #                 )
+                    for tracker in accelerator.trackers:
+                        if tracker.name == "tensorboard":
+                            np_images = np.stack([np.asarray(img) for img in images])
+                            tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+                        if tracker.name == "wandb":
+                            tracker.log(
+                                {
+                                    "validation": [
+                                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+                                        for i, image in enumerate(images)
+                                    ]
+                                }
+                            )
 
-            #         del pipeline
-            #         torch.cuda.empty_cache()
+                    del validation_pipeline
+                    gc.collect()
+                    torch.cuda.empty_cache()
             # ==================================================
             # end validation part
             # ==================================================
