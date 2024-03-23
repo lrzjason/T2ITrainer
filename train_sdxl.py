@@ -264,7 +264,7 @@ def parse_args(input_args=None):
 
     
     parser.add_argument(
-        "--use_paged_8bit_adam", action="store_true", help="Whether or not to use 8-bit Adam from bitsandbytes."
+        "--use_8bit_adam", action="store_true", help="Whether or not to use 8-bit Adam from bitsandbytes."
     )
 
     
@@ -520,7 +520,7 @@ def main(args):
     # args.learning_rate = 1e-4
     args.learning_rate = 1e-5
     args.scale_lr = False
-    args.use_paged_8bit_adam = True
+    args.use_8bit_adam = True
     args.adam_beta1 = 0.9
     # args.adam_beta2 = 0.999
     args.adam_beta2 = 0.99
@@ -541,9 +541,9 @@ def main(args):
     args.train_batch_size = 1
     args.dataloader_num_workers = 0
     args.max_train_steps = None
-    args.num_train_epochs = 20
+    args.num_train_epochs = 5
     args.lr_scheduler = "constant"
-    args.lr_warmup_steps = 100
+    args.lr_warmup_steps = 50
 
     args.timestep_bias_portion = 0.25
     args.timestep_bias_end = 1000
@@ -552,7 +552,7 @@ def main(args):
     args.timestep_bias_strategy = "none"
     args.max_grad_norm = 1.0
     args.save_name = "test_run"
-    args.checkpointing_steps = 500
+    args.checkpointing_steps = 100
     args.validation_prompt = "cotton doll, chef_hat, hat, :3, no_humans, solo, looking_at_viewer, blush_stickers, sitting, buttons, chef, "
     args.validation_epochs = 5
     args.num_validation_images = 1
@@ -608,21 +608,24 @@ def main(args):
 
     pipeline = StableDiffusionXLPipeline.from_single_file(
     args.model_path,variant=weight_dtype, use_safetensors=True, 
-    torch_dtype=weight_dtype).to("cuda")
+    torch_dtype=weight_dtype).to(accelerator.device)
     # print('pipeline:')
     # print(pipeline)
 
     text_encoder_one = pipeline.text_encoder
     text_encoder_two = pipeline.text_encoder_2
-    # vae = pipeline.vae
+    vae = pipeline.vae
     
-    vae = AutoencoderKL.from_single_file(
-        vae_path
-    )
+    # vae = AutoencoderKL.from_single_file(
+    #     vae_path
+    # )
     unet = pipeline.unet
 
     # Load scheduler and models
-    noise_scheduler = pipeline.scheduler
+    # from kohya ss sdxl_train.py 
+    noise_scheduler = DDPMScheduler(
+        beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
+    )
     
     # Freeze vae 
     vae.requires_grad_(False)
@@ -635,7 +638,7 @@ def main(args):
     # Assume fp16 vae got fixed and baked in model
     # exception handling would be added afterward
     # vae.to(accelerator.device, dtype=weight_dtype)
-    vae.to(accelerator.device, dtype=weight_dtype)
+    vae.to(accelerator.device, dtype=torch.float32)
     text_encoder_one.to(accelerator.device, dtype=weight_dtype)
     text_encoder_two.to(accelerator.device, dtype=weight_dtype)
     
@@ -705,7 +708,7 @@ def main(args):
 
     # Use paged 8-bit Adam for more lower memory usage or to fine-tune the model
     # if args.use_8bit_adam:
-    if args.use_paged_8bit_adam:
+    if args.use_8bit_adam:
         try:
             import bitsandbytes as bnb
         except ImportError:
@@ -713,8 +716,8 @@ def main(args):
                 "To use paged 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
             )
 
-        # optimizer_class = bnb.optim.AdamW8bit
-        optimizer_class = bnb.optim.PagedAdamW8bit
+        optimizer_class = bnb.optim.AdamW8bit
+        # optimizer_class = bnb.optim.PagedAdamW8bit
     else:
         optimizer_class = torch.optim.AdamW
 
@@ -745,11 +748,11 @@ def main(args):
         # the train files and val files split first before the training
         if args.train_data_dir is not None:
             data_files["train"] = os.path.join(args.train_data_dir, "**")
-            def read_caption(folder,file):
+            def read_caption(folder,filename):
                 # assume the caption file is the same as the image file
                 # and ext is .txt
-                caption_file = file.replace('.jpg', '.txt')
-                prompt = open(os.path.join(folder, caption_file)).read()
+                # caption_file = file.replace('.jpg', '.txt')
+                prompt = open(os.path.join(folder, f'{filename}.txt'), encoding='utf-8').read()
                 dirname = os.path.basename(folder)
                 return f'{{"file_name": "{dirname}/{file}","text":"{prompt}"}}\n'
 
@@ -762,11 +765,14 @@ def main(args):
                     if os.path.isdir(item_path):
                         folder_path = item_path
                         for file in os.listdir(folder_path):
-                            if file.endswith('.jpg'):
-                                metadata_file.write(read_caption(folder_path,file))
+                            if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
+                                # get filename and ext from file
+                                filename, _ = os.path.splitext(file)
+                                metadata_file.write(read_caption(folder_path,filename))
                     else:
-                        if file.endswith('.jpg'):
-                            metadata_file.write(read_caption(folder_path,file))
+                        if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
+                            filename, _ = os.path.splitext(item)
+                            metadata_file.write(read_caption(folder_path,filename))
                 metadata_file.close()
         dataset = load_dataset(
             "imagefolder",
@@ -1191,8 +1197,7 @@ def main(args):
                 validation_pipeline = StableDiffusionXLPipeline.from_single_file(
                     args.model_path,variant=weight_dtype, use_safetensors=True, 
                     vae=vae,
-                    unet=unet,
-                    torch_dtype=weight_dtype)
+                    unet=unet)
                 # if args.prediction_type is not None:
                 #     scheduler_args = {"prediction_type": args.prediction_type}
                 #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
@@ -1231,7 +1236,7 @@ def main(args):
                             }
                         )
 
-                del validation_pipeline
+                del validation_pipeline, vae
                 gc.collect()
                 torch.cuda.empty_cache()
         # ==================================================
@@ -1242,73 +1247,65 @@ def main(args):
     # ==================================================
     # validation part after training
     # ==================================================
-    # if accelerator.is_main_process:
-        # unet = unwrap_model(unet)
-        # if args.use_ema:
-        #     ema_unet.copy_to(unet.parameters())
+    if accelerator.is_main_process:
+        # save model
+        save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
+        accelerator.save_state(save_path)
 
-        # Serialize pipeline.
-        # vae = AutoencoderKL.from_pretrained(
-        #     vae_path,
-        #     subfolder="vae" if args.pretrained_vae_model_name_or_path is None else None,
-        #     revision=args.revision,
-        #     variant=args.variant,
-        #     torch_dtype=weight_dtype,
-        # )
-        # pipeline = StableDiffusionXLPipeline.from_pretrained(
-        #     args.pretrained_model_name_or_path,
-        #     unet=unet,
-        #     vae=vae,
-        #     revision=args.revision,
-        #     variant=args.variant,
-        #     torch_dtype=weight_dtype,
-        # )
+        del pipeline,noise_scheduler
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        unet = unwrap_model(unet)
+
+        vae = AutoencoderKL.from_single_file(
+            vae_path
+        )
+        validation_pipeline = StableDiffusionXLPipeline.from_single_file(
+            args.model_path,variant=weight_dtype, use_safetensors=True, 
+            vae=vae,
+            unet=unet)
         # if args.prediction_type is not None:
         #     scheduler_args = {"prediction_type": args.prediction_type}
         #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-        # pipeline.save_pretrained(args.output_dir)
 
-        # # run inference
-        # images = []
-        # if args.validation_prompt and args.num_validation_images > 0:
-        #     pipeline = pipeline.to(accelerator.device)
-        #     generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-        #     with torch.cuda.amp.autocast():
-        #         images = [
-        #             pipeline(args.validation_prompt, num_inference_steps=25, generator=generator).images[0]
-        #             for _ in range(args.num_validation_images)
-        #         ]
+        validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
+        validation_pipeline.set_progress_bar_config(disable=True)
+        steps = 30
+        
+        compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-        #     for tracker in accelerator.trackers:
-        #         if tracker.name == "tensorboard":
-        #             np_images = np.stack([np.asarray(img) for img in images])
-        #             tracker.writer.add_images("test", np_images, epoch, dataformats="NHWC")
-        #         if tracker.name == "wandb":
-        #             tracker.log(
-        #                 {
-        #                     "test": [
-        #                         wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-        #                         for i, image in enumerate(images)
-        #                     ]
-        #                 }
-        #             )
+        conditioning, pooled = compel(args.validation_prompt)
+        # run inference
+        # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+        # pipeline_args = {"prompt": args.validation_prompt}
 
-        # if args.push_to_hub:
-        #     save_model_card(
-        #         repo_id=repo_id,
-        #         images=images,
-        #         validation_prompt=args.validation_prompt,
-        #         base_model=args.pretrained_model_name_or_path,
-        #         dataset_name=args.dataset_name,
-        #         repo_folder=args.output_dir,
-        #         vae_path=args.pretrained_vae_model_name_or_path,
-        #     )
-        #     upload_folder(
-        #         repo_id=repo_id,
-        #         folder_path=args.output_dir,
-        #         commit_message="End of training",
-        #         ignore_patterns=["step_*", "epoch_*"],
-        #     )
+        with torch.cuda.amp.autocast():
+            images = validation_pipeline(prompt_embeds=conditioning, 
+                            pooled_prompt_embeds=pooled, 
+                            num_inference_steps=steps,
+                            guidance_scale=7,
+                            width=args.resolution, 
+                            height=args.resolution
+                            ).images
+
+        for tracker in accelerator.trackers:
+            if tracker.name == "tensorboard":
+                np_images = np.stack([np.asarray(img) for img in images])
+                tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+            if tracker.name == "wandb":
+                tracker.log(
+                    {
+                        "validation": [
+                            wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+                            for i, image in enumerate(images)
+                        ]
+                    }
+                )
+
+        del validation_pipeline
+        gc.collect()
+        torch.cuda.empty_cache()
     # ==================================================
     # end validation part after training
     # ==================================================
