@@ -77,24 +77,9 @@ DATASET_NAME_MAPPING = {
     "lambdalabs/pokemon-blip-captions": ("image", "text"),
 }
 
-def compute_embeddings(batch, vae, compel, proportion_empty_prompts, caption_column,recreate=False):
-    path = batch.pop("path")[0]
-    full_path = os.path.join(args.train_data_dir, f"{path}.npz")
-    # check if file exists
-    if os.path.exists(full_path):
-        # load file via torch
-        try:
-            if recreate:
-                # remove the cache
-                os.remove(full_path)
-            else:
-                embedding = torch.load(full_path)
-                return embedding
-        except Exception as e:
-            print(e)
-            print(f"{full_path} is corrupted, regenerating...")
-    
 
+def compute_vae_encodings(batch, vae):
+    # print('compute_vae_encodings')
     images = batch.pop("pixel_values")
     pixel_values = torch.stack(list(images))
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
@@ -104,21 +89,55 @@ def compute_embeddings(batch, vae, compel, proportion_empty_prompts, caption_col
     with torch.no_grad():
         model_input = vae.encode(pixel_values).latent_dist.sample()
     model_input = model_input * vae.config.scaling_factor
+    return {"model_input": model_input.cpu()}
 
-    prompt = batch[caption_column][0] if isinstance(batch[caption_column][0], str) else ""
-    if random.random() < proportion_empty_prompts:
-        prompt = ""
-    prompt_embeds, pooled_prompt_embeds = compel(prompt)
+# Adapted from pipelines.StableDiffusionXLPipeline.encode_prompt
+def encode_prompt(batch, text_encoders, tokenizers, proportion_empty_prompts, caption_column, is_train=True):
     
-    latent = {
-        "model_input": model_input.cpu(),
-        "prompt_embeds": prompt_embeds.cpu(), 
-        "pooled_prompt_embeds": pooled_prompt_embeds.cpu()
-    }
-    # save latent to cache file
-    torch.save(latent, full_path)
-    # print(f"Saved latent to {full_path}")
-    return latent
+    # with torch.no_grad():
+    #     # using compel for longer prompt embedding
+    #     compel = Compel(tokenizer=tokenizers , text_encoder=text_encoders, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+
+    
+    prompt_embeds_list = []
+    prompt_batch = batch[caption_column]
+
+    captions = []
+    for caption in prompt_batch:
+        if random.random() < proportion_empty_prompts:
+            captions.append("")
+        elif isinstance(caption, str):
+            captions.append(caption)
+        elif isinstance(caption, (list, np.ndarray)):
+            # take a random caption if there are multiple
+            captions.append(random.choice(caption) if is_train else caption[0])
+
+    with torch.no_grad():
+        for tokenizer, text_encoder in zip(tokenizers, text_encoders):
+            text_inputs = tokenizer(
+                captions,
+                padding="max_length",
+                max_length=tokenizer.model_max_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+            text_input_ids = text_inputs.input_ids
+            prompt_embeds = text_encoder(
+                text_input_ids.to(text_encoder.device),
+                output_hidden_states=True,
+                return_dict=False,
+            )
+
+            # We are only ALWAYS interested in the pooled output of the final text encoder
+            pooled_prompt_embeds = prompt_embeds[0]
+            prompt_embeds = prompt_embeds[-1][-2]
+            bs_embed, seq_len, _ = prompt_embeds.shape
+            prompt_embeds = prompt_embeds.view(bs_embed, seq_len, -1)
+            prompt_embeds_list.append(prompt_embeds)
+
+    prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
+    pooled_prompt_embeds = pooled_prompt_embeds.view(bs_embed, -1)
+    return {"prompt_embeds": prompt_embeds.cpu(), "pooled_prompt_embeds": pooled_prompt_embeds.cpu()}
 
 
 def generate_timestep_weights(args, num_timesteps):
@@ -713,57 +732,79 @@ def main(args):
         eps=args.adam_epsilon,
     )
 
-    # ==========================================================
-    # Create train dataset
-    # ==========================================================
-    data_files = {}
-    # this part need more work afterward, you need to prepare 
-    # the train files and val files split first before the training
-    if args.train_data_dir is not None:
-        data_files["train"] = os.path.join(args.train_data_dir, "**")
-        def read_caption(folder,filename):
-            # assume the caption file is the same as the image file
-            # and ext is .txt
-            # caption_file = file.replace('.jpg', '.txt')
-            prompt = open(os.path.join(folder, f'{filename}.txt'), encoding='utf-8').read()
-            dirname = os.path.basename(folder)
-            return f'{{"file_name": "{dirname}/{file}","text":"{prompt}","path": "{dirname}/{filename}"}}\n'
 
-        # create metadata.jsonl if not exist
-        if 'metadata.jsonl' not in os.listdir(args.train_data_dir):
-            metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w')
-            for item in os.listdir(args.train_data_dir):
-                # check item is dir or file
-                item_path = os.path.join(args.train_data_dir, item)
-                if os.path.isdir(item_path):
-                    folder_path = item_path
-                    for file in os.listdir(folder_path):
-                        if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
-                            # get filename and ext from file
-                            filename, _ = os.path.splitext(file)
+    # In distributed training, the load_dataset function guarantees that only one local process can concurrently
+    # download the dataset.
+    if args.dataset_name is not None:
+        # Downloading and loading a dataset from the hub.
+        dataset = load_dataset(
+            args.dataset_name,
+            args.dataset_config_name,
+            cache_dir=args.cache_dir,
+        )
+    else:
+        data_files = {}
+        # this part need more work afterward, you need to prepare 
+        # the train files and val files split first before the training
+        if args.train_data_dir is not None:
+            data_files["train"] = os.path.join(args.train_data_dir, "**")
+            def read_caption(folder,filename):
+                # assume the caption file is the same as the image file
+                # and ext is .txt
+                # caption_file = file.replace('.jpg', '.txt')
+                prompt = open(os.path.join(folder, f'{filename}.txt'), encoding='utf-8').read()
+                dirname = os.path.basename(folder)
+                return f'{{"file_name": "{dirname}/{file}","text":"{prompt}"}}\n'
+
+            # create metadata.jsonl if not exist
+            if 'metadata.jsonl' not in os.listdir(args.train_data_dir):
+                metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w')
+                for item in os.listdir(args.train_data_dir):
+                    # check item is dir or file
+                    item_path = os.path.join(args.train_data_dir, item)
+                    if os.path.isdir(item_path):
+                        folder_path = item_path
+                        for file in os.listdir(folder_path):
+                            if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
+                                # get filename and ext from file
+                                filename, _ = os.path.splitext(file)
+                                metadata_file.write(read_caption(folder_path,filename))
+                    else:
+                        if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
+                            filename, _ = os.path.splitext(item)
                             metadata_file.write(read_caption(folder_path,filename))
-                else:
-                    if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
-                        filename, _ = os.path.splitext(item)
-                        metadata_file.write(read_caption(folder_path,filename))
-            metadata_file.close()
+                metadata_file.close()
+        dataset = load_dataset(
+            "imagefolder",
+            data_files=data_files,
+            cache_dir=args.cache_dir,
+        )
+        # See more about loading custom images at
+        # https://huggingface.co/docs/datasets/v2.4.0/en/image_load#imagefolder
 
-    
-    dataset = load_dataset(
-        "imagefolder",
-        data_files=data_files,
-        cache_dir=args.cache_dir,
-    )
-
-
-    # print(dataset["train"][0])
+    # print(dataset["train"])
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
     column_names = dataset["train"].column_names
-    # print(column_names)
 
-    image_column = column_names[0]
-    caption_column = column_names[1]
+    # 6. Get the column names for input/target.
+    dataset_columns = DATASET_NAME_MAPPING.get(args.dataset_name, None)
+    if args.image_column is None:
+        image_column = dataset_columns[0] if dataset_columns is not None else column_names[0]
+    else:
+        image_column = args.image_column
+        if image_column not in column_names:
+            raise ValueError(
+                f"--image_column' value '{args.image_column}' needs to be one of: {', '.join(column_names)}"
+            )
+    if args.caption_column is None:
+        caption_column = dataset_columns[1] if dataset_columns is not None else column_names[1]
+    else:
+        caption_column = args.caption_column
+        if caption_column not in column_names:
+            raise ValueError(
+                f"--caption_column' value '{args.caption_column}' needs to be one of: {', '.join(column_names)}"
+            )
     # print(column_names)
 
     # ================================================================
@@ -771,11 +812,6 @@ def main(args):
     # ================================================================
     # Preprocessing the datasets.
     # afterward, Using bucketing rather than cropping
-    # train_resize = transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR)
-    # train_crop = transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution)
-    # # train_flip = transforms.RandomHorizontalFlip(p=1.0)
-    # train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-
     train_resize = transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR)
     train_crop = transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution)
     # train_flip = transforms.RandomHorizontalFlip(p=1.0)
@@ -825,34 +861,50 @@ def main(args):
     
 
     # ================================================================
-    # Create embedding
+    # Need to re-write with compel for longer prompt embedding
     # ================================================================
     # Let's first compute all the embeddings so that we can free up the text encoders
     # from memory. We will pre-compute the VAE encodings too.
 
     # # using compel for longer prompt embedding
-    compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+    # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+    # print('dataset["train"]')
+    # print(dataset["train"])
 
+    text_encoders = [text_encoder_one, text_encoder_two]
+    tokenizers = [pipeline.tokenizer, pipeline.tokenizer_2]
     compute_embeddings_fn = functools.partial(
-        compute_embeddings,
-        vae=vae,
-        compel=compel,
+        encode_prompt,
+        text_encoders=text_encoders,
+        tokenizers=tokenizers,
         proportion_empty_prompts=args.proportion_empty_prompts,
         caption_column=args.caption_column,
-        recreate=False
     )
-
+    compute_vae_encodings_fn = functools.partial(compute_vae_encodings, vae=vae)
     with accelerator.main_process_first():
-        train_dataset = train_dataset.map(compute_embeddings_fn, 
-                                          batched=True,
-                                          batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps)
+        from datasets.fingerprint import Hasher
 
-    del text_encoder_one, text_encoder_two, pipeline.tokenizer, pipeline.tokenizer_2, vae
+        # fingerprint used by the cache for the other processes to load the result
+        # details: https://github.com/huggingface/diffusers/pull/4038#discussion_r1266078401
+        # new_fingerprint = Hasher.hash(args)
+        # new_fingerprint_for_vae = Hasher.hash("vae")
+        # train_dataset = train_dataset.map(compute_embeddings_fn, batched=True, new_fingerprint=new_fingerprint)
+        
+        train_dataset = train_dataset.map(compute_embeddings_fn, batched=True)
+        train_dataset = train_dataset.map(
+            compute_vae_encodings_fn,
+            batched=True,
+            batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps,
+            # new_fingerprint=new_fingerprint_for_vae,
+        )
+
+    del text_encoders, tokenizers, vae
     gc.collect()
     torch.cuda.empty_cache()
 
+
     # ================================================================
-    # End create embedding 
+    # End longer prompt embedding rewrite
     # ================================================================
     
     
