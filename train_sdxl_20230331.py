@@ -19,13 +19,6 @@
 # therefore, it would assume something like fp16 vae fixed and baked in model, etc
 # some option, me doesn't used in training wouldn't implemented like ema, etc
 
-# before 20240401, initial codebase
-# 20240401, added caption ext support
-#           need to handle multi batch size and gas for dataset stack images.
-#           need to implement validation loss
-#           need to add te training
-from diffusers.models.attention_processor import AttnProcessor2_0
-
 import argparse
 import functools
 import gc
@@ -74,12 +67,6 @@ from PIL import Image
 from compel import Compel, ReturnedEmbeddingsType
 
 import json
-
-
-import sys
-sys.path.append('F:/T2ITrainer/utils')
-
-import image_utils
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
@@ -477,17 +464,6 @@ def parse_args(input_args=None):
             " `args.validation_prompt` multiple times: `args.num_validation_images`."
         ),
     )
-    parser.add_argument(
-        "--caption_exts",
-        type=str,
-        default=".txt",
-        help=(
-            "Run fine-tuning validation every X epochs. The validation process consists of running the prompt"
-            " `args.validation_prompt` multiple times: `args.num_validation_images`."
-        ),
-    )
-
-    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
@@ -514,6 +490,7 @@ def main(args):
     args.output_dir = 'F:/learning/accelerator_sdxl_train/output'
     args.logging_dir = 'logs'
     args.model_path = 'F:/models/Stable-diffusion/sdxl/b9/openxl2_b9.safetensors'
+    args.gradient_accumulation_steps = 1
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -522,11 +499,7 @@ def main(args):
     args.gradient_checkpointing = True
     args.allow_tf32 = True
     # args.learning_rate = 1e-4
-    args.learning_rate = 1e-6
-    args.train_batch_size = 1 # when batch size is more than 1, current vae stack wouldn't work
-    args.gradient_accumulation_steps = 1 # when batch size is more than 1, current vae stack wouldn't work
-    args.checkpointing_steps = 100
-
+    args.learning_rate = 1e-5
     args.scale_lr = False
     args.use_8bit_adam = True
     args.adam_beta1 = 0.9
@@ -536,8 +509,7 @@ def main(args):
     args.adam_weight_decay = 1e-2
     args.adam_epsilon = 1e-08
     # args.train_data_dir = 'F:/ImageSet/training_script_testset_sdxl_train_validation/train/test'
-    # args.train_data_dir = 'F:/ImageSet/training_script_cotton_doll/train'
-    args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
+    args.train_data_dir = 'F:/ImageSet/training_script_cotton_doll/train'
     args.dataset_name = None
     args.cache_dir = None
     args.caption_column = None
@@ -547,6 +519,7 @@ def main(args):
     args.center_crop = False
     args.max_train_samples = None
     args.proportion_empty_prompts = 0
+    args.train_batch_size = 1
     args.dataloader_num_workers = 0
     args.max_train_steps = None
     args.num_train_epochs = 5
@@ -560,10 +533,10 @@ def main(args):
     args.timestep_bias_strategy = "none"
     args.max_grad_norm = 1.0
     args.save_name = "test_run"
+    args.checkpointing_steps = 100
     args.validation_prompt = "cotton doll, chef_hat, hat, :3, no_humans, solo, looking_at_viewer, blush_stickers, sitting, buttons, chef, "
     args.validation_epochs = 5
     args.num_validation_images = 1
-    args.caption_exts = '.txt,.wd14_cap'
 
     vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
@@ -661,31 +634,18 @@ def main(args):
         accelerator.scaler._unscale_grads_ = _unscale_grads_replacer
 
 
-    # ================================================================================
-    # Memory_efficient
-    # ================================================================================
-    # if args.enable_xformers_memory_efficient_attention:
-    #     if is_xformers_available():
-    #         import xformers
-
-    #         xformers_version = version.parse(xformers.__version__)
-    #         if xformers_version == version.parse("0.0.16"):
-    #             logger.warn(
-    #                 "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
-    #             )
-    #         unet.enable_xformers_memory_efficient_attention()
-    #     else:
-    #         raise ValueError("xformers is not available. Make sure it is installed correctly")
-    print("Enable SDPA for U-Net")
-    # unet.set_use_sdpa(True)
-    unet.set_attn_processor(AttnProcessor2_0())
     if args.enable_xformers_memory_efficient_attention:
         if is_xformers_available():
-            if torch.__version__ >= "2.0.0":  # PyTorch 2.0.0 以上対応のxformersなら以下が使える
-                vae.set_use_memory_efficient_attention_xformers(True)
-    # ================================================================================
-    # End Memory_efficient
-    # ================================================================================
+            import xformers
+
+            xformers_version = version.parse(xformers.__version__)
+            if xformers_version == version.parse("0.0.16"):
+                logger.warn(
+                    "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
+                )
+            unet.enable_xformers_memory_efficient_attention()
+        else:
+            raise ValueError("xformers is not available. Make sure it is installed correctly")
 
     # `accelerate` 0.16.0 will have better support for customized saving
     if version.parse(accelerate.__version__) >= version.parse("0.16.0"):
@@ -736,8 +696,8 @@ def main(args):
                 "To use paged 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
             )
 
-        # optimizer_class = bnb.optim.AdamW8bit
-        optimizer_class = bnb.optim.PagedAdamW8bit
+        optimizer_class = bnb.optim.AdamW8bit
+        # optimizer_class = bnb.optim.PagedAdamW8bit
     else:
         optimizer_class = torch.optim.AdamW
 
@@ -760,18 +720,17 @@ def main(args):
     # the train files and val files split first before the training
     if args.train_data_dir is not None:
         data_files["train"] = os.path.join(args.train_data_dir, "**")
-        def read_caption(folder,filename,caption_ext=".txt"):
+        def read_caption(folder,filename):
             # assume the caption file is the same as the image file
             # and ext is .txt
             # caption_file = file.replace('.jpg', '.txt')
-            prompt = open(os.path.join(folder, f'{filename}{caption_ext}'), encoding='utf-8').read()
-            prompt = prompt.replace('\n', ' ')
+            prompt = open(os.path.join(folder, f'{filename}.txt'), encoding='utf-8').read()
             dirname = os.path.basename(folder)
             return f'{{"file_name": "{dirname}/{file}","text":"{prompt}","path": "{dirname}/{filename}"}}\n'
 
         # create metadata.jsonl if not exist
         if 'metadata.jsonl' not in os.listdir(args.train_data_dir):
-            metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w', encoding='utf-8')
+            metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w')
             for item in os.listdir(args.train_data_dir):
                 # check item is dir or file
                 item_path = os.path.join(args.train_data_dir, item)
@@ -781,24 +740,22 @@ def main(args):
                         if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
                             # get filename and ext from file
                             filename, _ = os.path.splitext(file)
-                            for ext in args.caption_exts.split(','):
-                                if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
-                                    metadata_file.write(read_caption(folder_path,filename,ext))
+                            metadata_file.write(read_caption(folder_path,filename))
                 else:
                     if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
                         filename, _ = os.path.splitext(item)
-                        # metadata_file.write(read_caption(folder_path,filename))
-                        for ext in args.caption_exts.split(','):
-                            if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
-                                metadata_file.write(read_caption(folder_path,filename,ext))
+                        metadata_file.write(read_caption(folder_path,filename))
             metadata_file.close()
 
+    
     dataset = load_dataset(
         "imagefolder",
         data_files=data_files,
-        cache_dir=args.cache_dir
+        cache_dir=args.cache_dir,
     )
 
+
+    # print(dataset["train"][0])
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
     column_names = dataset["train"].column_names
@@ -809,13 +766,10 @@ def main(args):
     # print(column_names)
 
     # ================================================================
-    # Image Preprocessing (Noted that all images are prepared before the training)
-    # 20240331 using bucket_multiple.py to get the best cropping image and using multiple caption strategies
-    # including caption image with cogvlm, wd14, clip etc
+    # Need to re-write with bucketing
     # ================================================================
     # Preprocessing the datasets.
     # afterward, Using bucketing rather than cropping
-    # preprocessed image to target resolution, no cropping and resize need in this section
     # train_resize = transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR)
     # train_crop = transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution)
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
@@ -825,25 +779,22 @@ def main(args):
         # print('images:',images)
         # image aug
         original_sizes = []
-        # all_images should only have one image in most case
         all_images = []
         crop_top_lefts = []
         for image in images:
             original_sizes.append((image.height, image.width))
-            # image = train_resize(image)
+            image = train_resize(image)
             # if args.random_flip and random.random() < 0.5:
             #     # flip
             #     image = train_flip(image)
-            # if args.center_crop:
-            #     y1 = max(0, int(round((image.height - args.resolution) / 2.0)))
-            #     x1 = max(0, int(round((image.width - args.resolution) / 2.0)))
-            #     image = train_crop(image)
-            # else:
-            #     y1, x1, h, w = train_crop.get_params(image, (args.resolution, args.resolution))
-            #     image = crop(image, y1, x1, h, w)
-            # crop_top_left = (y1, x1)
-            # preprocessed image to target resolution, no cropping and resize need in this section
-            crop_top_left = (0, 0)
+            if args.center_crop:
+                y1 = max(0, int(round((image.height - args.resolution) / 2.0)))
+                x1 = max(0, int(round((image.width - args.resolution) / 2.0)))
+                image = train_crop(image)
+            else:
+                y1, x1, h, w = train_crop.get_params(image, (args.resolution, args.resolution))
+                image = crop(image, y1, x1, h, w)
+            crop_top_left = (y1, x1)
             crop_top_lefts.append(crop_top_left)
             image = train_transforms(image)
             all_images.append(image)
@@ -862,13 +813,12 @@ def main(args):
         train_dataset = dataset["train"].with_transform(preprocess_train)
 
     # ================================================================
-    # End Image Preprocessing
+    # End Bucketing rewrite
     # ================================================================
     
 
     # ================================================================
     # Create embedding
-    # encode image using vae and create text embeddings
     # ================================================================
     # Let's first compute all the embeddings so that we can free up the text encoders
     # from memory. We will pre-compute the VAE encodings too.
@@ -890,7 +840,6 @@ def main(args):
                                           batched=True,
                                           batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps)
 
-    # clear memory 
     del text_encoder_one, text_encoder_two, pipeline.tokenizer, pipeline.tokenizer_2, vae
     gc.collect()
     torch.cuda.empty_cache()
@@ -900,7 +849,6 @@ def main(args):
     # ================================================================
     
     def collate_fn(examples):
-        # not sure if this would have issue when using multiple aspect ratio
         model_input = torch.stack([torch.tensor(example["model_input"]) for example in examples])
         original_sizes = [example["original_sizes"] for example in examples]
         crop_top_lefts = [example["crop_top_lefts"] for example in examples]
