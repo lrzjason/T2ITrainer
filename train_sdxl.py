@@ -24,7 +24,10 @@
 #           need to handle multi batch size and gas for dataset stack images.
 #           need to implement validation loss
 #           need to add te training
+# 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
+#          added whole repeats to dataset
 from diffusers.models.attention_processor import AttnProcessor2_0
+import jsonlines
 
 import argparse
 import functools
@@ -80,6 +83,7 @@ import sys
 sys.path.append('F:/T2ITrainer/utils')
 
 import image_utils
+from image_utils import BucketBatchSampler, CachedImageDataset
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
@@ -511,9 +515,9 @@ def parse_args(input_args=None):
 # training main function
 def main(args):
     args.seed = 1234
-    args.output_dir = 'F:/learning/accelerator_sdxl_train/output'
+    args.output_dir = 'F:/models/unet/output'
     args.logging_dir = 'logs'
-    args.model_path = 'F:/models/Stable-diffusion/sdxl/b9/openxl2_b9.safetensors'
+    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_003.safetensors'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -521,11 +525,14 @@ def main(args):
     args.enable_xformers_memory_efficient_attention = True
     args.gradient_checkpointing = True
     args.allow_tf32 = True
-    # args.learning_rate = 1e-4
+    args.train_data_dir = 'F:/ImageSet/openxl2_realism'
+    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
+    args.num_train_epochs = 1
+    args.lr_warmup_steps = 5
     args.learning_rate = 1e-6
-    args.train_batch_size = 1 # when batch size is more than 1, current vae stack wouldn't work
-    args.gradient_accumulation_steps = 1 # when batch size is more than 1, current vae stack wouldn't work
-    args.checkpointing_steps = 100
+    args.train_batch_size = 2 # when batch size is more than 1, current vae stack wouldn't work
+    args.gradient_accumulation_steps = 500 # when batch size is more than 1, current vae stack wouldn't work
+    args.checkpointing_steps = 50
 
     args.scale_lr = False
     args.use_8bit_adam = True
@@ -537,7 +544,7 @@ def main(args):
     args.adam_epsilon = 1e-08
     # args.train_data_dir = 'F:/ImageSet/training_script_testset_sdxl_train_validation/train/test'
     # args.train_data_dir = 'F:/ImageSet/training_script_cotton_doll/train'
-    args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
+    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
     args.dataset_name = None
     args.cache_dir = None
     args.caption_column = None
@@ -549,9 +556,7 @@ def main(args):
     args.proportion_empty_prompts = 0
     args.dataloader_num_workers = 0
     args.max_train_steps = None
-    args.num_train_epochs = 5
     args.lr_scheduler = "constant"
-    args.lr_warmup_steps = 50
 
     args.timestep_bias_portion = 0.25
     args.timestep_bias_end = 1000
@@ -560,8 +565,8 @@ def main(args):
     args.timestep_bias_strategy = "none"
     args.max_grad_norm = 1.0
     args.save_name = "test_run"
-    args.validation_prompt = "cotton doll, chef_hat, hat, :3, no_humans, solo, looking_at_viewer, blush_stickers, sitting, buttons, chef, "
-    args.validation_epochs = 5
+    args.validation_prompt = "A female character in a unique outfit, holding two large, serrated weapons. The character has silver hair, wears a blue dress with black accents, and has a white flower accessory in her hair. The background is minimalistic, featuring a white floor and a few white flowers. The composition is dynamic, with the character positioned in a mid-action pose, and the perspective is from a frontal angle, emphasizing the character's stature and the weapons she wields. 1girl, kaine_(nier), solo, weapon, dual_wielding, underwear, bandages, high_heels, holding, flower, white_hair, gloves, sword, white_panties, breasts, panties, negligee, bandaged_leg, full_body, holding_weapon, hair_ornament, bandaged_arm, lingerie, thigh_strap, hair_flower, holding_sword, "
+    args.validation_epochs = 1
     args.num_validation_images = 1
     args.caption_exts = '.txt,.wd14_cap'
 
@@ -736,8 +741,8 @@ def main(args):
                 "To use paged 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
             )
 
-        # optimizer_class = bnb.optim.AdamW8bit
-        optimizer_class = bnb.optim.PagedAdamW8bit
+        optimizer_class = bnb.optim.AdamW8bit
+        # optimizer_class = bnb.optim.PagedAdamW8bit
     else:
         optimizer_class = torch.optim.AdamW
 
@@ -755,57 +760,85 @@ def main(args):
     # ==========================================================
     # Create train dataset
     # ==========================================================
-    data_files = {}
+    # data_files = {}
     # this part need more work afterward, you need to prepare 
     # the train files and val files split first before the training
     if args.train_data_dir is not None:
-        data_files["train"] = os.path.join(args.train_data_dir, "**")
-        def read_caption(folder,filename,caption_ext=".txt"):
-            # assume the caption file is the same as the image file
-            # and ext is .txt
-            # caption_file = file.replace('.jpg', '.txt')
-            prompt = open(os.path.join(folder, f'{filename}{caption_ext}'), encoding='utf-8').read()
-            prompt = prompt.replace('\n', ' ')
-            dirname = os.path.basename(folder)
-            return f'{{"file_name": "{dirname}/{file}","text":"{prompt}","path": "{dirname}/{filename}"}}\n'
+        # data_files["train"] = os.path.join(args.train_data_dir, "**")
+        
+        datarows = []
+        # def read_caption(folder,filename,caption_ext=".txt"):
+        #     # assume the caption file is the same as the image file
+        #     # and ext is .txt
+        #     # caption_file = file.replace('.jpg', '.txt')
+        #     prompt = open(os.path.join(folder, f'{filename}{caption_ext}'), encoding='utf-8').read()
+        #     prompt = prompt.replace('\n', ' ')
+        #     dirname = os.path.basename(folder)
+        #     # return f'{{"file_name": "{dirname}/{file}","text":"{prompt}","path": "{dirname}/{filename}"}}\n'
+        #     return {
+        #         "file_name": f"{dirname}/{file}", "text": prompt, "path": f"{dirname}/{filename}"
+        #     }
+
+        
 
         # create metadata.jsonl if not exist
-        if 'metadata.jsonl' not in os.listdir(args.train_data_dir):
-            metadata_file = open(os.path.join(args.train_data_dir, 'metadata.jsonl'), 'w', encoding='utf-8')
-            for item in os.listdir(args.train_data_dir):
-                # check item is dir or file
-                item_path = os.path.join(args.train_data_dir, item)
-                if os.path.isdir(item_path):
-                    folder_path = item_path
-                    for file in os.listdir(folder_path):
-                        if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
-                            # get filename and ext from file
-                            filename, _ = os.path.splitext(file)
-                            for ext in args.caption_exts.split(','):
-                                if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
-                                    metadata_file.write(read_caption(folder_path,filename,ext))
-                else:
-                    if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
-                        filename, _ = os.path.splitext(item)
-                        # metadata_file.write(read_caption(folder_path,filename))
-                        for ext in args.caption_exts.split(','):
-                            if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
-                                metadata_file.write(read_caption(folder_path,filename,ext))
-            metadata_file.close()
+        metadata_path = os.path.join(args.train_data_dir, 'metadata.json')
+        if not os.path.exists(metadata_path):
+            # metadata_file = open(metadata_path, 'w', encoding='utf-8')
+            # for item in os.listdir(args.train_data_dir):
+            #     # check item is dir or file
+            #     item_path = os.path.join(args.train_data_dir, item)
+            #     if os.path.isdir(item_path):
+            #         folder_path = item_path
+            #         for file in os.listdir(folder_path):
+            #             if file.endswith('.jpg') or file.endswith('.png') or file.endswith('.webp'):
+            #                 # get filename and ext from file
+            #                 filename, _ = os.path.splitext(file)
+            #                 for ext in args.caption_exts.split(','):
+            #                     if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
+            #                         # metadata_file.write(read_caption(folder_path,filename,ext))
+            #                         caption = read_caption(folder_path,filename,ext)
+            #                         datarows.append(caption)
+            #     else:
+            #         if item.endswith('.jpg') or item.endswith('.png') or item.endswith('.webp'):
+            #             filename, _ = os.path.splitext(item)
+            #             # metadata_file.write(read_caption(folder_path,filename))
+            #             for ext in args.caption_exts.split(','):
+            #                 if os.path.exists(os.path.join(folder_path, f'{filename}{ext}')):
+            #                     # metadata_file.write(read_caption(folder_path,filename,ext))
+            #                     caption = read_caption(folder_path,filename,ext)
+            #                     datarows.append(caption)
+            
+            # using compel for longer prompt embedding
+            compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-    dataset = load_dataset(
-        "imagefolder",
-        data_files=data_files,
-        cache_dir=args.cache_dir
-    )
+            # create metadata and latent cache
+            datarows = image_utils.create_metadata_cache(compel,vae,args.train_data_dir)
+            # Serializing json
+            json_object = json.dumps(datarows, indent=4)
+            # Writing to sample.json
+            with open(metadata_path, "w", encoding='utf-8') as outfile:
+                outfile.write(json_object)
+        else:
+            with open(metadata_path, "r", encoding='utf-8') as readfile:
+                datarows = json.loads(readfile.read())
+
+    # print(datarows)
+    # return
+    
+    # dataset = load_dataset(
+    #     "imagefolder",
+    #     data_files=data_files,
+    #     cache_dir=args.cache_dir
+    # )
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
-    column_names = dataset["train"].column_names
-    # print(column_names)
+    # column_names = dataset["train"].column_names
+    # # print(column_names)
 
-    image_column = column_names[0]
-    caption_column = column_names[1]
+    # image_column = column_names[0]
+    # caption_column = column_names[1]
     # print(column_names)
 
     # ================================================================
@@ -818,48 +851,48 @@ def main(args):
     # preprocessed image to target resolution, no cropping and resize need in this section
     # train_resize = transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR)
     # train_crop = transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution)
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    # train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
 
-    def preprocess_train(examples):
-        images = [image.convert("RGB") for image in examples[image_column]]
-        # print('images:',images)
-        # image aug
-        original_sizes = []
-        # all_images should only have one image in most case
-        all_images = []
-        crop_top_lefts = []
-        for image in images:
-            original_sizes.append((image.height, image.width))
-            # image = train_resize(image)
-            # if args.random_flip and random.random() < 0.5:
-            #     # flip
-            #     image = train_flip(image)
-            # if args.center_crop:
-            #     y1 = max(0, int(round((image.height - args.resolution) / 2.0)))
-            #     x1 = max(0, int(round((image.width - args.resolution) / 2.0)))
-            #     image = train_crop(image)
-            # else:
-            #     y1, x1, h, w = train_crop.get_params(image, (args.resolution, args.resolution))
-            #     image = crop(image, y1, x1, h, w)
-            # crop_top_left = (y1, x1)
-            # preprocessed image to target resolution, no cropping and resize need in this section
-            crop_top_left = (0, 0)
-            crop_top_lefts.append(crop_top_left)
-            image = train_transforms(image)
-            all_images.append(image)
+    # def preprocess_train(examples):
+    #     images = [image.convert("RGB") for image in examples[image_column]]
+    #     # print('images:',images)
+    #     # image aug
+    #     original_sizes = []
+    #     # all_images should only have one image in most case
+    #     all_images = []
+    #     crop_top_lefts = []
+    #     for image in images:
+    #         original_sizes.append((image.height, image.width))
+    #         # image = train_resize(image)
+    #         # if args.random_flip and random.random() < 0.5:
+    #         #     # flip
+    #         #     image = train_flip(image)
+    #         # if args.center_crop:
+    #         #     y1 = max(0, int(round((image.height - args.resolution) / 2.0)))
+    #         #     x1 = max(0, int(round((image.width - args.resolution) / 2.0)))
+    #         #     image = train_crop(image)
+    #         # else:
+    #         #     y1, x1, h, w = train_crop.get_params(image, (args.resolution, args.resolution))
+    #         #     image = crop(image, y1, x1, h, w)
+    #         # crop_top_left = (y1, x1)
+    #         # preprocessed image to target resolution, no cropping and resize need in this section
+    #         crop_top_left = (0, 0)
+    #         crop_top_lefts.append(crop_top_left)
+    #         image = train_transforms(image)
+    #         all_images.append(image)
 
-        examples["original_sizes"] = original_sizes
-        examples["crop_top_lefts"] = crop_top_lefts
-        examples["pixel_values"] = all_images
-        # print('examples:',examples)
-        return examples
+    #     examples["original_sizes"] = original_sizes
+    #     examples["crop_top_lefts"] = crop_top_lefts
+    #     examples["pixel_values"] = all_images
+    #     # print('examples:',examples)
+    #     return examples
 
-    with accelerator.main_process_first():
-        if args.max_train_samples is not None:
-            dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
-        # Set the training transforms
+    # with accelerator.main_process_first():
+    #     if args.max_train_samples is not None:
+    #         dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
+    #     # Set the training transforms
         
-        train_dataset = dataset["train"].with_transform(preprocess_train)
+    #     train_dataset = dataset["train"].with_transform(preprocess_train)
 
     # ================================================================
     # End Image Preprocessing
@@ -874,21 +907,24 @@ def main(args):
     # from memory. We will pre-compute the VAE encodings too.
 
     # # using compel for longer prompt embedding
-    compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+    # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-    compute_embeddings_fn = functools.partial(
-        compute_embeddings,
-        vae=vae,
-        compel=compel,
-        proportion_empty_prompts=args.proportion_empty_prompts,
-        caption_column=args.caption_column,
-        recreate=False
-    )
+    # compute_embeddings_fn = functools.partial(
+    #     compute_embeddings,
+    #     vae=vae,
+    #     compel=compel,
+    #     proportion_empty_prompts=args.proportion_empty_prompts,
+    #     caption_column=args.caption_column,
+    #     recreate=False
+    # )
 
-    with accelerator.main_process_first():
-        train_dataset = train_dataset.map(compute_embeddings_fn, 
-                                          batched=True,
-                                          batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps)
+    # with accelerator.main_process_first():
+    #     train_dataset = train_dataset.map(compute_embeddings_fn, 
+    #                                       batched=True,
+    #                                       batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps)
+
+
+
 
     # clear memory 
     del text_encoder_one, text_encoder_two, pipeline.tokenizer, pipeline.tokenizer_2, vae
@@ -901,27 +937,43 @@ def main(args):
     
     def collate_fn(examples):
         # not sure if this would have issue when using multiple aspect ratio
-        model_input = torch.stack([torch.tensor(example["model_input"]) for example in examples])
-        original_sizes = [example["original_sizes"] for example in examples]
-        crop_top_lefts = [example["crop_top_lefts"] for example in examples]
-        prompt_embeds = torch.stack([torch.tensor(example["prompt_embeds"]) for example in examples])
-        pooled_prompt_embeds = torch.stack([torch.tensor(example["pooled_prompt_embeds"]) for example in examples])
+        latents = torch.stack([example["latent"] for example in examples])
+        time_ids = torch.stack([example["time_id"] for example in examples])
+        prompt_embeds = torch.stack([example["prompt_embed"] for example in examples])
+        pooled_prompt_embeds = torch.stack([example["pooled_prompt_embed"] for example in examples])
 
         return {
-            "model_input": model_input,
+            "latents": latents,
             "prompt_embeds": prompt_embeds,
             "pooled_prompt_embeds": pooled_prompt_embeds,
-            "original_sizes": original_sizes,
-            "crop_top_lefts": crop_top_lefts,
+            "time_ids": time_ids,
         }
+    
+    repeats = 10
+    # create dataset based on input_dir
+    train_dataset = CachedImageDataset(datarows,repeats, conditional_dropout_percent=0.1)
+    
+    # referenced from everyDream discord minienglish1 shared script
+    #create bucket batch sampler
+    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
+
     # DataLoaders creation:
+    # train_dataloader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     shuffle=True,
+    #     collate_fn=collate_fn,
+    #     batch_size=args.train_batch_size,
+    #     num_workers=args.dataloader_num_workers,
+    # )
+
+    #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        shuffle=True,
+        batch_sampler=bucket_batch_sampler, #use bucket_batch_sampler instead of shuffle
         collate_fn=collate_fn,
-        batch_size=args.train_batch_size,
         num_workers=args.dataloader_num_workers,
     )
+
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -997,10 +1049,8 @@ def main(args):
     #         accelerator.print(f"Resuming from checkpoint {path}")
     #         accelerator.load_state(os.path.join(args.output_dir, path))
     #         global_step = int(path.split("-")[1])
-
     #         initial_global_step = global_step
     #         first_epoch = global_step // num_update_steps_per_epoch
-
     # else:
     #     initial_global_step = 0
     initial_global_step = 0
@@ -1020,9 +1070,9 @@ def main(args):
             with accelerator.accumulate(unet):
                 # Sample noise that we'll add to the latents
                 # model_input is vae encoded image aka latent
-                model_input = batch["model_input"].to(accelerator.device)
+                latents = batch["latents"].to(accelerator.device)
                 # get latent like random noise
-                noise = torch.randn_like(model_input)
+                noise = torch.randn_like(latents)
 
                 # skip noise_offset
                 # if args.noise_offset:
@@ -1031,7 +1081,7 @@ def main(args):
                 #         (model_input.shape[0], model_input.shape[1], 1, 1), device=model_input.device
                 #     )
                 
-                bsz = model_input.shape[0]
+                bsz = latents.shape[0]
                 # print("model_input")
                 # print(model_input)
 
@@ -1045,13 +1095,13 @@ def main(args):
                     # Sample a random timestep for each image without bias.
                     # get 0~1000 random timestep
                     timesteps = torch.randint(
-                        0, noise_scheduler.config.num_train_timesteps, (bsz,), device=model_input.device
+                        0, noise_scheduler.config.num_train_timesteps, (bsz,), device=accelerator.device
                     )
                 else:
                     # Sample a random timestep for each image, potentially biased by the timestep weights.
                     # Biasing the timestep weights allows us to spend less time training irrelevant timesteps.
                     weights = generate_timestep_weights(args, noise_scheduler.config.num_train_timesteps).to(
-                        model_input.device
+                        accelerator.device
                     )
                     timesteps = torch.multinomial(weights, bsz, replacement=True).long()
                 
@@ -1060,39 +1110,80 @@ def main(args):
                 # model input is the encoded image latent
                 # here is doing the forward diffusion process to add noise to latent and achieve the 
                 # specific timesteps of latent noise
-                noisy_model_input = noise_scheduler.add_noise(model_input, noise, timesteps)
+                noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
 
 
                 # ===========================================================
                 # need to re-write the target size
                 # ============================================================
                 # time ids
-                def compute_time_ids(original_size, crops_coords_top_left):
-                    # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-                    target_size = (args.resolution, args.resolution)
-                    add_time_ids = list(original_size + crops_coords_top_left + target_size)
-                    # print("add_time_ids")
-                    # print(add_time_ids)
-                    add_time_ids = torch.tensor([add_time_ids])
-                    add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-                    return add_time_ids
+                # def compute_time_ids(original_size, crops_coords_top_left):
+                #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
+                #     target_size = (args.resolution, args.resolution)
+                #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
+                #     # print("add_time_ids")
+                #     # print(add_time_ids)
+                #     add_time_ids = torch.tensor([add_time_ids])
+                #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
+                #     return add_time_ids
+
+                # add_time_ids = torch.cat(
+                #     [compute_time_ids(size, crop) for size, crop in zip(batch["original_sizes"], batch["crop_top_lefts"])]
+                # )
+
+                # # Predict the noise residual
+                # unet_added_conditions = {"time_ids": add_time_ids}
+                # prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                # pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                # unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
+
+                # time_id = torch.cat(batch["time_id"], dim=0).view(-1)
+                # unet_added_conditions = {
+                #     "time_ids": batch["time_id"],
+                #     "text_embeds": batch["pooled_prompt_embed"]
+                # }
+                # unet_added_conditions.update({"text_embeds": batch["pooled_prompt_embed"]})
+
+                #add_time_id processed in: CachedImageDataset(Dataset) 
+                #time_ids come in as a list of six tensors, with num_values per tensor = batch_size, then it gets flattened here
+
+                # add_time_id = torch.cat(batch["time_id"], dim=0).view(-1)
+                # #add_time_id.shape: torch.Size([66] #6 * batch_size 11
+
+                # pooled_prompt_embed = batch["pooled_prompt_embed"]
+                # # Predict the noise residual
+                # unet_added_conditions = {"time_ids": add_time_id}
+                # unet_added_conditions.update({"text_embeds": pooled_prompt_embed})
+
+                
+                # time ids
+                # def compute_time_ids(original_size, crops_coords_top_left):
+                #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
+                #     target_size = (args.resolution, args.resolution)
+                #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
+                #     add_time_ids = torch.tensor([add_time_ids])
+                #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
+                #     return add_time_ids
 
                 add_time_ids = torch.cat(
-                    [compute_time_ids(size, crop) for size, crop in zip(batch["original_sizes"], batch["crop_top_lefts"])]
+                    [
+                        # compute_time_ids(s, c) for s, c in zip(batch["original_sizes"], batch["crop_top_lefts"])
+                        batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
+                    ]
                 )
-
-                # Predict the noise residual
                 unet_added_conditions = {"time_ids": add_time_ids}
                 prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                 pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
                 unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
-                model_pred = unet(
-                    noisy_model_input,
-                    timesteps,
-                    prompt_embeds,
-                    added_cond_kwargs=unet_added_conditions,
-                    return_dict=False,
-                )[0]
+
+                with accelerator.autocast():
+                    model_pred = unet(
+                        noisy_model_input,
+                        timesteps,
+                        prompt_embeds,
+                        added_cond_kwargs=unet_added_conditions,
+                        return_dict=False,
+                    )[0]
 
                 # # Get the target for loss depending on the prediction type
                 # if args.prediction_type is not None:
@@ -1121,19 +1212,29 @@ def main(args):
                 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
-                train_loss += avg_loss.item() / args.gradient_accumulation_steps
-
+                # train_loss += avg_loss.item() / args.gradient_accumulation_steps
+                # args.gradient_accumulation_steps
+                # due to 'with accelerator.accumulate(unet):' doesn't need to handle ' / args.gradient_accumulation_steps'
+                # https://huggingface.co/docs/accelerate/usage_guides/gradient_accumulation 
+                train_loss += avg_loss.item()
                 # Backpropagate
                 accelerator.backward(loss)
-                if accelerator.sync_gradients:
-                    params_to_clip = unet.parameters()
-                    accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+
+                # if accelerator.sync_gradients:
+                #     params_to_clip = unet.parameters()
+                #     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                
+                # args.gradient_accumulation_steps
+                # https://huggingface.co/docs/accelerate/usage_guides/gradient_accumulation 
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
                 
-                # Checks if the accelerator has performed an optimization step behind the scenes
+            # Checks if the accelerator has performed an optimization step behind the scenes
+                
+            #post batch check for gradient updates
+            accelerator.wait_for_everyone()
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1
@@ -1141,26 +1242,6 @@ def main(args):
                 train_loss = 0.0
                 if accelerator.is_main_process:
                     if global_step % args.checkpointing_steps == 0:
-                        # _before_ saving state, check if this save would set us over the `checkpoints_total_limit`
-                        # if args.checkpoints_total_limit is not None:
-                        #     checkpoints = os.listdir(args.output_dir)
-                        #     checkpoints = [d for d in checkpoints if d.startswith("checkpoint")]
-                        #     checkpoints = sorted(checkpoints, key=lambda x: int(x.split("-")[1]))
-
-                        #     # before we save the new checkpoint, we need to have at _most_ `checkpoints_total_limit - 1` checkpoints
-                        #     if len(checkpoints) >= args.checkpoints_total_limit:
-                        #         num_to_remove = len(checkpoints) - args.checkpoints_total_limit + 1
-                        #         removing_checkpoints = checkpoints[0:num_to_remove]
-
-                        #         logger.info(
-                        #             f"{len(checkpoints)} checkpoints already exist, removing {len(removing_checkpoints)} checkpoints"
-                        #         )
-                        #         logger.info(f"removing checkpoints: {', '.join(removing_checkpoints)}")
-
-                        #         for removing_checkpoint in removing_checkpoints:
-                        #             removing_checkpoint = os.path.join(args.output_dir, removing_checkpoint)
-                        #             shutil.rmtree(removing_checkpoint)
-
                         save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
                         accelerator.save_state(save_path)
                         logger.info(f"Saved state to {save_path}")
@@ -1232,7 +1313,8 @@ def main(args):
                             }
                         )
 
-                del validation_pipeline, vae
+                del validation_pipeline,vae,compel
+                del images,np_images
                 gc.collect()
                 torch.cuda.empty_cache()
         # ==================================================
@@ -1252,56 +1334,57 @@ def main(args):
         gc.collect()
         torch.cuda.empty_cache()
 
-        unet = unwrap_model(unet)
+        # unet = unwrap_model(unet)
 
-        vae = AutoencoderKL.from_single_file(
-            vae_path
-        )
-        validation_pipeline = StableDiffusionXLPipeline.from_single_file(
-            args.model_path,variant=weight_dtype, use_safetensors=True, 
-            vae=vae,
-            unet=unet)
-        # if args.prediction_type is not None:
-        #     scheduler_args = {"prediction_type": args.prediction_type}
-        #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+        # vae = AutoencoderKL.from_single_file(
+        #     vae_path
+        # )
+        # validation_pipeline = StableDiffusionXLPipeline.from_single_file(
+        #     args.model_path,variant=weight_dtype, use_safetensors=True, 
+        #     vae=vae,
+        #     unet=unet)
+        # # if args.prediction_type is not None:
+        # #     scheduler_args = {"prediction_type": args.prediction_type}
+        # #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
 
-        validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
-        validation_pipeline.set_progress_bar_config(disable=True)
-        steps = 30
+        # validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
+        # validation_pipeline.set_progress_bar_config(disable=True)
+        # steps = 30
         
-        compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+        # compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
-        conditioning, pooled = compel(args.validation_prompt)
-        # run inference
-        # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-        # pipeline_args = {"prompt": args.validation_prompt}
+        # conditioning, pooled = compel(args.validation_prompt)
+        # # run inference
+        # # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+        # # pipeline_args = {"prompt": args.validation_prompt}
 
-        with torch.cuda.amp.autocast():
-            images = validation_pipeline(prompt_embeds=conditioning, 
-                            pooled_prompt_embeds=pooled, 
-                            num_inference_steps=steps,
-                            guidance_scale=7,
-                            width=args.resolution, 
-                            height=args.resolution
-                            ).images
+        # with torch.cuda.amp.autocast():
+        #     images = validation_pipeline(prompt_embeds=conditioning, 
+        #                     pooled_prompt_embeds=pooled, 
+        #                     num_inference_steps=steps,
+        #                     guidance_scale=7,
+        #                     width=args.resolution, 
+        #                     height=args.resolution
+        #                     ).images
 
-        for tracker in accelerator.trackers:
-            if tracker.name == "tensorboard":
-                np_images = np.stack([np.asarray(img) for img in images])
-                tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-            if tracker.name == "wandb":
-                tracker.log(
-                    {
-                        "validation": [
-                            wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-                            for i, image in enumerate(images)
-                        ]
-                    }
-                )
+        # for tracker in accelerator.trackers:
+        #     if tracker.name == "tensorboard":
+        #         np_images = np.stack([np.asarray(img) for img in images])
+        #         tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+        #     if tracker.name == "wandb":
+        #         tracker.log(
+        #             {
+        #                 "validation": [
+        #                     wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+        #                     for i, image in enumerate(images)
+        #                 ]
+        #             }
+        #         )
 
-        del validation_pipeline
-        gc.collect()
-        torch.cuda.empty_cache()
+        # del validation_pipeline,vae,compel
+        # del images
+        # gc.collect()
+        # torch.cuda.empty_cache()
     # ==================================================
     # end validation part after training
     # ==================================================
