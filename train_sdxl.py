@@ -76,6 +76,9 @@ from tqdm import tqdm
 from PIL import Image 
 from compel import Compel, ReturnedEmbeddingsType
 
+from sklearn.model_selection import train_test_split
+
+
 import json
 
 
@@ -455,7 +458,7 @@ def parse_args(input_args=None):
         help=(
             "Save a checkpoint of the training state every X updates. These checkpoints can be used both as final"
             " checkpoints in case they are better than the last checkpoint, and are also suitable for resuming"
-            " training using `--resume_from_checkpoint`."
+            " training using `--resume_from_checkpoint`." 
         ),
     )
 
@@ -490,6 +493,16 @@ def parse_args(input_args=None):
             " `args.validation_prompt` multiple times: `args.num_validation_images`."
         ),
     )
+    parser.add_argument(
+        "--validation_ratio",
+        type=float,
+        default=0.1,
+        help=(
+            "validation_ratio split ratio of validation set for val/loss"
+        ),
+    )
+
+    
 
     
     if input_args is not None:
@@ -517,7 +530,7 @@ def main(args):
     args.seed = 1234
     args.output_dir = 'F:/models/unet/output'
     args.logging_dir = 'logs'
-    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_003.safetensors'
+    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_005.safetensors'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -525,14 +538,26 @@ def main(args):
     args.enable_xformers_memory_efficient_attention = True
     args.gradient_checkpointing = True
     args.allow_tf32 = True
+
+
     args.train_data_dir = 'F:/ImageSet/openxl2_realism'
-    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
-    args.num_train_epochs = 1
+    args.num_train_epochs = 5
     args.lr_warmup_steps = 5
-    args.learning_rate = 1e-6
-    args.train_batch_size = 2 # when batch size is more than 1, current vae stack wouldn't work
-    args.gradient_accumulation_steps = 500 # when batch size is more than 1, current vae stack wouldn't work
+    args.learning_rate = 1e-5
+    args.train_batch_size = 2
+    args.gradient_accumulation_steps = 500
     args.checkpointing_steps = 50
+    args.resume_from_checkpoint = ""
+    # args.resume_from_checkpoint = "F:/models/unet/output/actual_run-50"
+    args.save_name = "actual_run"
+
+    
+    args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
+    args.resume_from_checkpoint = "F:/models/unet/output/test_run-50"
+    args.num_train_epochs = 2
+    args.train_batch_size = 1
+    args.gradient_accumulation_steps = 1
+    args.save_name = "test_run"
 
     args.scale_lr = False
     args.use_8bit_adam = True
@@ -564,9 +589,10 @@ def main(args):
     args.timestep_bias_multiplier = 1.0
     args.timestep_bias_strategy = "none"
     args.max_grad_norm = 1.0
-    args.save_name = "test_run"
-    args.validation_prompt = "A female character in a unique outfit, holding two large, serrated weapons. The character has silver hair, wears a blue dress with black accents, and has a white flower accessory in her hair. The background is minimalistic, featuring a white floor and a few white flowers. The composition is dynamic, with the character positioned in a mid-action pose, and the perspective is from a frontal angle, emphasizing the character's stature and the weapons she wields. 1girl, kaine_(nier), solo, weapon, dual_wielding, underwear, bandages, high_heels, holding, flower, white_hair, gloves, sword, white_panties, breasts, panties, negligee, bandaged_leg, full_body, holding_weapon, hair_ornament, bandaged_arm, lingerie, thigh_strap, hair_flower, holding_sword, "
+    args.validation_prompt = "cosplay photo, A female character in a unique outfit, holding two large, serrated weapons. The character has silver hair, wears a blue dress with black accents, and has a white flower accessory in her hair. The background is minimalistic, featuring a white floor and a few white flowers. The composition is dynamic, with the character positioned in a mid-action pose, and the perspective is from a frontal angle, emphasizing the character's stature and the weapons she wields. 1girl, kaine_(nier), solo, weapon, dual_wielding, underwear, bandages, high_heels, holding, flower, white_hair, gloves, sword, white_panties, breasts, panties, negligee, bandaged_leg, full_body, holding_weapon, hair_ornament, bandaged_arm, lingerie, thigh_strap, hair_flower, holding_sword, "
+    
     args.validation_epochs = 1
+    args.validation_ratio = 0.1
     args.num_validation_images = 1
     args.caption_exts = '.txt,.wd14_cap'
 
@@ -823,108 +849,22 @@ def main(args):
             with open(metadata_path, "r", encoding='utf-8') as readfile:
                 datarows = json.loads(readfile.read())
 
-    # print(datarows)
-    # return
-    
-    # dataset = load_dataset(
-    #     "imagefolder",
-    #     data_files=data_files,
-    #     cache_dir=args.cache_dir
-    # )
-
-    # Preprocessing the datasets.
-    # We need to tokenize inputs and targets.
-    # column_names = dataset["train"].column_names
-    # # print(column_names)
-
-    # image_column = column_names[0]
-    # caption_column = column_names[1]
-    # print(column_names)
-
-    # ================================================================
-    # Image Preprocessing (Noted that all images are prepared before the training)
-    # 20240331 using bucket_multiple.py to get the best cropping image and using multiple caption strategies
-    # including caption image with cogvlm, wd14, clip etc
-    # ================================================================
-    # Preprocessing the datasets.
-    # afterward, Using bucketing rather than cropping
-    # preprocessed image to target resolution, no cropping and resize need in this section
-    # train_resize = transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR)
-    # train_crop = transforms.CenterCrop(args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution)
-    # train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-
-    # def preprocess_train(examples):
-    #     images = [image.convert("RGB") for image in examples[image_column]]
-    #     # print('images:',images)
-    #     # image aug
-    #     original_sizes = []
-    #     # all_images should only have one image in most case
-    #     all_images = []
-    #     crop_top_lefts = []
-    #     for image in images:
-    #         original_sizes.append((image.height, image.width))
-    #         # image = train_resize(image)
-    #         # if args.random_flip and random.random() < 0.5:
-    #         #     # flip
-    #         #     image = train_flip(image)
-    #         # if args.center_crop:
-    #         #     y1 = max(0, int(round((image.height - args.resolution) / 2.0)))
-    #         #     x1 = max(0, int(round((image.width - args.resolution) / 2.0)))
-    #         #     image = train_crop(image)
-    #         # else:
-    #         #     y1, x1, h, w = train_crop.get_params(image, (args.resolution, args.resolution))
-    #         #     image = crop(image, y1, x1, h, w)
-    #         # crop_top_left = (y1, x1)
-    #         # preprocessed image to target resolution, no cropping and resize need in this section
-    #         crop_top_left = (0, 0)
-    #         crop_top_lefts.append(crop_top_left)
-    #         image = train_transforms(image)
-    #         all_images.append(image)
-
-    #     examples["original_sizes"] = original_sizes
-    #     examples["crop_top_lefts"] = crop_top_lefts
-    #     examples["pixel_values"] = all_images
-    #     # print('examples:',examples)
-    #     return examples
-
-    # with accelerator.main_process_first():
-    #     if args.max_train_samples is not None:
-    #         dataset["train"] = dataset["train"].shuffle(seed=args.seed).select(range(args.max_train_samples))
-    #     # Set the training transforms
-        
-    #     train_dataset = dataset["train"].with_transform(preprocess_train)
-
-    # ================================================================
-    # End Image Preprocessing
-    # ================================================================
-    
-
-    # ================================================================
-    # Create embedding
-    # encode image using vae and create text embeddings
-    # ================================================================
-    # Let's first compute all the embeddings so that we can free up the text encoders
-    # from memory. We will pre-compute the VAE encodings too.
-
-    # # using compel for longer prompt embedding
-    # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-
-    # compute_embeddings_fn = functools.partial(
-    #     compute_embeddings,
-    #     vae=vae,
-    #     compel=compel,
-    #     proportion_empty_prompts=args.proportion_empty_prompts,
-    #     caption_column=args.caption_column,
-    #     recreate=False
-    # )
-
-    # with accelerator.main_process_first():
-    #     train_dataset = train_dataset.map(compute_embeddings_fn, 
-    #                                       batched=True,
-    #                                       batch_size=args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps)
+    validation_datarows = []
+    # prepare validation_slipt
+    if args.validation_ratio > 0:
+        # buckets = image_utils.get_buckets()
+        train_ratio = 1 - args.validation_ratio
+        validation_ratio = args.validation_ratio
+        training_datarows, validation_datarows = train_test_split(datarows, train_size=train_ratio, test_size=validation_ratio)
+        datarows = training_datarows
 
 
-
+    # lazy implement of repeats
+    datarows_clone = datarows.copy()
+    repeats = 10
+    # repeats is 10, i in range(repeats) would execute 11 times
+    for i in range(repeats-1):
+        datarows = datarows + datarows_clone.copy()
 
     # clear memory 
     del text_encoder_one, text_encoder_two, pipeline.tokenizer, pipeline.tokenizer_2, vae
@@ -949,22 +889,12 @@ def main(args):
             "time_ids": time_ids,
         }
     
-    repeats = 10
     # create dataset based on input_dir
-    train_dataset = CachedImageDataset(datarows,repeats, conditional_dropout_percent=0.1)
-    
+    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=0.1)
+
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
     bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
-
-    # DataLoaders creation:
-    # train_dataloader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     shuffle=True,
-    #     collate_fn=collate_fn,
-    #     batch_size=args.train_batch_size,
-    #     num_workers=args.dataloader_num_workers,
-    # )
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
@@ -973,6 +903,7 @@ def main(args):
         collate_fn=collate_fn,
         num_workers=args.dataloader_num_workers,
     )
+    
 
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
@@ -1005,13 +936,6 @@ def main(args):
     if accelerator.is_main_process:
         accelerator.init_trackers("text2image-fine-tune-sdxl", config=vars(args))
 
-    # Function for unwraping if torch.compile() was used in accelerate.
-    def unwrap_model(model):
-        model = accelerator.unwrap_model(model)
-        model = model._orig_mod if is_compiled_module(model) else model
-        return model
-
-    
     # Train!
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
@@ -1025,35 +949,38 @@ def main(args):
     global_step = 0
     first_epoch = 0
 
-    # =================================================================
-    # Skip resume from checkpoint
-    # =================================================================
-    # Potentially load in the weights and states from a previous save
-    # if args.resume_from_checkpoint:
-    #     if args.resume_from_checkpoint != "latest":
-    #         path = os.path.basename(args.resume_from_checkpoint)
-    #     else:
-    #         # Get the most recent checkpoint
-    #         dirs = os.listdir(args.output_dir)
-    #         dirs = [d for d in dirs if d.startswith("checkpoint")]
-    #         dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
-    #         path = dirs[-1] if len(dirs) > 0 else None
 
-    #     if path is None:
-    #         accelerator.print(
-    #             f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
-    #         )
-    #         args.resume_from_checkpoint = None
-    #         initial_global_step = 0
-    #     else:
-    #         accelerator.print(f"Resuming from checkpoint {path}")
-    #         accelerator.load_state(os.path.join(args.output_dir, path))
-    #         global_step = int(path.split("-")[1])
-    #         initial_global_step = global_step
-    #         first_epoch = global_step // num_update_steps_per_epoch
-    # else:
-    #     initial_global_step = 0
-    initial_global_step = 0
+    # Potentially load in the weights and states from a previous save
+    if args.resume_from_checkpoint:
+        if args.resume_from_checkpoint != "latest":
+            path = os.path.basename(args.resume_from_checkpoint)
+        else:
+            # Get the most recent checkpoint
+            dirs = os.listdir(args.output_dir)
+            dirs = [d for d in dirs if d.startswith("checkpoint")]
+            dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
+            path = dirs[-1] if len(dirs) > 0 else None
+
+        if path is None:
+            accelerator.print(
+                f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
+            )
+            args.resume_from_checkpoint = None
+            initial_global_step = 0
+        else:
+            accelerator.print(f"Resuming from checkpoint {path}")
+            accelerator.load_state(os.path.join(args.output_dir, path))
+            global_step = int(path.split("-")[1])
+
+            initial_global_step = global_step
+            first_epoch = global_step // num_update_steps_per_epoch
+
+    else:
+        initial_global_step = 0
+    # initial_global_step = 0
+
+
+
     progress_bar = tqdm(
         range(0, args.max_train_steps),
         initial=initial_global_step,
@@ -1074,23 +1001,8 @@ def main(args):
                 # get latent like random noise
                 noise = torch.randn_like(latents)
 
-                # skip noise_offset
-                # if args.noise_offset:
-                #     # https://www.crosslabs.org//blog/diffusion-with-offset-noise
-                #     noise += args.noise_offset * torch.randn(
-                #         (model_input.shape[0], model_input.shape[1], 1, 1), device=model_input.device
-                #     )
-                
                 bsz = latents.shape[0]
-                # print("model_input")
-                # print(model_input)
 
-                # =========================================================
-                # This part need to re-write following with sd3 paper
-                # Or modify it the strategy based on training step
-                # In earier training, focus to learn earlier timestep
-                # In later training, focus to learn later timestep
-                # =========================================================
                 if args.timestep_bias_strategy == "none":
                     # Sample a random timestep for each image without bias.
                     # get 0~1000 random timestep
@@ -1112,62 +1024,8 @@ def main(args):
                 # specific timesteps of latent noise
                 noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
 
-
-                # ===========================================================
-                # need to re-write the target size
-                # ============================================================
-                # time ids
-                # def compute_time_ids(original_size, crops_coords_top_left):
-                #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-                #     target_size = (args.resolution, args.resolution)
-                #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
-                #     # print("add_time_ids")
-                #     # print(add_time_ids)
-                #     add_time_ids = torch.tensor([add_time_ids])
-                #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-                #     return add_time_ids
-
-                # add_time_ids = torch.cat(
-                #     [compute_time_ids(size, crop) for size, crop in zip(batch["original_sizes"], batch["crop_top_lefts"])]
-                # )
-
-                # # Predict the noise residual
-                # unet_added_conditions = {"time_ids": add_time_ids}
-                # prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                # pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                # unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
-
-                # time_id = torch.cat(batch["time_id"], dim=0).view(-1)
-                # unet_added_conditions = {
-                #     "time_ids": batch["time_id"],
-                #     "text_embeds": batch["pooled_prompt_embed"]
-                # }
-                # unet_added_conditions.update({"text_embeds": batch["pooled_prompt_embed"]})
-
-                #add_time_id processed in: CachedImageDataset(Dataset) 
-                #time_ids come in as a list of six tensors, with num_values per tensor = batch_size, then it gets flattened here
-
-                # add_time_id = torch.cat(batch["time_id"], dim=0).view(-1)
-                # #add_time_id.shape: torch.Size([66] #6 * batch_size 11
-
-                # pooled_prompt_embed = batch["pooled_prompt_embed"]
-                # # Predict the noise residual
-                # unet_added_conditions = {"time_ids": add_time_id}
-                # unet_added_conditions.update({"text_embeds": pooled_prompt_embed})
-
-                
-                # time ids
-                # def compute_time_ids(original_size, crops_coords_top_left):
-                #     # Adapted from pipeline.StableDiffusionXLPipeline._get_add_time_ids
-                #     target_size = (args.resolution, args.resolution)
-                #     add_time_ids = list(original_size + crops_coords_top_left + target_size)
-                #     add_time_ids = torch.tensor([add_time_ids])
-                #     add_time_ids = add_time_ids.to(accelerator.device, dtype=weight_dtype)
-                #     return add_time_ids
-
                 add_time_ids = torch.cat(
                     [
-                        # compute_time_ids(s, c) for s, c in zip(batch["original_sizes"], batch["crop_top_lefts"])
                         batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
                     ]
                 )
@@ -1227,12 +1085,13 @@ def main(args):
                 # args.gradient_accumulation_steps
                 # https://huggingface.co/docs/accelerate/usage_guides/gradient_accumulation 
                 optimizer.step()
-                lr_scheduler.step()
+                if accelerator.sync_gradients:
+                    if not accelerator.optimizer_step_was_skipped:
+                        lr_scheduler.step()
                 optimizer.zero_grad()
 
                 
             # Checks if the accelerator has performed an optimization step behind the scenes
-                
             #post batch check for gradient updates
             accelerator.wait_for_everyone()
             if accelerator.sync_gradients:
@@ -1253,68 +1112,149 @@ def main(args):
             if global_step >= args.max_train_steps:
                 break
             
+            del latents, noise, timesteps, add_time_ids, prompt_embeds, pooled_prompt_embeds, unet_added_conditions
+            gc.collect()
+            torch.cuda.empty_cache()
+            
         # ==================================================
         # validation part
         # ==================================================
         if accelerator.is_main_process:
-            if epoch!=0 and args.validation_prompt is not None and epoch % args.validation_epochs == 0:
+            if epoch % args.validation_epochs == 0:
                 print('epoch',epoch)
                 print('args.validation_epochs',args.validation_epochs)
                 print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
-                print('args.validation_prompt',args.validation_prompt)
-                logger.info(
-                    f"Running validation... /n Generating {args.num_validation_images} images with prompt:"
-                    f" {args.validation_prompt}."
-                )
-                # create pipeline
-                
-                vae = AutoencoderKL.from_single_file(
-                    vae_path
-                )
-                validation_pipeline = StableDiffusionXLPipeline.from_single_file(
-                    args.model_path,variant=weight_dtype, use_safetensors=True, 
-                    vae=vae,
-                    unet=unet)
-                # if args.prediction_type is not None:
-                #     scheduler_args = {"prediction_type": args.prediction_type}
-                #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+                if len(validation_datarows)>0:
+                    validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
+                    
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
 
-                validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
-                validation_pipeline.set_progress_bar_config(disable=True)
-                steps = 30
-                
-                compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+                    #initialize the DataLoader with the bucket batch sampler
+                    val_dataloader = torch.utils.data.DataLoader(
+                        validation_dataset,
+                        batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                        collate_fn=collate_fn,
+                        num_workers=args.dataloader_num_workers,
+                    )
 
-                conditioning, pooled = compel(args.validation_prompt)
-                # run inference
-                # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-                # pipeline_args = {"prompt": args.validation_prompt}
+                    print("beginning loss_validation")
+                    
+                    loss_validation_epoch = []
+                    with torch.no_grad():
+                        # basically the as same as the training loop
+                        for i, batch in enumerate(val_dataloader):
+                            # Sample noise that we'll add to the latents
+                            # model_input is vae encoded image aka latent
+                            latents = batch["latents"].to(accelerator.device)
+                            # get latent like random noise
+                            noise = torch.randn_like(latents)
 
-                with torch.cuda.amp.autocast():
-                    images = validation_pipeline(prompt_embeds=conditioning, 
-                                    pooled_prompt_embeds=pooled, 
-                                    num_inference_steps=steps,
-                                    guidance_scale=7,
-                                    width=args.resolution, 
-                                    height=args.resolution
-                                    ).images
+                            bsz = latents.shape[0]
 
-                for tracker in accelerator.trackers:
-                    if tracker.name == "tensorboard":
-                        np_images = np.stack([np.asarray(img) for img in images])
-                        tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-                    if tracker.name == "wandb":
-                        tracker.log(
-                            {
-                                "validation": [
-                                    wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-                                    for i, image in enumerate(images)
+                            timesteps = torch.randint(
+                                    0, noise_scheduler.config.num_train_timesteps, (bsz,), device=accelerator.device
+                                )
+
+                            noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
+
+                            add_time_ids = torch.cat(
+                                [
+                                    batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
                                 ]
-                            }
-                        )
+                            )
+                            unet_added_conditions = {"time_ids": add_time_ids}
+                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                            unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
 
-                del validation_pipeline,vae,compel
-                del images,np_images
+                            with accelerator.autocast():
+                                model_pred = unet(
+                                    noisy_model_input,
+                                    timesteps,
+                                    prompt_embeds,
+                                    added_cond_kwargs=unet_added_conditions,
+                                    return_dict=False,
+                                )[0]
+                            
+                            del latents,bsz,timesteps,add_time_ids, pooled_prompt_embeds, noisy_model_input,  prompt_embeds, unet_added_conditions
+
+                            # For the simplicity, only use epsilon
+                            target = noise
+
+                            # For the simplicity, only use mse_loss.
+                            # other option would implemented afterward, like debias
+                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+                            
+                            del target, model_pred
+
+                            loss_step = loss.detach().item()
+                            loss_validation_epoch.append(loss_step)
+
+                        if len(loss_validation_epoch) > 0:
+                            avg_mean_loss = sum(loss_validation_epoch) / len(loss_validation_epoch)
+
+                            accelerator.log({"loss/val": avg_mean_loss}, step=global_step)
+                            print(f"loss/val:{avg_mean_loss}  global_step:{global_step}")
+
+
+                if args.validation_prompt is not None:
+                    
+                    print('args.validation_prompt',args.validation_prompt)
+                    logger.info(
+                        f"Running validation... /n Generating {args.num_validation_images} images with prompt:"
+                        f" {args.validation_prompt}."
+                    )
+                    # create pipeline
+                    
+                    vae = AutoencoderKL.from_single_file(
+                        vae_path
+                    )
+                    validation_pipeline = StableDiffusionXLPipeline.from_single_file(
+                        args.model_path,variant=weight_dtype, use_safetensors=True, 
+                        vae=vae,
+                        unet=unet)
+                    # if args.prediction_type is not None:
+                    #     scheduler_args = {"prediction_type": args.prediction_type}
+                    #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+
+                    validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
+                    validation_pipeline.set_progress_bar_config(disable=True)
+                    steps = 50
+                    
+                    compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+
+                    conditioning, pooled = compel(args.validation_prompt)
+                    # run inference
+                    # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
+                    # pipeline_args = {"prompt": args.validation_prompt}
+
+                    with torch.cuda.amp.autocast():
+                        images = validation_pipeline(prompt_embeds=conditioning, 
+                                        pooled_prompt_embeds=pooled, 
+                                        num_inference_steps=steps,
+                                        guidance_scale=7,
+                                        width=args.resolution, 
+                                        height=args.resolution
+                                        ).images
+
+                    for tracker in accelerator.trackers:
+                        if tracker.name == "tensorboard":
+                            np_images = np.stack([np.asarray(img) for img in images])
+                            tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
+                            del np_images
+                        if tracker.name == "wandb":
+                            tracker.log(
+                                {
+                                    "validation": [
+                                        wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
+                                        for i, image in enumerate(images)
+                                    ]
+                                }
+                            )
+
+                    del validation_pipeline,vae,compel
+                    del images
                 gc.collect()
                 torch.cuda.empty_cache()
         # ==================================================
@@ -1334,57 +1274,6 @@ def main(args):
         gc.collect()
         torch.cuda.empty_cache()
 
-        # unet = unwrap_model(unet)
-
-        # vae = AutoencoderKL.from_single_file(
-        #     vae_path
-        # )
-        # validation_pipeline = StableDiffusionXLPipeline.from_single_file(
-        #     args.model_path,variant=weight_dtype, use_safetensors=True, 
-        #     vae=vae,
-        #     unet=unet)
-        # # if args.prediction_type is not None:
-        # #     scheduler_args = {"prediction_type": args.prediction_type}
-        # #     pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-
-        # validation_pipeline = validation_pipeline.to(accelerator.device, dtype=weight_dtype)
-        # validation_pipeline.set_progress_bar_config(disable=True)
-        # steps = 30
-        
-        # compel = Compel(tokenizer=[validation_pipeline.tokenizer, validation_pipeline.tokenizer_2] , text_encoder=[validation_pipeline.text_encoder, validation_pipeline.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-
-        # conditioning, pooled = compel(args.validation_prompt)
-        # # run inference
-        # # generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
-        # # pipeline_args = {"prompt": args.validation_prompt}
-
-        # with torch.cuda.amp.autocast():
-        #     images = validation_pipeline(prompt_embeds=conditioning, 
-        #                     pooled_prompt_embeds=pooled, 
-        #                     num_inference_steps=steps,
-        #                     guidance_scale=7,
-        #                     width=args.resolution, 
-        #                     height=args.resolution
-        #                     ).images
-
-        # for tracker in accelerator.trackers:
-        #     if tracker.name == "tensorboard":
-        #         np_images = np.stack([np.asarray(img) for img in images])
-        #         tracker.writer.add_images("validation", np_images, epoch, dataformats="NHWC")
-        #     if tracker.name == "wandb":
-        #         tracker.log(
-        #             {
-        #                 "validation": [
-        #                     wandb.Image(image, caption=f"{i}: {args.validation_prompt}")
-        #                     for i, image in enumerate(images)
-        #                 ]
-        #             }
-        #         )
-
-        # del validation_pipeline,vae,compel
-        # del images
-        # gc.collect()
-        # torch.cuda.empty_cache()
     # ==================================================
     # end validation part after training
     # ==================================================

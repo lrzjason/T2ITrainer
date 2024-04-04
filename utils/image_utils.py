@@ -126,14 +126,10 @@ class BucketBatchSampler(Sampler):
 ##input: json_file_list -> output: metadata
 #looks like leftover code from leftover_idx, check, then delete
 class CachedImageDataset(Dataset):
-    def __init__(self, datarows,repeats=1, conditional_dropout_percent=0.1): 
+    def __init__(self, datarows,conditional_dropout_percent=0.1): 
         # ###################################################
         # create repeats dataset
         self.datarows = datarows
-        ori_datarows = datarows.copy()
-        # repeats is 10, i in range(repeats) would execute 11 times
-        for i in range(repeats-1):
-            self.datarows = self.datarows + ori_datarows.copy()
         # end create repeats dataset
         # ###################################################
         self.leftover_indices = []  #initialize an empty list to store indices of leftover items
