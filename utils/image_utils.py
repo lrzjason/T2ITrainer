@@ -52,7 +52,7 @@ def get_nearest_resolution(image):
     return closest_ratio,closest_resolution
 
 
-# referenced from everyDream discord minienglish1 shared script
+#referenced from everyDream discord minienglish1 shared script
 #group indices by their corresponding aspect ratio buckets before sampling batches.
 class BucketBatchSampler(Sampler):
     def __init__(self, dataset, batch_size, drop_last=True):
@@ -67,11 +67,6 @@ class BucketBatchSampler(Sampler):
     def _bucket_indices_by_aspect_ratio(self):
         buckets = {}
         for idx in range(len(self.datarows)): #iterates whole dataset
-            # height, width, _ = image.shape
-            # width, height = image.size
-            # closest_bucket = width,height #retrieves closest_bucket from dataset
-            # # closest_bucket_key = tuple(closest_bucket) #key for dictionary
-            # closest_bucket_key = f'{width}x{height}'
             closest_bucket_key = self.datarows[idx]['bucket']
             if closest_bucket_key not in buckets: #creates bucket if needed
                 buckets[closest_bucket_key] = []
@@ -123,15 +118,11 @@ class BucketBatchSampler(Sampler):
         return total_batches
     
 
-##input: json_file_list -> output: metadata
+##input: datarows -> output: metadata
 #looks like leftover code from leftover_idx, check, then delete
 class CachedImageDataset(Dataset):
     def __init__(self, datarows,conditional_dropout_percent=0.1): 
-        # ###################################################
-        # create repeats dataset
         self.datarows = datarows
-        # end create repeats dataset
-        # ###################################################
         self.leftover_indices = []  #initialize an empty list to store indices of leftover items
         #for conditional_dropout
         self.conditional_dropout_percent = conditional_dropout_percent
@@ -142,14 +133,6 @@ class CachedImageDataset(Dataset):
     #returns dataset length
     def __len__(self):
         return len(self.datarows)
-
-    # def get_closest_bucket(self, index):
-    #     # Retrieve the closest_bucket for a given index
-    #     json_file_path = self.json_file_paths[index]
-    #     with open(json_file_path, "r") as f:
-    #         metadata = json.load(f)
-    #     return metadata["closest_bucket"]
-
 
     #returns dataset item, using index
     def __getitem__(self, index):
@@ -177,28 +160,8 @@ class CachedImageDataset(Dataset):
             "prompt_embed": prompt_embed,
             "pooled_prompt_embed": pooled_prompt_embed,
             "time_id": time_id,
-            # "category_key": category_key,
-            # "bucket": metadata['bucket'],
-            # "original_size": metadata['original_size'],
-            # "crop_top_left": metadata['crop_top_left'],
         }
     
-
-
-# def read_caption(folder,filename,caption_ext=".txt"):
-#     # assume the caption file is the same as the image file
-#     # and ext is .txt
-#     # caption_file = file.replace('.jpg', '.txt')
-#     prompt = open(os.path.join(folder, f'{filename}{caption_ext}'), encoding='utf-8').read()
-#     prompt = prompt.replace('\n', ' ')
-#     dirname = os.path.basename(folder)
-#     # return f'{{"file_name": "{dirname}/{file}","text":"{prompt}","path": "{dirname}/{filename}"}}\n'
-#     return {
-#         # "file_name": f"{dirname}/{file}", 
-#         "caption": prompt, 
-#         "caption_path": f"{dirname}/{filename}{caption_ext}"
-#     }
-
 # main idea is store all tensor related in .npz file
 # other information stored in .json
 def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=True,recreate_cache=True):
@@ -211,7 +174,10 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
             os.remove(metadata_path)
     datarows = []
     # create metadata.jsonl if not exist
-    if not os.path.exists(metadata_path):
+    if os.path.exists(metadata_path):
+        with open(metadata_path, "r", encoding='utf-8') as readfile:
+            datarows = json.loads(readfile.read())
+    else:
         # create empty file
         # open(metadata_path, 'w', encoding='utf-8').close()
         for item in tqdm(os.listdir(input_dir),position=0):
@@ -236,12 +202,9 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
         # Serializing json
         json_object = json.dumps(datarows, indent=4)
         
-        # Writing to sample.json
+        # Writing to metadata.json
         with open(metadata_path, "w", encoding='utf-8') as outfile:
             outfile.write(json_object)
-    else:
-        with open(metadata_path, "r", encoding='utf-8') as readfile:
-            datarows = json.loads(readfile.read())
     
     return datarows
 
@@ -297,9 +260,9 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
     # set meta data
     image_width, image_height = image.size
     json_obj['bucket'] = f"{image_width}x{image_height}"
-    json_obj["original_size"] = (image_height,image_width)
     # all images are preprocessed to target size, so it doesn't have crop_top_left
-    json_obj["crop_top_left"] = (0,0)
+    # json_obj["original_size"] = (image_height,image_width)
+    # json_obj["crop_top_left"] = (0,0)
 
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)

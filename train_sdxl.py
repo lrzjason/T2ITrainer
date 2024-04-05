@@ -295,15 +295,15 @@ def parse_args(input_args=None):
             " must exist to provide the captions for the images. Ignored if `dataset_name` is specified."
         ),
     )
-    parser.add_argument(
-        "--image_column", type=str, default="image", help="The column of the dataset containing an image."
-    )
-    parser.add_argument(
-        "--caption_column",
-        type=str,
-        default="text",
-        help="The column of the dataset containing a caption or a list of captions.",
-    )
+    # parser.add_argument(
+    #     "--image_column", type=str, default="image", help="The column of the dataset containing an image."
+    # )
+    # parser.add_argument(
+    #     "--caption_column",
+    #     type=str,
+    #     default="text",
+    #     help="The column of the dataset containing a caption or a list of captions.",
+    # )
     parser.add_argument("--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
     parser.add_argument("--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam optimizer.")
     parser.add_argument("--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use.")
@@ -552,12 +552,12 @@ def main(args):
     args.save_name = "actual_run"
 
     
-    args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
-    args.resume_from_checkpoint = "F:/models/unet/output/test_run-50"
-    args.num_train_epochs = 2
-    args.train_batch_size = 1
-    args.gradient_accumulation_steps = 1
-    args.save_name = "test_run"
+    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
+    # args.resume_from_checkpoint = "F:/models/unet/output/test_run-50"
+    # args.num_train_epochs = 2
+    # args.train_batch_size = 1
+    # args.gradient_accumulation_steps = 1
+    # args.save_name = "test_run"
 
     args.scale_lr = False
     args.use_8bit_adam = True
@@ -573,8 +573,8 @@ def main(args):
     args.dataset_name = None
     args.cache_dir = None
     args.caption_column = None
-    args.image_column = 'image'
-    args.caption_column = 'text'
+    # args.image_column = 'image'
+    # args.caption_column = 'text'
     args.resolution = 1024
     args.center_crop = False
     args.max_train_samples = None
@@ -658,6 +658,7 @@ def main(args):
     #     vae_path
     # )
     unet = pipeline.unet
+    # print(type(unet))
 
     # Load scheduler and models
     # from kohya ss sdxl_train.py 
