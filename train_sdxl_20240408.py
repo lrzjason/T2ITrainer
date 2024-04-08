@@ -88,10 +88,6 @@ sys.path.append('F:/T2ITrainer/utils')
 import image_utils
 from image_utils import BucketBatchSampler, CachedImageDataset
 
-# from meta
-# https://github.com/facebookresearch/schedule_free
-import schedulefree
-
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
 
@@ -590,8 +586,7 @@ def main(args):
     args.proportion_empty_prompts = 0
     args.dataloader_num_workers = 0
     args.max_train_steps = None
-    # args.lr_scheduler = "constant"
-    args.lr_scheduler = "cosine"
+    args.lr_scheduler = "constant"
 
     args.timestep_bias_portion = 0.25
     args.timestep_bias_end = 1000
@@ -784,6 +779,15 @@ def main(args):
         optimizer_class = torch.optim.AdamW
 
     
+    # Optimizer creation
+    params_to_optimize = unet.parameters()
+    optimizer = optimizer_class(
+        params_to_optimize,
+        lr=args.learning_rate,
+        betas=(args.adam_beta1, args.adam_beta2),
+        weight_decay=args.adam_weight_decay,
+        eps=args.adam_epsilon,
+    )
 
     # ==========================================================
     # Create train dataset
@@ -915,27 +919,6 @@ def main(args):
         args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
         overrode_max_train_steps = True
 
-    # Optimizer creation
-    params_to_optimize = unet.parameters()
-    optimizer = optimizer_class(
-        params_to_optimize,
-        lr=args.learning_rate,
-        betas=(args.adam_beta1, args.adam_beta2),
-        weight_decay=args.adam_weight_decay,
-        eps=args.adam_epsilon,
-    )
-    # not use, exceed vram
-    # optimizer = schedulefree.AdamWScheduleFree(params_to_optimize, 
-    #                 lr=args.learning_rate,
-    #                 betas=(args.adam_beta1, args.adam_beta2),
-    #                 weight_decay=args.adam_weight_decay,
-    #                 eps=args.adam_epsilon
-    #             )
-    
-    # try schedulefree fro meta
-    # https://github.com/facebookresearch/schedule_free
-    # optimizer.train()
-
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
@@ -947,10 +930,6 @@ def main(args):
     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         unet, optimizer, train_dataloader, lr_scheduler
     )
-    
-    # unet, optimizer, train_dataloader = accelerator.prepare(
-    #     unet, optimizer, train_dataloader
-    # )
 
     # We need to recalculate our total training steps as the size of the training dataloader may have changed.
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -1021,11 +1000,8 @@ def main(args):
     for epoch in range(first_epoch, args.num_train_epochs):
         train_loss = 0.0
         for step, batch in enumerate(train_dataloader):
-            # https://github.com/facebookresearch/schedule_free/blob/main/examples/mnist/main.py#L39
-            # optimizer.zero_grad()
             # print("loop dataloader")
             with accelerator.accumulate(unet):
-                optimizer.zero_grad()
                 # Sample noise that we'll add to the latents
                 # model_input is vae encoded image aka latent
                 latents = batch["latents"].to(accelerator.device)
@@ -1096,8 +1072,8 @@ def main(args):
 
                 # For the simplicity, only use mse_loss.
                 # other option would implemented afterward, like debias
-                # loss = F.nll_loss(model_pred.float(), target)
                 loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
                 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
@@ -1106,11 +1082,8 @@ def main(args):
                 # due to 'with accelerator.accumulate(unet):' doesn't need to handle ' / args.gradient_accumulation_steps'
                 # https://huggingface.co/docs/accelerate/usage_guides/gradient_accumulation 
                 train_loss += avg_loss.item()
-
-                
                 # Backpropagate
                 accelerator.backward(loss)
-                # optimizer.step()
 
                 # if accelerator.sync_gradients:
                 #     params_to_clip = unet.parameters()
@@ -1141,7 +1114,6 @@ def main(args):
 
             
             logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-            # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
             progress_bar.set_postfix(**logs)
             
             if global_step >= args.max_train_steps:

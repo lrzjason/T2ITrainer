@@ -164,7 +164,7 @@ class CachedImageDataset(Dataset):
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=True,recreate_cache=True):
+def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
     create_empty_embedding(compel)
     supported_image_types = ['.jpg','.png','.webp']
     metadata_path = os.path.join(input_dir, 'metadata.json')
@@ -199,6 +199,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
                     if file.endswith(image_type):
                         json_obj = iterate_image(compel,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                         datarows.append(json_obj)
+        
         # Serializing json
         json_object = json.dumps(datarows, indent=4)
         
@@ -218,7 +219,7 @@ def iterate_image(compel,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recr
     # read caption
     for ext in caption_exts.split(','):
         text_path = os.path.join(folder_path, f'{filename}{ext}')
-        prompt = ''
+        # prompt = ''
         if os.path.exists(text_path):
             json_obj["text_path"] = text_path
             # metadata_file.write(read_caption(folder_path,filename,ext))
@@ -234,21 +235,6 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
 
     image_path = json_obj["image_path"]
     prompt = json_obj["prompt"]
-    file_path,_ = os.path.splitext(image_path)
-    npz_path = f'{file_path}{cache_ext}'
-    # check if file exists
-    if os.path.exists(npz_path):
-        # load file via torch
-        try:
-            if recreate:
-                # remove the cache
-                os.remove(npz_path)
-            else:
-                embedding = torch.load(npz_path)
-                return embedding
-        except Exception as e:
-            print(e)
-            print(f"{npz_path} is corrupted, regenerating...")
     
     try:
         image = Image.open(image_path)
@@ -260,6 +246,27 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
     # set meta data
     image_width, image_height = image.size
     json_obj['bucket'] = f"{image_width}x{image_height}"
+    
+
+    file_path,_ = os.path.splitext(image_path)
+    npz_path = f'{file_path}{cache_ext}'
+
+    json_obj["npz_path"] = npz_path
+    # check if file exists
+    if os.path.exists(npz_path):
+        # load file via torch
+        try:
+            if recreate:
+                # remove the cache
+                os.remove(npz_path)
+            else:
+                # not need to load embedding. it would load while training
+                # embedding = torch.load(npz_path)
+                return json_obj
+        except Exception as e:
+            print(e)
+            print(f"{npz_path} is corrupted, regenerating...")
+    
     # all images are preprocessed to target size, so it doesn't have crop_top_left
     # json_obj["original_size"] = (image_height,image_width)
     # json_obj["crop_top_left"] = (0,0)
@@ -305,8 +312,6 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
     
     # save latent to cache file
     torch.save(latent, npz_path)
-
-    json_obj["npz_path"] = npz_path
 
     return json_obj
 
