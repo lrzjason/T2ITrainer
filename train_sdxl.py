@@ -534,7 +534,7 @@ def main(args):
     args.seed = 1234
     args.output_dir = 'F:/models/unet/output'
     args.logging_dir = 'logs'
-    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_006.safetensors'
+    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_007.safetensors'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -548,17 +548,17 @@ def main(args):
     # try to use clip filtered dataset
     args.train_data_dir = 'F:/ImageSet/openxl2_realism_above_average'
     args.num_train_epochs = 60
-    args.lr_warmup_steps = 5
+    args.lr_warmup_steps = 1
     # reduce lr from 1e-5 to 2e-6
     args.learning_rate = 2e-6
     args.train_batch_size = 2
     # reduce gas from 500 to 100
     args.gradient_accumulation_steps = 100
     # increase save steps from 50 to 250
-    args.checkpointing_steps = 250
+    args.checkpointing_steps = 90
     args.resume_from_checkpoint = ""
     # args.resume_from_checkpoint = "F:/models/unet/output/actual_run-50"
-    args.save_name = "openxl2_b7"
+    args.save_name = "openxl2_b8"
 
     
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
@@ -675,6 +675,22 @@ def main(args):
     noise_scheduler = DDPMScheduler(
         beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, clip_sample=False
     )
+
+    # reference from kohya ss custom_train_functions.py
+    def prepare_scheduler_for_custom_training(noise_scheduler, device):
+        if hasattr(noise_scheduler, "all_snr"):
+            return
+
+        alphas_cumprod = noise_scheduler.alphas_cumprod
+        sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+        sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+        alpha = sqrt_alphas_cumprod
+        sigma = sqrt_one_minus_alphas_cumprod
+        all_snr = (alpha / sigma) ** 2
+
+        noise_scheduler.all_snr = all_snr.to(device)
+    
+    prepare_scheduler_for_custom_training(noise_scheduler,accelerator.device)
     
     # Freeze vae 
     vae.requires_grad_(False)
@@ -1097,7 +1113,42 @@ def main(args):
                 # For the simplicity, only use mse_loss.
                 # other option would implemented afterward, like debias
                 # loss = F.nll_loss(model_pred.float(), target)
-                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                # loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+
+
+                #####################################################################
+                # debiased estimation implementation
+                # from kohya ss
+                #####################################################################
+                # do not mean over batch dimension for snr weight or scale v-pred loss
+                loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+                loss = loss.mean([1, 2, 3])
+                # reference from kohya ss debias
+                def apply_debiased_estimation(loss, timesteps, noise_scheduler):
+                    snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
+                    snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
+                    weight = 1/torch.sqrt(snr_t)
+                    loss = weight * loss
+                    return loss
+                
+                loss = apply_debiased_estimation(loss, timesteps, noise_scheduler)
+                loss = loss.mean()  # mean over batch dimension
+                #####################################################################
+                # End debiased estimation implementation section
+                #####################################################################
+
+                
+                #####################################################################
+                # loss_huber implementation section
+                #####################################################################
+                # need to do a,b,a and b test on huber loss
+                # loss_mse = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                loss_mse = loss
+                loss_huber = F.huber_loss(model_pred.float(), target.float(), reduction="mean", delta=1.5)
+                loss = loss_mse + loss_huber
+                #####################################################################
+                # End loss_huber implementation section
+                #####################################################################
                 
                 # Gather the losses across all processes for logging (if we use distributed training).
                 avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
@@ -1230,7 +1281,10 @@ def main(args):
                             avg_mean_loss = sum(loss_validation_epoch) / len(loss_validation_epoch)
 
                             accelerator.log({"loss/val": avg_mean_loss}, step=global_step)
-                            print(f"loss/val:{avg_mean_loss}  global_step:{global_step}")
+                            # add lr to log
+                            accelerator.log({"lr": lr_scheduler.get_last_lr()[0]}, step=global_step)
+                            # print(f"loss/val:{avg_mean_loss}  global_step:{global_step}")
+                            print(f"loss/val:{avg_mean_loss}  global_step:{global_step}  lr:{lr_scheduler.get_last_lr()[0]}")
 
 
                 if args.validation_prompt is not None:
