@@ -531,10 +531,10 @@ def parse_args(input_args=None):
 
 # training main function
 def main(args):
-    args.seed = 1234
+    args.seed = 4321
     args.output_dir = 'F:/models/unet/output'
     args.logging_dir = 'logs'
-    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_007.safetensors'
+    args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_008.safetensors'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -550,7 +550,7 @@ def main(args):
     args.num_train_epochs = 60
     args.lr_warmup_steps = 1
     # reduce lr from 1e-5 to 2e-6
-    args.learning_rate = 2e-6
+    args.learning_rate = 1.2e-6
     args.train_batch_size = 2
     # reduce gas from 500 to 100
     args.gradient_accumulation_steps = 100
@@ -558,7 +558,9 @@ def main(args):
     args.checkpointing_steps = 90
     args.resume_from_checkpoint = ""
     # args.resume_from_checkpoint = "F:/models/unet/output/actual_run-50"
-    args.save_name = "openxl2_b8"
+    args.save_name = "openxl2_b9"
+    args.lr_scheduler = "constant"
+    # args.lr_scheduler = "cosine"
 
     
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
@@ -590,8 +592,6 @@ def main(args):
     args.proportion_empty_prompts = 0
     args.dataloader_num_workers = 0
     args.max_train_steps = None
-    # args.lr_scheduler = "constant"
-    args.lr_scheduler = "cosine"
 
     args.timestep_bias_portion = 0.25
     args.timestep_bias_end = 1000
@@ -1121,18 +1121,18 @@ def main(args):
                 # from kohya ss
                 #####################################################################
                 # do not mean over batch dimension for snr weight or scale v-pred loss
-                loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
-                loss = loss.mean([1, 2, 3])
-                # reference from kohya ss debias
-                def apply_debiased_estimation(loss, timesteps, noise_scheduler):
-                    snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
-                    snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
-                    weight = 1/torch.sqrt(snr_t)
-                    loss = weight * loss
-                    return loss
+                # loss = torch.nn.functional.mse_loss(model_pred.float(), target.float(), reduction="none")
+                # loss = loss.mean([1, 2, 3])
+                # # reference from kohya ss debias
+                # def apply_debiased_estimation(loss, timesteps, noise_scheduler):
+                #     snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
+                #     snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
+                #     weight = 1/torch.sqrt(snr_t)
+                #     loss = weight * loss
+                #     return loss
                 
-                loss = apply_debiased_estimation(loss, timesteps, noise_scheduler)
-                loss = loss.mean()  # mean over batch dimension
+                # loss = apply_debiased_estimation(loss, timesteps, noise_scheduler)
+                # loss = loss.mean()  # mean over batch dimension
                 #####################################################################
                 # End debiased estimation implementation section
                 #####################################################################
@@ -1143,9 +1143,10 @@ def main(args):
                 #####################################################################
                 # need to do a,b,a and b test on huber loss
                 # loss_mse = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                loss_mse = loss
+                # loss_mse = loss
                 loss_huber = F.huber_loss(model_pred.float(), target.float(), reduction="mean", delta=1.5)
-                loss = loss_mse + loss_huber
+                # loss = loss_mse + loss_huber
+                loss = loss_huber
                 #####################################################################
                 # End loss_huber implementation section
                 #####################################################################
