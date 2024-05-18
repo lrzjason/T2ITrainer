@@ -21,6 +21,9 @@ RESOLUTION_SET = [
     (1536, 640),
 ]
 
+def resize(img,resolution):
+    return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image):
     height, width, _ = image.shape
@@ -56,7 +59,7 @@ def save_webp(image,filename,suffix="",output_dir=""):
         filename = os.path.join(output_dir,filename)
         
     # cv2.imshow("resized_image", resized_image)
-    cv2.imwrite(filename, image, [int(cv2.IMWRITE_WEBP_QUALITY), 95])
+    cv2.imwrite(filename, image, [int(cv2.IMWRITE_WEBP_QUALITY), 100])
 
 def get_biggest_features_bbox(model,processor,image,draw=False):
     height, width, _ = image.shape
@@ -156,7 +159,8 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     print(f"cropped ratio:{width/height}")
     print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
     # resize image to target resolution
-    return cv2.resize(cropped_image, closest_resolution)
+    # return cv2.resize(cropped_image, closest_resolution)
+    return resize(cropped_image,closest_resolution)
 
 def pixel_preserved_crop(image,scale_with_height,closest_resolution,model,processor):
     height, width, _ = image.shape
@@ -199,7 +203,8 @@ def pixel_preserved_crop(image,scale_with_height,closest_resolution,model,proces
 
     
     # resize image to target resolution
-    return cv2.resize(cropped_image, closest_resolution)
+    # return cv2.resize(cropped_image, closest_resolution)
+    return resize(cropped_image,closest_resolution)
 
 def features_centered_crop(image,scale_with_height,closest_resolution,model,processor,draw=False):
     height, width, _ = image.shape
@@ -290,7 +295,9 @@ def features_centered_crop(image,scale_with_height,closest_resolution,model,proc
         scale = closest_resolution[0] / width
     
     resized_size = (int(width * scale + 0.5), int(height * scale + 0.5))
-    resized_image = cv2.resize(cropped_image, resized_size)
+    
+    # return cv2.resize(cropped_image, closest_resolution)
+    resized_image =  resize(cropped_image,resized_size)
     
     height, width, _ = resized_image.shape
     # print("cropped extra image",width, height)
@@ -350,7 +357,7 @@ def apply_crop(model,processor,image_path,output_dir,highest_count,ae_model,imag
     # print(resized_image.shape[1],resized_image.shape[0])
     try:
         simple_crop_image = simple_center_crop(image,scale_with_height,closest_resolution)
-        save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
     except Exception as e:
         print(e)
         raise e
@@ -358,14 +365,14 @@ def apply_crop(model,processor,image_path,output_dir,highest_count,ae_model,imag
     
     try:
         pixel_preserved_crop_image = pixel_preserved_crop(image,scale_with_height,closest_resolution,model,processor)
-        save_webp(pixel_preserved_crop_image,filename,'preserved',os.path.join(output_dir,"preserved"))
+        # save_webp(pixel_preserved_crop_image,filename,'preserved',os.path.join(output_dir,"preserved"))
     except Exception as e:
         print(e)
         raise e
 
     try:
         features_centered_crop_image = features_centered_crop(image,scale_with_height,closest_resolution,model,processor)
-        save_webp(features_centered_crop_image,filename,'centered',os.path.join(output_dir,"centered"))
+        # save_webp(features_centered_crop_image,filename,'centered',os.path.join(output_dir,"centered"))
     except Exception as e:
         print(e)
         raise e
@@ -384,34 +391,44 @@ def apply_crop(model,processor,image_path,output_dir,highest_count,ae_model,imag
 
     highest_score = simple_score
     highest_suffix = 'simple'
+    highest_image = simple_crop_image
     if preserved_score>highest_score:
         highest_score = preserved_score
         highest_suffix = 'preserved'
         highest_count['preserved'] +=1
+        highest_image = pixel_preserved_crop_image
         # highest_count['preserved_list'].append(filename)
     elif centered_score>highest_score:
         highest_score = centered_score
         highest_suffix = 'centered'
         highest_count['centered'] +=1
+        highest_image = features_centered_crop_image
         # highest_count['centered_list'].append(filename)
     else:
         highest_count['simple'] +=1
         # highest_count['simple_list'].append(filename)
     print('highest_count',highest_count)
 
-    highest_dir = os.path.join(output_dir,"highest")
-    if not os.path.exists(highest_dir):
-        os.makedirs(highest_dir)
+    # highest_dir = os.path.join(output_dir,"highest")
+    # if not os.path.exists(highest_dir):
+    #     os.makedirs(highest_dir)
     
-    save_webp(simple_crop_image,filename,highest_suffix,os.path.join(highest_dir,highest_suffix))
+    # save_webp(highest_image,f"{filename}_compare.webp","",output_dir)
+    # highest_image = cv2.fastNlMeansDenoisingColored(highest_image, None, 5,5,7,21)
+    # highest_image.fastNlMeansDenoisingColored(highest_image,None,10,10,7,21)
+
+    save_webp(highest_image,f"{filename}.webp","",output_dir)
 
     return simple_score,preserved_score,centered_score,highest_score
 
 def average(lst): 
-    return sum(lst) / len(lst) 
+    if len(lst) !=0:
+        return sum(lst) / len(lst) 
+    else:
+        return 0
 def main():
-    input_dir = "F:/ImageSet/vit_train/crop_predict"
-    output_dir = "F:/ImageSet/vit_train/crop_predict_cropped"
+    input_dir = "F:/ImageSet/handpick_high_quality"
+    output_dir = "F:/ImageSet/handpick_high_quality_b2_cropped"
 
     simple_score_list = []
     preserved_score_list = []
@@ -436,35 +453,46 @@ def main():
 
     crop_methods = ["centered","preserved","simple"]
 
-    for file in tqdm(os.listdir(input_dir)):
-        # Check if the file is an image by its extension
-        if file.endswith((".webp")) or file.endswith((".jpg")) or file.endswith((".png")):
-            filename,_ = os.path.splitext(file)
-            skip = False
-            for crop_method in crop_methods:
-                if os.path.exists(os.path.join(output_dir,"highest",crop_method,f"{filename}_{crop_method}.webp")):
-                    highest_count[crop_method]+=1
-                    skip = True
-                    break
-            if skip:
-                continue
 
-            file_path = os.path.join(input_dir,file)
+    for subdir in tqdm(os.listdir(input_dir),position=0):
+        subdir_path = os.path.join(input_dir,subdir)
+        output_subdir = os.path.join(output_dir,subdir)
+        for file in tqdm(os.listdir(subdir_path),position=1):
+            # Check if the file is an image by its extension
+            if file.endswith((".webp")) or file.endswith((".jpg")) or file.endswith((".png")) or file.endswith((".jpeg")) :
+                filename,_ = os.path.splitext(file)
+                skip = False
+                if os.path.exists(os.path.join(output_dir,f"{filename}.webp")):
+                    # highest_count['simple'] +=1
+                    print('skip',filename)
+                    # highest_count['simple_list'].append(filename)
+                    continue
+                # for crop_method in crop_methods:
+                #     if os.path.exists(os.path.join(output_dir,crop_method,f"{filename}.webp")):
+                #         highest_count[crop_method]+=1
+                #         skip = True
+                #         break
+                # if skip:
+                #     continue
 
-            try:
-                simple_score,preserved_score,centered_score,highest_score = apply_crop(model,
-                    processor,file_path,output_dir,
-                    highest_count,ae_model,image_encoder,
-                    preprocess,device)    
+                file_path = os.path.join(subdir_path,file)
+
+                try:
+                    simple_score,preserved_score,centered_score,highest_score = apply_crop(model,
+                        processor,file_path,output_subdir,
+                        highest_count,ae_model,image_encoder,
+                        preprocess,device)    
+                    
+                    simple_score_list.append(simple_score)
+                    preserved_score_list.append(preserved_score)
+                    centered_score_list.append(centered_score)
+                    highest_score_list.append(highest_score)
+                except Exception as e: 
+                    print(e)
+                    # print(f'Error: Could not read image from {file_path}')
+        #     break
+        # break
                 
-                simple_score_list.append(simple_score)
-                preserved_score_list.append(preserved_score)
-                centered_score_list.append(centered_score)
-                highest_score_list.append(highest_score)
-            except Exception as e: 
-                print(e)
-                # print(f'Error: Could not read image from {file_path}')
-            
 
     simple_average = average(simple_score_list)
     preserved_average = average(preserved_score_list)
