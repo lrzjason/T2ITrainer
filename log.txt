@@ -1,0 +1,8 @@
+2024-05-27 19:42:39,740 - PixArt - INFO - Load checkpoint from F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth. Load ema: False.
+2024-05-27 19:42:39,843 - PixArt - INFO - CAMEWrapper Optimizer: total 435 param groups, 435 are learnable, 0 are fix. Lr group: 435 params with lr 0.00002; Weight decay group: 435 params with weight decay 0.0.
+2024-05-27 19:43:01,709 - PixArt - INFO - Lr schedule: constant, num_warmup_steps:1000.
+2024-05-27 19:43:03,867 - PixArt - INFO - Resume checkpoint of epoch 50 from F:/models/dit/output/checkpoints/epoch_60_step_1140.pth. Load ema: False, resume optimizer£º True, resume lr scheduler: True.
+2024-05-27 19:46:19,642 - PixArt - INFO - Saved checkpoint of epoch 60 to F:/models/dit/output\checkpoints\epoch_60_step_1249.pth.
+2024-05-27 19:51:58,489 - PixArt - INFO - Saved checkpoint of epoch 70 to F:/models/dit/output\checkpoints\epoch_70_step_1454.pth.
+2024-05-27 19:57:36,292 - PixArt - INFO - Saved checkpoint of epoch 80 to F:/models/dit/output\checkpoints\epoch_80_step_1659.pth.
+2024-05-27 20:03:20,711 - PixArt - INFO - Saved checkpoint of epoch 90 to F:/models/dit/output\checkpoints\epoch_90_step_1864.pth.

@@ -22,7 +22,8 @@ RESOLUTION_SET = [
 ]
 
 def resize(img,resolution):
-    return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+    return cv2.resize(img,resolution)
 
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image):
@@ -427,8 +428,8 @@ def average(lst):
     else:
         return 0
 def main():
-    input_dir = "F:/ImageSet/handpick_high_quality"
-    output_dir = "F:/ImageSet/handpick_high_quality_b2_cropped"
+    input_dir = "F:/ImageSet/pixart_test"
+    output_dir = "F:/ImageSet/pixart_test_cropped"
 
     simple_score_list = []
     preserved_score_list = []

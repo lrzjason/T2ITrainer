@@ -6,6 +6,9 @@ import os
 from torchvision import transforms
 from PIL import Image, ImageOps
 from tqdm import tqdm 
+import gc
+
+MAX_LENGTH = 300
 
 BASE_RESOLUTION = 1024
 
@@ -128,7 +131,8 @@ class CachedImageDataset(Dataset):
         self.conditional_dropout_percent = conditional_dropout_percent
         embedding = get_empty_embedding()
         self.empty_prompt_embed = embedding['prompt_embed']  # Tuple of (empty_prompt_embed, empty_pooled_prompt_embed)
-        self.empty_pooled_prompt_embed = embedding['pooled_prompt_embed']
+        self.empty_prompt_embed_mask = embedding['prompt_embed_mask']
+        self.empty_data_info = embedding['data_info']
 
     #returns dataset length
     def __len__(self):
@@ -147,25 +151,26 @@ class CachedImageDataset(Dataset):
         cached_latent = torch.load(metadata['npz_path'])
         latent = cached_latent['latent']
         prompt_embed = cached_latent['prompt_embed']
-        pooled_prompt_embed = cached_latent['pooled_prompt_embed']
-        time_id = cached_latent['time_id']
+        prompt_embed_mask = cached_latent['prompt_embed_mask']
+        data_info = cached_latent['data_info']
 
         #conditional_dropout
         if random.random() < self.conditional_dropout_percent:
             prompt_embed = self.empty_prompt_embed
-            pooled_prompt_embed = self.empty_pooled_prompt_embed
+            prompt_embed_mask = self.empty_prompt_embed_mask
+            data_info = self.empty_data_info
 
         return {
             "latent": latent,
             "prompt_embed": prompt_embed,
-            "pooled_prompt_embed": pooled_prompt_embed,
-            "time_id": time_id,
+            "prompt_embed_mask": prompt_embed_mask,
+            "data_info": data_info
         }
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
-    create_empty_embedding(compel)
+def create_metadata_cache(tokenizer,text_encoder,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
+    create_empty_embedding(tokenizer,text_encoder)
     supported_image_types = ['.jpg','.png','.webp']
     metadata_path = os.path.join(input_dir, 'metadata.json')
     if recreate:
@@ -189,7 +194,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
                 for file in os.listdir(folder_path):
                     for image_type in supported_image_types:
                         if file.endswith(image_type):
-                            json_obj = iterate_image(compel,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                            json_obj = iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                             datarows.append(json_obj)
             # handle single files
             else:
@@ -197,7 +202,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
                 file = item
                 for image_type in supported_image_types:
                     if file.endswith(image_type):
-                        json_obj = iterate_image(compel,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                        json_obj = iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                         datarows.append(json_obj)
         
         # Serializing json
@@ -209,7 +214,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
     
     return datarows
 
-def iterate_image(compel,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
+def iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -226,12 +231,12 @@ def iterate_image(compel,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recr
             json_obj['prompt'] = open(text_path, encoding='utf-8').read()
             # datarows.append(caption)
 
-    json_obj = cache_file(compel,vae,json_obj,recreate=recreate_cache)
+    json_obj = cache_file(tokenizer,text_encoder,vae,json_obj,recreate=recreate_cache)
     return json_obj
 
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
-def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
+def cache_file(tokenizer,text_encoder,vae,json_obj,cache_ext=".npz",recreate=False):
 
     image_path = json_obj["image_path"]
     prompt = json_obj["prompt"]
@@ -276,6 +281,7 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
     
     # create tensor latent
     pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
+    closest_ratio,closest_resolution = get_nearest_resolution(image)
     del image
 
     
@@ -286,53 +292,58 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
         latent = latent * vae.config.scaling_factor
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    time_id = torch.tensor([
-        # original size
-        image_height,image_width,
-        # crop x,crop y
-        0,0,
-        # target size
-        image_height,image_width
-    ]).to(vae.device, dtype=vae.dtype)
-    
+    prompt_tokens = tokenizer(
+        prompt, max_length=MAX_LENGTH, padding="max_length", truncation=True, return_tensors="pt"
+    ).to(text_encoder.device)
+    prompt_embed = text_encoder(prompt_tokens.input_ids, attention_mask=prompt_tokens.attention_mask)[0]
 
-    prompt_embeds, pooled_prompt_embeds = compel(prompt)
-    prompt_embeds = torch.squeeze(prompt_embeds)
-    pooled_prompt_embeds = torch.squeeze(pooled_prompt_embeds)
-    # print('prompt_embeds.shape',prompt_embeds.shape)
-    # print('pooled_prompt_embeds.shape',pooled_prompt_embeds.shape)
-    
+    data_info = {}
+    data_info['img_hw'] = torch.tensor([image_height, image_width], dtype=torch.float32)
+    data_info['aspect_ratio'] = closest_ratio
     latent_dict = {
         "latent": latent.cpu(),
-        "prompt_embed": prompt_embeds.cpu(), 
-        "pooled_prompt_embed": pooled_prompt_embeds.cpu(),
-        "time_id": time_id.cpu()
+        "prompt_embed": prompt_embed.cpu(), 
+        "prompt_embed_mask": prompt_tokens.attention_mask.cpu(),
+        "data_info": data_info
+        # "img_hw": torch.tensor([image_height, image_width], dtype=torch.float32),
+        # "aspect_ratio":closest_ratio
     }
 
     
     # save latent to cache file
     torch.save(latent_dict, npz_path)
+    del prompt_tokens,prompt_embed
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return json_obj
 
-def get_empty_embedding(cache_path="cache/empty_embedding.npz"):
+def get_empty_embedding(cache_path="cache/pixart_empty_embedding.npz"):
     if os.path.exists(cache_path):
         return torch.load(cache_path)
-def create_empty_embedding(compel,cache_path="cache/empty_embedding.npz",recreate=False):
+def create_empty_embedding(tokenizer,text_encoder,cache_path="cache/pixart_empty_embedding.npz",recreate=False):
+    # data_info = {}
+    # data_info['img_hw'] = torch.tensor([BASE_RESOLUTION, BASE_RESOLUTION], dtype=torch.float32)
+    # data_info['aspect_ratio'] = 1.0
     if recreate:
         os.remove(cache_path)
 
     if os.path.exists(cache_path):
         return torch.load(cache_path)
 
-    prompt_embeds, pooled_prompt_embeds = compel("")
-    prompt_embeds = torch.squeeze(prompt_embeds)
-    pooled_prompt_embeds = torch.squeeze(pooled_prompt_embeds)
-    latent = {
-        "prompt_embed": prompt_embeds.cpu(), 
-        "pooled_prompt_embed": pooled_prompt_embeds.cpu()
+    null_tokens = tokenizer(
+        "", max_length=MAX_LENGTH, padding="max_length", truncation=True, return_tensors="pt"
+    ).to(text_encoder.device)
+    null_token_emb = text_encoder(null_tokens.input_ids, attention_mask=null_tokens.attention_mask)[0]
+    null_emb_dict = {
+        'prompt_embed': null_token_emb, 
+        'prompt_embed_mask': null_tokens.attention_mask,
+        'data_info':{
+            'img_hw': torch.tensor([BASE_RESOLUTION, BASE_RESOLUTION], dtype=torch.float32),
+            'aspect_ratio':1.0
+        }
     }
     # save latent to cache file
-    torch.save(latent, cache_path)
+    torch.save(null_emb_dict, cache_path)
 
-    return latent
+    return null_emb_dict
