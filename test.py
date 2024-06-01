@@ -1,29 +1,25 @@
-from PIL import Image
-import cv2
-import numpy
+import torch
+import numpy as np
+ # sample
+before_state = torch.random.get_rng_state()
+np_seed = np.random.seed()
+a = torch.randn(1) 
 
+print('torch.backends.cudnn.deterministic',torch.backends.cudnn.deterministic)
 
-# image_path = 'F:/ImageSet/vit_train/crop_predict/ganyu_5389722.webp'
+np.random.seed(0)
+torch.manual_seed(0)
+torch.backends.cudnn.deterministic = True
+b = torch.randn(1)  # sample again
 
-# # read image
-# image = Image.open(image_path)
+torch.set_rng_state(before_state)
+np.random.seed(np_seed)
+torch.backends.cudnn.deterministic = False
+c = torch.randn(1)  # sample
 
-# # pil_image = Image.open(image_path).convert('RGB')
-# open_cv_image = numpy.array(image)
-# # # Convert RGB to BGR
-# image = open_cv_image[:, :, ::-1].copy()
-# # image = cv2.imread(image_path)  # Replace with your image path
-# if image is None:
-#     print(f"Error: Could not read image from {image_path}")
-#     raise Exception(f"Error: Could not read image from {image_path}")
-# height, width, _ = image.shape
+after_state = torch.random.get_rng_state()
 
-# print(width,height)
-
-import string
-
-a = 1
-b = 2
-
-a = b = 0
+print("RNG state progressed:", not torch.allclose(before_state, after_state))  # expected: True, actual: False
 print(a)
+print(b)
+print(c)

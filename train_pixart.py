@@ -111,6 +111,8 @@ from torch.utils.data import default_collate
 # https://github.com/facebookresearch/schedule_free
 import schedulefree
 
+from prodigyopt import Prodigy
+
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
 
@@ -119,6 +121,7 @@ logger = get_logger(__name__)
 DATASET_NAME_MAPPING = {
     "lambdalabs/pokemon-blip-captions": ("image", "text"),
 }
+
 
 
 def parse_args(input_args=None):
@@ -462,8 +465,6 @@ def parse_args(input_args=None):
 
     return args
 
-
-
 # training main function
 def main(args):
     args.seed = 4321
@@ -474,6 +475,7 @@ def main(args):
         os.makedirs(args.output_dir,exist_ok=True)
     args.logging_dir = 'logs'
     args.model_path = 'F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth'
+    # args.model_path = 'F:/models/Stable-diffusion/pixart/epoch_70_step_290.pth'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -483,33 +485,15 @@ def main(args):
     args.allow_tf32 = True
 
 
-    # args.train_data_dir = 'F:/ImageSet/openxl2_realism'
-    # try to use clip filtered dataset
-    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_above_average' 
-    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
-    args.train_data_dir = "F:/ImageSet/openxl2_reg"
     args.lr_warmup_steps = 1
-    # reduce lr from 1e-5 to 2e-6
-    args.learning_rate = 1.2e-6
-    args.train_batch_size = 1
     # reduce gas from 500 to 100
     args.gradient_accumulation_steps = 1
     # increase save steps from 50 to 250
     args.checkpointing_steps = 90
     args.resume_from_checkpoint = ""
-    # args.resume_from_checkpoint = "F:/models/unet/output/actual_run-50"
     args.save_name = "openxl_pixart"
-    args.lr_scheduler = "constant"
-    # args.lr_scheduler = "cosine"
-
-    
-    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
-    # args.resume_from_checkpoint = "F:/models/unet/output/test_run-50"
-    # args.num_train_epochs = 2
-    # args.train_batch_size = 1
-    # args.gradient_accumulation_steps = 1
-    # args.save_name = "test_run"
-
+    # args.lr_scheduler = "constant"
+    args.lr_scheduler = "cosine"
     args.scale_lr = False
     args.use_8bit_adam = True
     args.adam_beta1 = 0.9
@@ -518,9 +502,6 @@ def main(args):
 
     args.adam_weight_decay = 1e-2
     args.adam_epsilon = 1e-08
-    # args.train_data_dir = 'F:/ImageSet/training_script_testset_sdxl_train_validation/train/test'
-    # args.train_data_dir = 'F:/ImageSet/training_script_cotton_doll/train'
-    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_test'
     args.dataset_name = None
     args.cache_dir = None
     args.caption_column = None
@@ -564,16 +545,38 @@ def main(args):
     snr_loss = False
     train_sampling_steps = 1000
 
-    optimizer_config = dict(type='CAMEWrapper', lr=2e-5, weight_decay=0.0, betas=(0.9, 0.999, 0.9999), eps=(1e-30, 1e-16))
-
     # num_epochs = 20
-    save_model_steps = 1000
+    # save_model_steps = 1000
     log_interval = 20
     gradient_clip = 0.01
-    args.num_train_epochs = 100
-    save_model_epochs = 10
-    resume_from_path = "F:/models/dit/output/checkpoints/epoch_60_step_1140.pth"
-    skip_step = 1140
+    
+    
+    
+    # args.train_data_dir = 'F:/ImageSet/openxl2_realism'
+    # try to use clip filtered dataset
+    # args.train_data_dir = 'F:/ImageSet/openxl2_realism_above_average' 
+    args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # args.train_data_dir = "F:/ImageSet/openxl2_reg_test"
+    args.num_train_epochs = 2
+    save_model_epochs = 1
+    skip_epoch = 0
+    # args.num_train_epochs = 600
+    # save_model_epochs = 10
+    # skip_epoch = 300
+    # reduce lr from 1e-5 to 2e-6
+    args.learning_rate = 1e-4
+    # args.learning_rate = 1
+    args.train_batch_size = 15
+    # args.train_batch_size = 1
+    
+    # optimizer_config = dict(type='CAMEWrapper', lr=1e-5, weight_decay=0.0, betas=(0.9, 0.999, 0.9999), eps=(1e-30, 1e-16))
+    optimizer_config = dict(type='Lion', lr=args.learning_rate, weight_decay=0.01, betas=(0.9, 0.99))
+
+    
+    resume_from_path = "F:/models/Stable-diffusion/pixart/epoch_210_step_864.pth"
+    # resume_from_path = None
+    # skip_step = 864
+    skip_step = 0
 
     vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
@@ -690,20 +693,21 @@ def main(args):
 
     # build models
     train_diffusion = IDDPM(str(train_sampling_steps), learn_sigma=learn_sigma, pred_sigma=pred_sigma, snr=snr_loss)
-    # model = build_model(model_name,
-    #                     grad_checkpointing,
-    #                     fp32_attention,
-    #                     input_size=latent_size,
-    #                     learn_sigma=learn_sigma,
-    #                     pred_sigma=pred_sigma,
-    #                     **model_kwargs).train()
+    model = build_model(model_name,
+                        grad_checkpointing,
+                        fp32_attention,
+                        input_size=latent_size,
+                        learn_sigma=learn_sigma,
+                        pred_sigma=pred_sigma,
+                        **model_kwargs).train()
     pe_interpolation = {256: 0.5, 512: 1, 1024: 2, 2048: 4}
-    model = PixArtMS(depth=28, hidden_size=1152, patch_size=2, num_heads=16, 
-            input_size=latent_size,
-            learn_sigma=learn_sigma,
-            pred_sigma=pred_sigma,
-            **model_kwargs
-        ).train()
+    # model = PixArtMS(depth=28, hidden_size=1152, patch_size=2, num_heads=16, 
+    #         input_size=latent_size,
+    #         learn_sigma=learn_sigma,
+    #         pred_sigma=pred_sigma,
+    #         **model_kwargs
+    #     ).train()
+    model.to(dtype=weight_dtype)
     logger.info(f"{model.__class__.__name__} Model Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     missing, unexpected = load_checkpoint(
@@ -712,11 +716,21 @@ def main(args):
     logger.warning(f'Unexpected keys: {unexpected}')
 
     # build optimizer and lr scheduler
-    lr_scale_ratio = 1
+    # lr_scale_ratio = 1
     # if config.get('auto_lr', None):
     #     lr_scale_ratio = auto_scale_lr(config.train_batch_size * get_world_size() * config.gradient_accumulation_steps,
     #                                    config.optimizer, **config.auto_lr)
     optimizer = build_optimizer(model, optimizer_config)
+    # weight_decay = 0.01
+    # optimizer = Prodigy(model.parameters(), 
+    #                     lr=args.learning_rate, 
+    #                     safeguard_warmup=True,
+    #                     use_bias_correction=True,
+    #                     weight_decay=weight_decay,
+    #                     betas=(0.9, 0.99),
+    #                     decouple=True,
+    #                     d_coef=2
+    #                     )
     start_epoch = 0
     start_step = 0
 
@@ -761,57 +775,56 @@ def main(args):
     # data_files = {}
     # this part need more work afterward, you need to prepare 
     # the train files and val files split first before the training
+    # create metadata.jsonl if not exist
+    
+    rng_state = torch.get_rng_state()
+    metadata_path = os.path.join(args.train_data_dir, 'metadata.json')
+    val_metadata_path =  os.path.join(args.train_data_dir, 'val_metadata.json')
     if args.train_data_dir is not None:
         # data_files["train"] = os.path.join(args.train_data_dir, "**")
-        
         datarows = []
 
-        # create metadata.jsonl if not exist
-        metadata_path = os.path.join(args.train_data_dir, 'metadata.json')
-        vae = AutoencoderKL.from_single_file(vae_path, torch_dtype=torch.float16).to(accelerator.device)
-        tokenizer = text_encoder = None
-        tokenizer = T5Tokenizer.from_pretrained(args.pipeline_load_from, subfolder="tokenizer")
-        text_encoder = T5EncoderModel.from_pretrained(
-            args.pipeline_load_from, subfolder="text_encoder", torch_dtype=torch.float16).to(accelerator.device)
-
         if not os.path.exists(metadata_path):
+            vae = AutoencoderKL.from_single_file(vae_path, torch_dtype=torch.float16).to(accelerator.device)
+            tokenizer = text_encoder = None
+            tokenizer = T5Tokenizer.from_pretrained(args.pipeline_load_from, subfolder="tokenizer")
+            text_encoder = T5EncoderModel.from_pretrained(
+                args.pipeline_load_from, subfolder="text_encoder", torch_dtype=torch.float16).to(accelerator.device)
+
             # create metadata and latent cache
-            datarows = utils.pixart_image_utils.create_metadata_cache(tokenizer,text_encoder,vae,args.train_data_dir,recreate=True,recreate_cache=True)
+            datarows = utils.pixart_image_utils.create_metadata_cache(tokenizer,text_encoder,vae,args.train_data_dir)
+            
+            
+            validation_datarows = []
+            # prepare validation_slipt
+            if args.validation_ratio > 0:
+                # buckets = image_utils.get_buckets()
+                train_ratio = 1 - args.validation_ratio
+                validation_ratio = args.validation_ratio
+                training_datarows, validation_datarows = train_test_split(datarows, train_size=train_ratio, test_size=validation_ratio)
+                datarows = training_datarows
+            
             # Serializing json
             json_object = json.dumps(datarows, indent=4)
             # Writing to sample.json
             with open(metadata_path, "w", encoding='utf-8') as outfile:
                 outfile.write(json_object)
+            
+            # Serializing json
+            val_json_object = json.dumps(validation_datarows, indent=4)
+            # Writing to sample.json
+            with open(val_metadata_path, "w", encoding='utf-8') as outfile:
+                outfile.write(val_json_object)
+                
+            # clear memory
+            del vae,tokenizer,text_encoder
+            gc.collect()
+            torch.cuda.empty_cache()
         else:
             with open(metadata_path, "r", encoding='utf-8') as readfile:
                 datarows = json.loads(readfile.read())
 
-
-    # clear memory
-    del vae,tokenizer,text_encoder
-    gc.collect()
-    torch.cuda.empty_cache()
-
-
-    validation_datarows = []
-    # prepare validation_slipt
-    if args.validation_ratio > 0:
-        # buckets = image_utils.get_buckets()
-        train_ratio = 1 - args.validation_ratio
-        validation_ratio = args.validation_ratio
-        training_datarows, validation_datarows = train_test_split(datarows, train_size=train_ratio, test_size=validation_ratio)
-        datarows = training_datarows
-
-
-    # lazy implement of repeats
-    datarows_clone = datarows.copy()
-    # use epoch rather than repeats for more validation
-    repeats = 1
-    # repeats is 10, i in range(repeats) would execute 11 times
-    for i in range(repeats-1):
-        datarows = datarows + datarows_clone.copy()
-
-
+    torch.set_rng_state(rng_state)
     # ================================================================
     # End create embedding 
     # ================================================================
@@ -835,7 +848,7 @@ def main(args):
         }
     
     # create dataset based on input_dir
-    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=0.1)
+    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=0)
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
@@ -848,28 +861,52 @@ def main(args):
         collate_fn=collate_fn,
         num_workers=args.dataloader_num_workers,
     )
+
+    
     
     # skip_step = config.skip_step
     total_steps = len(train_dataloader) * args.num_train_epochs
 
+ 
+    # Scheduler and math around the number of training steps.
+    overrode_max_train_steps = False
+    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    if args.max_train_steps is None:
+        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+        overrode_max_train_steps = True
+
+    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
+    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
+    if overrode_max_train_steps:
+        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
+    # Afterwards we recalculate our number of training epochs
+    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
+
+
     config = dict(
-        num_warmup_steps=1000,
-        lr_schedule = 'constant',
-        lr_schedule_args = dict(num_warmup_steps=1000),
+        num_warmup_steps=0,
+        lr_schedule = args.lr_scheduler,
+        lr_schedule_args = dict(num_warmup_steps=0),
         num_epochs = args.num_train_epochs
     )
 
 
-    lr_scheduler = build_lr_scheduler(config, optimizer, train_dataloader, lr_scale_ratio)
-
+    lr_scheduler = build_lr_scheduler(config, optimizer, train_dataloader, 1)
+    # lr_scheduler = get_scheduler(
+    #     args.lr_scheduler,
+    #     optimizer=optimizer,
+    #     num_warmup_steps=args.lr_warmup_steps * args.gradient_accumulation_steps,
+    #     num_training_steps=args.max_train_steps * args.gradient_accumulation_steps,
+    # )
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_train_steps * args.gradient_accumulation_steps)
     
-    resume_from = dict(
-            checkpoint=resume_from_path,
-            load_ema=False,
-            resume_optimizer=True,
-            resume_lr_scheduler=True)
     # not implement resume_from yet
-    if resume_from is not None and resume_from['checkpoint'] is not None:
+    if resume_from_path is not None:
+        resume_from = dict(
+                checkpoint=resume_from_path,
+                load_ema=False,
+                resume_optimizer=True,
+                resume_lr_scheduler=True)
         resume_path = resume_from['checkpoint']
         path = os.path.basename(resume_path)
         start_epoch = int(path.replace('.pth', '').split("_")[1]) - 1
@@ -884,6 +921,12 @@ def main(args):
 
     timestamp = time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime())
 
+
+    # prepare everything
+    model, optimizer, lr_scheduler, train_dataloader = accelerator.prepare(
+        model,optimizer, lr_scheduler, train_dataloader)
+
+
     if accelerator.is_main_process:
         # tracker_config = dict(vars(config))
         # tracker_config = config
@@ -892,25 +935,7 @@ def main(args):
         # except:
         #     accelerator.init_trackers(f"tb_{timestamp}")
         accelerator.init_trackers("text2image-fine-tune-pixart", config=vars(args))
-            
-    # Scheduler and math around the number of training steps.
-    overrode_max_train_steps = False
-    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    if args.max_train_steps is None:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-        overrode_max_train_steps = True
-
-    model = accelerator.prepare(model)
-    optimizer, train_dataloader, lr_scheduler = accelerator.prepare(optimizer, train_dataloader, lr_scheduler)
-    # train()
-
-    # We need to recalculate our total training steps as the size of the training dataloader may have changed.
-    num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
-    if overrode_max_train_steps:
-        args.max_train_steps = args.num_train_epochs * num_update_steps_per_epoch
-    # Afterwards we recalculate our number of training epochs
-    args.num_train_epochs = math.ceil(args.max_train_steps / num_update_steps_per_epoch)
-
+           
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     # if accelerator.is_main_process:
@@ -928,35 +953,6 @@ def main(args):
     logger.info(f"  Total optimization steps = {args.max_train_steps}")
     
 
-
-    # Potentially load in the weights and states from a previous save
-    # if args.resume_from_checkpoint:
-    #     if args.resume_from_checkpoint != "latest":
-    #         path = os.path.basename(args.resume_from_checkpoint)
-    #     else:
-    #         # Get the most recent checkpoint
-    #         dirs = os.listdir(args.output_dir)
-    #         dirs = [d for d in dirs if d.startswith("checkpoint")]
-    #         dirs = sorted(dirs, key=lambda x: int(x.split("-")[1]))
-    #         path = dirs[-1] if len(dirs) > 0 else None
-
-    #     if path is None:
-    #         accelerator.print(
-    #             f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
-    #         )
-    #         args.resume_from_checkpoint = None
-    #         initial_global_step = 0
-    #     else:
-    #         accelerator.print(f"Resuming from checkpoint {path}")
-    #         accelerator.load_state(os.path.join(args.output_dir, path))
-    #         global_step = int(path.split("-")[1])
-
-    #         initial_global_step = global_step
-    #         first_epoch = global_step // num_update_steps_per_epoch
-
-    # else:
-    #     initial_global_step = 0
-
     global_step = 0
     first_epoch = 0
 
@@ -967,9 +963,10 @@ def main(args):
         # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
     )
-    log_buffer = LogBuffer()
-    time_start, last_tic = time.time(), time.time()
+    # log_buffer = LogBuffer()
+    # time_start, last_tic = time.time(), time.time()
     # print("before epoch start")
+    
     for epoch in range(first_epoch, args.num_train_epochs):
         if global_step >= args.max_train_steps:
             break
@@ -986,23 +983,6 @@ def main(args):
             # print("loop dataloader")
             # Sample noise that we'll add to the latents
 
-            # model_input is vae encoded image aka latent
-            latents = batch["latents"].to(accelerator.device)
-            # get latent like random noise
-            # noise = torch.randn_like(latents)
-
-            bsz = latents.shape[0]
-            y = batch["prompt_embeds"]
-            y_mask = batch["prompt_embed_masks"]
-            data_info = batch["data_infos"]
-            # data_info = {
-            #     "img_hw": batch["img_hws"][0],
-            #     "aspect_ratio": batch["aspect_ratios"][0],
-            # }
-            
-            timesteps = torch.randint(
-                0, train_sampling_steps, (bsz,), device=accelerator.device
-            ).long()
             grad_norm = None
             data_time_all += time.time() - data_time_start
             with accelerator.accumulate(model):
@@ -1011,67 +991,85 @@ def main(args):
                 optimizer.zero_grad()
                 
                 with accelerator.autocast():
+                    # model_input is vae encoded image aka latent
+                    latents = batch["latents"].to(accelerator.device)
+                    # get latent like random noise
+                    # noise = torch.randn_like(latents)
+
+                    bsz = latents.shape[0]
+                    y = batch["prompt_embeds"]
+                    y_mask = batch["prompt_embed_masks"]
+                    data_info = batch["data_infos"]
+                    
+                    timesteps = torch.randint(
+                        0, train_sampling_steps, (bsz,), device=accelerator.device
+                    ).long()
                     loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
                     loss = loss_term['loss'].mean()
+
+
+                    avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
+                    train_loss += avg_loss.item()
                     
-                    logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
-                    # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
-                    progress_bar.set_postfix(**logs)
+                    # logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+                    # # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
+                    # progress_bar.set_postfix(**logs)
                     
                     accelerator.backward(loss)
                     if accelerator.sync_gradients:
                         grad_norm = accelerator.clip_grad_norm_(model.parameters(), gradient_clip)
-                    optimizer.step()
-                    lr_scheduler.step()
-            lr = lr_scheduler.get_last_lr()[0]
+                        if not accelerator.optimizer_step_was_skipped:
+                            lr_scheduler.step()
 
-            logs = {"train_loss": accelerator.gather(loss).mean().item()}
-            if grad_norm is not None:
-                logs.update(grad_norm=accelerator.gather(grad_norm).mean().item())
-            log_buffer.update(logs)
-            if (step + 1) % log_interval == 0 or (step + 1) == 1:
-                t = (time.time() - last_tic) / log_interval
-                t_d = data_time_all / log_interval
-                avg_time = (time.time() - time_start) / (global_step + 1)
-                eta = str(datetime.timedelta(seconds=int(avg_time * (total_steps - global_step - 1))))
-                eta_epoch = str(datetime.timedelta(seconds=int(avg_time * (len(train_dataloader) - step - 1))))
-                log_buffer.average()
-                info = f"Step/Epoch [{global_step}/{epoch}][{step + 1}/{len(train_dataloader)}]:total_eta: {eta}, " \
-                       f"epoch_eta:{eta_epoch}, time_all:{t:.3f}, time_data:{t_d:.3f}, lr:{lr:.3e}, "
-                    #    f"epoch_eta:{eta_epoch}, time_all:{t:.3f}, time_data:{t_d:.3f}, lr:{lr:.3e}, s:({model.module.h}, {model.module.w}), "
-                info += ', '.join([f"{k}:{v:.4f}" for k, v in log_buffer.output.items()])
-                logger.info(info)
-                last_tic = time.time()
-                log_buffer.clear()
-                data_time_all = 0
-            logs.update(lr=lr)
+                    optimizer.step()
+                    optimizer.zero_grad()
+            
+            accelerator.wait_for_everyone()
+            if accelerator.sync_gradients:
+                progress_bar.update(1)
+                global_step += 1
+                accelerator.log({"train_loss": train_loss / args.gradient_accumulation_steps}, step=global_step)
+                train_loss = 0.0
+                
+
+            logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
+            # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
+            progress_bar.set_postfix(**logs)
+            # logs.update(lr=lr)
             accelerator.log(logs, step=global_step)
 
-            progress_bar.update(1)
-            global_step += 1
-            data_time_start = time.time()
+            # progress_bar.update(1)
+            # global_step += 1
+            # data_time_start = time.time()
             
-            if global_step % save_model_steps == 0:
-                accelerator.wait_for_everyone()
-                if accelerator.is_main_process:
-                    os.umask(0o000)
-                    save_checkpoint(os.path.join(args.output_dir, 'checkpoints'),
-                                    epoch=epoch,
-                                    step=global_step,
-                                    model=accelerator.unwrap_model(model),
-                                    optimizer=optimizer,
-                                    lr_scheduler=lr_scheduler
-                                    )
-
-            # not implement yet
-            # if config.visualize and (global_step % config.eval_sampling_steps == 0 or (step + 1) == 1):
+            # if global_step % save_model_steps == 0:
             #     accelerator.wait_for_everyone()
             #     if accelerator.is_main_process:
-            #         log_validation(model, global_step, device=accelerator.device, vae=vae)
+            #         os.umask(0o000)
+            #         save_checkpoint(os.path.join(args.output_dir, 'checkpoints'),
+            #                         epoch=epoch,
+            #                         step=global_step,
+            #                         model=accelerator.unwrap_model(model).to(dtype=weight_dtype),
+            #                         optimizer=optimizer,
+            #                         lr_scheduler=lr_scheduler
+            #                         )
+
+            # clean memory
+            del loss,loss_term,latents,timesteps,y,y_mask,data_info
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            # not implement yet
+        
         
         if global_step < skip_step:
             continue
-        if epoch % save_model_epochs == 0 or epoch == args.num_train_epochs:
+        
+        # store rng before validation
+        before_state = torch.random.get_rng_state()
+        np_seed = np.random.seed()
+        # a = torch.randn(1) 
+        if epoch >= skip_epoch and epoch % save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
             if accelerator.is_main_process:
                 os.umask(0o000)
@@ -1082,22 +1080,129 @@ def main(args):
                                 optimizer=optimizer,
                                 lr_scheduler=lr_scheduler
                                 )
+                
+                # freeze rng
+                np.random.seed(0)
+                torch.manual_seed(0)
+                dataloader_generator = torch.Generator()
+                dataloader_generator.manual_seed(0)
+                torch.backends.cudnn.deterministic = True
+                # b = torch.randn(1) 
+                
+                # log_validation(model, global_step, device=accelerator.device, vae=vae)
+                validation_datarows = []
+                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                    validation_datarows = json.loads(readfile.read())
+                
+                val_bs = args.train_batch_size
+                if args.train_batch_size > len(validation_datarows):
+                    val_bs = 1
+                # create dataset based on input_dir
+                validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
+
+                # referenced from everyDream discord minienglish1 shared script
+                #create bucket batch sampler
+                validation_bucket_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=val_bs, drop_last=True)
+
+                #initialize the DataLoader with the bucket batch sampler
+                validation_dataloader = torch.utils.data.DataLoader(
+                    validation_dataset,
+                    batch_sampler=validation_bucket_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                    collate_fn=collate_fn,
+                    num_workers=args.dataloader_num_workers,
+                    generator=dataloader_generator
+                )
+                
+                
+                # validation_dataloader = accelerator.prepare(validation_dataloader)
+                
+                total_loss = 0.0
+                num_batches = len(validation_dataloader)
+
+                for step, batch in enumerate(validation_dataloader):
+                    # model_input is vae encoded image aka latent
+                    latents = batch["latents"].to(accelerator.device)
+                    # get latent like random noise
+                    # noise = torch.randn_like(latents)
+
+                    bsz = latents.shape[0]
+                    y = batch["prompt_embeds"]
+                    y_mask = batch["prompt_embed_masks"]
+                    data_info = batch["data_infos"]
+                    
+                    timesteps = torch.randint(
+                        0, train_sampling_steps, (bsz,), device=accelerator.device
+                    ).long()
+                    loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
+                    total_loss = loss_term['loss'].mean()
+                    
+                    del loss_term, latents, timesteps, y, y_mask, data_info
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    # break
+                
+                avg_loss = total_loss / num_batches
+                logs = {"val_loss": avg_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
+                # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
+                progress_bar.set_postfix(**logs)
+                accelerator.log(logs, step=global_step)
+                del validation_datarows, validation_dataset, validation_bucket_batch_sampler, validation_dataloader
+                gc.collect()
+                torch.cuda.empty_cache()
+            
+        # restore rng before validation
+        np.random.seed(np_seed)
+        torch.random.set_rng_state(before_state)
+        torch.backends.cudnn.deterministic = False
+        
+        # c = torch.randn(1) 
+        # print("rng test:",a,b,c)
         accelerator.wait_for_everyone()
 
-            # del latents, noise, timesteps, add_time_ids, prompt_embeds, pooled_prompt_embeds, unet_added_conditions
-        gc.collect()
-        torch.cuda.empty_cache()
     
-    if accelerator.is_main_process:
-        os.umask(0o000)
-        save_checkpoint(os.path.join(args.output_dir, 'checkpoints'),
-                        epoch=epoch,
-                        step=global_step,
-                        model=accelerator.unwrap_model(model),
-                        optimizer=optimizer,
-                        lr_scheduler=lr_scheduler
-                        )
-    accelerator.wait_for_everyone()
+    # if accelerator.is_main_process:
+    #     os.umask(0o000)
+    #     # log_validation(model, global_step, device=accelerator.device, vae=vae)
+    #     save_checkpoint(os.path.join(args.output_dir, 'checkpoints'),
+    #                     epoch=epoch,
+    #                     step=global_step,
+    #                     model=accelerator.unwrap_model(model).to(dtype=weight_dtype),
+    #                     optimizer=optimizer,
+    #                     lr_scheduler=lr_scheduler
+    #                     )
+        
+        
+    #     total_loss = 0.0
+    #     # num_batches = len(validation_dataloader)
+
+    #     for step, batch in enumerate(validation_dataloader):
+    #         # model_input is vae encoded image aka latent
+    #         latents = batch["latents"].to(accelerator.device)
+    #         # get latent like random noise
+    #         # noise = torch.randn_like(latents)
+
+    #         bsz = latents.shape[0]
+    #         y = batch["prompt_embeds"]
+    #         y_mask = batch["prompt_embed_masks"]
+    #         data_info = batch["data_infos"]
+            
+    #         timesteps = torch.randint(
+    #             0, train_sampling_steps, (bsz,), device=accelerator.device
+    #         ).long()
+    #         loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
+    #         total_loss = loss_term['loss'].mean()
+            
+    #         del loss_term, latents, timesteps, y, y_mask, data_info
+    #         gc.collect()
+    #         torch.cuda.empty_cache()
+    #         break
+        
+    #     mean_loss = total_loss / 1
+    #     logs = {"val_loss": mean_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
+    #     # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
+    #     progress_bar.set_postfix(**logs)
+    #     accelerator.log(logs, step=global_step)
+    # accelerator.wait_for_everyone()
     # ==================================================
     # validation part after training
     # ==================================================

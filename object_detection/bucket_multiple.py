@@ -428,8 +428,8 @@ def average(lst):
     else:
         return 0
 def main():
-    input_dir = "F:/ImageSet/pixart_test"
-    output_dir = "F:/ImageSet/pixart_test_cropped"
+    input_dir = "F:/ImageSet/temp"
+    output_dir = "F:/ImageSet/temp_cropped"
 
     simple_score_list = []
     preserved_score_list = []
@@ -468,14 +468,6 @@ def main():
                     print('skip',filename)
                     # highest_count['simple_list'].append(filename)
                     continue
-                # for crop_method in crop_methods:
-                #     if os.path.exists(os.path.join(output_dir,crop_method,f"{filename}.webp")):
-                #         highest_count[crop_method]+=1
-                #         skip = True
-                #         break
-                # if skip:
-                #     continue
-
                 file_path = os.path.join(subdir_path,file)
 
                 try:
