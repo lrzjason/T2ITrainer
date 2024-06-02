@@ -1,6 +1,3 @@
-2024-06-01 16:37:10,441 - PixArt - INFO - Load checkpoint from F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth. Load ema: False.
-2024-06-01 16:37:10,637 - PixArt - INFO - Lion Optimizer: total 435 param groups, 435 are learnable, 0 are fix. Lr group: 435 params with lr 0.00010; Weight decay group: 435 params with weight decay 0.01.
-2024-06-01 16:37:10,771 - PixArt - INFO - Lr schedule: cosine, num_warmup_steps:0.
-2024-06-01 16:37:11,809 - PixArt - INFO - Resume checkpoint of epoch 210 from F:/models/Stable-diffusion/pixart/epoch_210_step_864.pth. Load ema: False, resume optimizer£º True, resume lr scheduler: True.
-2024-06-01 16:38:45,622 - PixArt - INFO - Saved checkpoint of epoch 0 to F:/models/dit/output\checkpoints\epoch_0_step_2.pth.
-2024-06-01 16:40:16,738 - PixArt - INFO - Saved checkpoint of epoch 1 to F:/models/dit/output\checkpoints\epoch_1_step_4.pth.
+2024-06-03 04:57:42,850 - PixArt - INFO - Load checkpoint from F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth. Load ema: False.
+2024-06-03 04:57:43,011 - PixArt - INFO - Lion Optimizer: total 435 param groups, 435 are learnable, 0 are fix. Lr group: 435 params with lr 0.00010; Weight decay group: 435 params with weight decay 0.01.
+2024-06-03 04:57:43,149 - PixArt - INFO - Lr schedule: cosine, num_warmup_steps:0.

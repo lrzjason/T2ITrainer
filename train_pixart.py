@@ -113,6 +113,10 @@ import schedulefree
 
 from prodigyopt import Prodigy
 
+# https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
+from random import getstate as python_get_rng_state
+from random import setstate as python_set_rng_state
+
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.27.0.dev0")
 
@@ -522,7 +526,6 @@ def main(args):
     args.max_grad_norm = 1.0
     args.validation_prompt = "cosplay photo, A female character in a unique outfit, holding two large, serrated weapons. The character has silver hair, wears a blue dress with black accents, and has a white flower accessory in her hair. The background is minimalistic, featuring a white floor and a few white flowers. The composition is dynamic, with the character positioned in a mid-action pose, and the perspective is from a frontal angle, emphasizing the character's stature and the weapons she wields. 1girl, kaine_(nier), solo, weapon, dual_wielding, underwear, bandages, high_heels, holding, flower, white_hair, gloves, sword, white_panties, breasts, panties, negligee, bandaged_leg, full_body, holding_weapon, hair_ornament, bandaged_arm, lingerie, thigh_strap, hair_flower, holding_sword, "
     
-    args.validation_epochs = 1
     args.validation_ratio = 0.1
     args.num_validation_images = 1
     args.caption_exts = '.txt,.wd14_cap'
@@ -542,7 +545,7 @@ def main(args):
     model_name = 'PixArtMS_XL_2'
     grad_checkpointing = True
     fp32_attention = True
-    snr_loss = False
+    snr_loss = True
     train_sampling_steps = 1000
 
     # num_epochs = 20
@@ -555,27 +558,34 @@ def main(args):
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism'
     # try to use clip filtered dataset
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism_above_average' 
-    args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    args.train_data_dir = "F:/ImageSet/pixart_test_one"
     # args.train_data_dir = "F:/ImageSet/openxl2_reg_test"
-    args.num_train_epochs = 2
-    save_model_epochs = 1
-    skip_epoch = 0
-    # args.num_train_epochs = 600
-    # save_model_epochs = 10
-    # skip_epoch = 300
+    # args.num_train_epochs = 2
+    # save_model_epochs = 1
+    # skip_epoch = 0
+    args.num_train_epochs = 300
+    save_model_epochs = 10
+    skip_epoch = 200
+    # args.num_train_epochs = 1
+    # save_model_epochs = 1
+    # skip_epoch = 0
     # reduce lr from 1e-5 to 2e-6
-    args.learning_rate = 1e-4
     # args.learning_rate = 1
-    args.train_batch_size = 15
     # args.train_batch_size = 1
+    # args.learning_rate = 1e-4
+    # args.train_batch_size = 15
+    args.learning_rate = 1e-4
+    args.train_batch_size = 10
+    args.validation_epochs = 20
     
     # optimizer_config = dict(type='CAMEWrapper', lr=1e-5, weight_decay=0.0, betas=(0.9, 0.999, 0.9999), eps=(1e-30, 1e-16))
     optimizer_config = dict(type='Lion', lr=args.learning_rate, weight_decay=0.01, betas=(0.9, 0.99))
 
     
-    resume_from_path = "F:/models/Stable-diffusion/pixart/epoch_210_step_864.pth"
-    # resume_from_path = None
-    # skip_step = 864
+    # resume_from_path = "F:/models/Stable-diffusion/pixart/epoch_99_step_100.pth"
+    resume_from_path = None
+    # skip_step = 100
     skip_step = 0
 
     vae_path = "F:/models/VAE/sdxl_vae.safetensors"
@@ -692,7 +702,24 @@ def main(args):
                   "kv_compress_config": kv_compress_config, "micro_condition": micro_condition}
 
     # build models
-    train_diffusion = IDDPM(str(train_sampling_steps), learn_sigma=learn_sigma, pred_sigma=pred_sigma, snr=snr_loss)
+    train_diffusion = IDDPM(str(train_sampling_steps), noise_schedule="linear", learn_sigma=learn_sigma, pred_sigma=pred_sigma, snr=snr_loss)
+    
+    # reference from kohya ss custom_train_functions.py
+    # def prepare_scheduler_for_custom_training(noise_scheduler, device):
+    #     if hasattr(noise_scheduler, "all_snr"):
+    #         return
+
+    #     alphas_cumprod = torch.from_numpy(noise_scheduler.alphas_cumprod)
+    #     sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    #     sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+    #     alpha = sqrt_alphas_cumprod
+    #     sigma = sqrt_one_minus_alphas_cumprod
+    #     all_snr = (alpha / sigma) ** 2
+
+    #     noise_scheduler.all_snr = all_snr.to(device)
+    
+    # prepare_scheduler_for_custom_training(train_diffusion,accelerator.device)
+    
     model = build_model(model_name,
                         grad_checkpointing,
                         fp32_attention,
@@ -801,6 +828,10 @@ def main(args):
                 # buckets = image_utils.get_buckets()
                 train_ratio = 1 - args.validation_ratio
                 validation_ratio = args.validation_ratio
+                if len(datarows) == 1:
+                    datarows = datarows + datarows.copy()
+                    validation_ratio = 0.5
+                    train_ratio = 0.5
                 training_datarows, validation_datarows = train_test_split(datarows, train_size=train_ratio, test_size=validation_ratio)
                 datarows = training_datarows
             
@@ -824,6 +855,16 @@ def main(args):
             with open(metadata_path, "r", encoding='utf-8') as readfile:
                 datarows = json.loads(readfile.read())
 
+
+    # lazy implement of repeats
+    datarows_clone = datarows.copy()
+    # use epoch rather than repeats for more validation
+    repeats = 10
+    # repeats is 10, i in range(repeats) would execute 11 times
+    for i in range(repeats-1):
+        datarows = datarows + datarows_clone.copy()
+
+    del datarows_clone
     torch.set_rng_state(rng_state)
     # ================================================================
     # End create embedding 
@@ -1004,11 +1045,34 @@ def main(args):
                     timesteps = torch.randint(
                         0, train_sampling_steps, (bsz,), device=accelerator.device
                     ).long()
+                    
                     loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
                     loss = loss_term['loss'].mean()
-
-
+                    
+                    
+                        
+                    #####################################################################
+                    # debiased estimation implementation
+                    # from kohya ss
+                    #####################################################################
                     avg_loss = accelerator.gather(loss.repeat(args.train_batch_size)).mean()
+                    
+                    # def apply_debiased_estimation(loss, timesteps, noise_scheduler):
+                    #     snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
+                    #     snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
+                    #     weight = 1/torch.sqrt(snr_t)
+                    #     loss = weight * loss
+                    #     return loss
+                    
+                    # loss = apply_debiased_estimation(loss, timesteps, train_diffusion)
+                    
+                    #####################################################################
+                    # End debiased estimation implementation section
+                    #####################################################################
+
+                    # t = timesteps
+
+
                     train_loss += avg_loss.item()
                     
                     # logs = {"step_loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
@@ -1068,6 +1132,7 @@ def main(args):
         # store rng before validation
         before_state = torch.random.get_rng_state()
         np_seed = np.random.seed()
+        py_state = python_get_rng_state()
         # a = torch.randn(1) 
         if epoch >= skip_epoch and epoch % save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
             accelerator.wait_for_everyone()
@@ -1081,6 +1146,7 @@ def main(args):
                                 lr_scheduler=lr_scheduler
                                 )
                 
+        if epoch % args.validation_epochs == 0 or epoch == args.num_train_epochs - 1:
                 # freeze rng
                 np.random.seed(0)
                 torch.manual_seed(0)
@@ -1154,7 +1220,13 @@ def main(args):
         np.random.seed(np_seed)
         torch.random.set_rng_state(before_state)
         torch.backends.cudnn.deterministic = False
+        version, state, gauss = py_state
+        python_set_rng_state((version, tuple(state), gauss))
         
+        # clear memory
+        del before_state,np_seed,py_state,version,state,gauss
+        gc.collect()
+        torch.cuda.empty_cache()
         # c = torch.randn(1) 
         # print("rng test:",a,b,c)
         accelerator.wait_for_everyone()

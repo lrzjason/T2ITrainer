@@ -832,7 +832,21 @@ class GaussianDiffusion:
                 # best
                 target = th.where(t > 249, noise, x_start)
                 output = th.where(t > 249, pred_noise, pred_startx)
-            loss = (target - output) ** 2
+                
+                # debias implementation
+                alpha = self.sqrt_alphas_cumprod
+                sigma = self.sqrt_one_minus_alphas_cumprod
+                all_snr = th.from_numpy((alpha / sigma) ** 2).to(x_start.device)
+                # timesteps = timestep
+                snr_t = th.stack([all_snr[s_t] for s_t in t])  # batch_size
+                snr_t = th.minimum(snr_t, th.ones_like(snr_t) * 1000)
+                weight = 1/th.sqrt(snr_t)
+                loss = weight * (target - output) ** 2
+            else:
+                loss = (target - output) ** 2
+            
+
+            
             if model_kwargs.get('mask_ratio', False) and model_kwargs['mask_ratio'] > 0:
                 assert 'mask' in model_output
                 loss = F.avg_pool2d(loss.mean(dim=1), model.model.module.patch_size).flatten(1)
