@@ -603,7 +603,7 @@ def main(args):
     args.timestep_bias_multiplier = 1.0
     args.timestep_bias_strategy = "none"
     args.max_grad_norm = 1.0
-    args.validation_prompt = "cosplay photo, A female character in a unique outfit, holding two large, serrated weapons. The character has silver hair, wears a blue dress with black accents, and has a white flower accessory in her hair. The background is minimalistic, featuring a white floor and a few white flowers. The composition is dynamic, with the character positioned in a mid-action pose, and the perspective is from a frontal angle, emphasizing the character's stature and the weapons she wields. 1girl, kaine_(nier), solo, weapon, dual_wielding, underwear, bandages, high_heels, holding, flower, white_hair, gloves, sword, white_panties, breasts, panties, negligee, bandaged_leg, full_body, holding_weapon, hair_ornament, bandaged_arm, lingerie, thigh_strap, hair_flower, holding_sword, "
+    args.validation_prompt = ""
     
     # args.validation_epochs = 1
     
