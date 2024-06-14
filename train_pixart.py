@@ -97,6 +97,7 @@ import utils.pixart_image_utils
 from utils.pixart_image_utils import BucketBatchSampler, CachedImageDataset
 
 from utils.iddpm import IDDPM
+from utils.dpm_solver import DPMS
 
 from utils.pixart_checkpoint import save_checkpoint, load_checkpoint
 
@@ -478,8 +479,6 @@ def main(args):
         # create dir
         os.makedirs(args.output_dir,exist_ok=True)
     args.logging_dir = 'logs'
-    args.model_path = 'F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth'
-    # args.model_path = 'F:/models/Stable-diffusion/pixart/epoch_70_step_290.pth'
     args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
@@ -554,19 +553,26 @@ def main(args):
     gradient_clip = 0.01
     
     
+    args.model_path = 'F:/models/Stable-diffusion/pixart/PixArt-Sigma-XL-2-1024-MS.pth'
+    # args.model_path = 'F:/models/Stable-diffusion/pixart/epoch_280_step_281.pth'
     
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism'
     # try to use clip filtered dataset
     # args.train_data_dir = 'F:/ImageSet/openxl2_realism_above_average' 
-    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
-    args.train_data_dir = "F:/ImageSet/pixart_test_one"
+    args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # args.train_data_dir = "F:/ImageSet/pixart_test_one"
     # args.train_data_dir = "F:/ImageSet/openxl2_reg_test"
     # args.num_train_epochs = 2
     # save_model_epochs = 1
     # skip_epoch = 0
-    args.num_train_epochs = 300
-    save_model_epochs = 10
-    skip_epoch = 200
+    args.num_train_epochs = 30
+    save_model_epochs = 5
+    args.validation_epochs = 1
+    skip_epoch = 0
+    break_epoch = 0
+    
+    # snr_ratio = 0.5
+    # snr_epoch = math.ceil(args.num_train_epochs * snr_ratio)
     # args.num_train_epochs = 1
     # save_model_epochs = 1
     # skip_epoch = 0
@@ -575,9 +581,8 @@ def main(args):
     # args.train_batch_size = 1
     # args.learning_rate = 1e-4
     # args.train_batch_size = 15
-    args.learning_rate = 1e-4
+    args.learning_rate = 1e-5
     args.train_batch_size = 10
-    args.validation_epochs = 20
     
     # optimizer_config = dict(type='CAMEWrapper', lr=1e-5, weight_decay=0.0, betas=(0.9, 0.999, 0.9999), eps=(1e-30, 1e-16))
     optimizer_config = dict(type='Lion', lr=args.learning_rate, weight_decay=0.01, betas=(0.9, 0.99))
@@ -585,10 +590,11 @@ def main(args):
     
     # resume_from_path = "F:/models/Stable-diffusion/pixart/epoch_99_step_100.pth"
     resume_from_path = None
+    # resume_from_path = "F:/models/Stable-diffusion/pixart/1_image_baked_v2_epoch_260_step_261.pth"
     # skip_step = 100
     skip_step = 0
 
-    vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    vae_path = "F:/models/VAE/sdxl_vae_fp16fix.safetensors"
 
     
 
@@ -878,12 +884,14 @@ def main(args):
         data_infos = default_collate([datarow["data_info"] for datarow in datarows])
         # img_hws = torch.stack([datarow["img_hw"] for datarow in datarows])
         # aspect_ratios = torch.stack([datarow["aspect_ratio"] for datarow in datarows])
-
+        # meta_indexes = default_collate([datarow["meta_index"] for datarow in datarows])
         return {
             "latents": latents,
             "prompt_embeds": prompt_embeds,
             "prompt_embed_masks": prompt_embed_masks,
             "data_infos": data_infos
+            # ,
+            # "meta_indexes": meta_indexes
             # "img_hws": img_hws,
             # "aspect_ratios": aspect_ratios
         }
@@ -1045,7 +1053,11 @@ def main(args):
                     timesteps = torch.randint(
                         0, train_sampling_steps, (bsz,), device=accelerator.device
                     ).long()
-                    
+                    # run snr epoch first than back to normal loss
+                    # if snr_epoch > 0 and epoch >= snr_epoch:
+                    #     train_diffusion.snr = False
+                    # else:
+                    #     train_diffusion.snr = True
                     loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
                     loss = loss_term['loss'].mean()
                     
@@ -1184,28 +1196,32 @@ def main(args):
                 
                 total_loss = 0.0
                 num_batches = len(validation_dataloader)
+                with torch.cuda.amp.autocast():
+                    for step, batch in enumerate(validation_dataloader):
+                        # model_input is vae encoded image aka latent
+                        latents = batch["latents"].to(accelerator.device)
+                        # get latent like random noise
+                        # noise = torch.randn_like(latents)
 
-                for step, batch in enumerate(validation_dataloader):
-                    # model_input is vae encoded image aka latent
-                    latents = batch["latents"].to(accelerator.device)
-                    # get latent like random noise
-                    # noise = torch.randn_like(latents)
-
-                    bsz = latents.shape[0]
-                    y = batch["prompt_embeds"]
-                    y_mask = batch["prompt_embed_masks"]
-                    data_info = batch["data_infos"]
-                    
-                    timesteps = torch.randint(
-                        0, train_sampling_steps, (bsz,), device=accelerator.device
-                    ).long()
-                    loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
-                    total_loss = loss_term['loss'].mean()
-                    
-                    del loss_term, latents, timesteps, y, y_mask, data_info
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    # break
+                        bsz = latents.shape[0]
+                        y = batch["prompt_embeds"]
+                        y_mask = batch["prompt_embed_masks"]
+                        data_info = batch["data_infos"]
+                        
+                        timesteps = torch.randint(
+                            0, train_sampling_steps, (bsz,), device=accelerator.device
+                        ).long()
+                        
+                        
+                        model_kwargs = dict(data_info=data_info, mask=y_mask)
+                        loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, data_info=data_info, mask=y_mask))
+                        total_loss = loss_term['loss'].mean()
+                        
+                        del loss_term, latents, timesteps, y, y_mask, data_info
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        
+                        
                 
                 avg_loss = total_loss / num_batches
                 logs = {"val_loss": avg_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
@@ -1230,51 +1246,11 @@ def main(args):
         # c = torch.randn(1) 
         # print("rng test:",a,b,c)
         accelerator.wait_for_everyone()
-
+        
+        # stop training in earlier epoch
+        if break_epoch !=0 and epoch >= break_epoch:
+            break
     
-    # if accelerator.is_main_process:
-    #     os.umask(0o000)
-    #     # log_validation(model, global_step, device=accelerator.device, vae=vae)
-    #     save_checkpoint(os.path.join(args.output_dir, 'checkpoints'),
-    #                     epoch=epoch,
-    #                     step=global_step,
-    #                     model=accelerator.unwrap_model(model).to(dtype=weight_dtype),
-    #                     optimizer=optimizer,
-    #                     lr_scheduler=lr_scheduler
-    #                     )
-        
-        
-    #     total_loss = 0.0
-    #     # num_batches = len(validation_dataloader)
-
-    #     for step, batch in enumerate(validation_dataloader):
-    #         # model_input is vae encoded image aka latent
-    #         latents = batch["latents"].to(accelerator.device)
-    #         # get latent like random noise
-    #         # noise = torch.randn_like(latents)
-
-    #         bsz = latents.shape[0]
-    #         y = batch["prompt_embeds"]
-    #         y_mask = batch["prompt_embed_masks"]
-    #         data_info = batch["data_infos"]
-            
-    #         timesteps = torch.randint(
-    #             0, train_sampling_steps, (bsz,), device=accelerator.device
-    #         ).long()
-    #         loss_term = train_diffusion.training_losses(model, latents, timesteps, model_kwargs=dict(y=y, mask=y_mask, data_info=data_info))
-    #         total_loss = loss_term['loss'].mean()
-            
-    #         del loss_term, latents, timesteps, y, y_mask, data_info
-    #         gc.collect()
-    #         torch.cuda.empty_cache()
-    #         break
-        
-    #     mean_loss = total_loss / 1
-    #     logs = {"val_loss": mean_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
-    #     # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
-    #     progress_bar.set_postfix(**logs)
-    #     accelerator.log(logs, step=global_step)
-    # accelerator.wait_for_everyone()
     # ==================================================
     # validation part after training
     # ==================================================

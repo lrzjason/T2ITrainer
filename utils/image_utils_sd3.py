@@ -6,32 +6,20 @@ import os
 from torchvision import transforms
 from PIL import Image, ImageOps
 from tqdm import tqdm 
-import gc
-
-MAX_LENGTH = 300
 
 BASE_RESOLUTION = 1024
 
-# RESOLUTION_SET = [
-#     (1024, 1024),
-#     (1152, 896),
-#     (1216, 832),
-#     (1344, 768),
-#     (1536, 640),
-# ]
-
-# height / width for pixart
 RESOLUTION_SET = [
     (1024, 1024),
-    (896, 1152),
-    (832, 1216),
-    (768, 1344),
-    (640, 1536),
+    (1152, 896),
+    (1216, 832),
+    (1344, 768),
+    (1536, 640),
 ]
 
 def get_buckets():
     horizontal_resolution_set = RESOLUTION_SET
-    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
+    vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
     all_resolution_set = horizontal_resolution_set + vertical_resolution_set[1:]
     buckets = {}
     for resolution in all_resolution_set:
@@ -40,21 +28,16 @@ def get_buckets():
 
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image):
-    _, height, width = image.shape
+    height, width, _ = image.shape
     
     # get ratio
-    # image_ratio = width / height
-    image_ratio = height / width
+    image_ratio = width / height
 
     horizontal_resolution_set = RESOLUTION_SET
-    # horizontal_ratio = [round(width/height, 2) for width,height in RESOLUTION_SET]
-    horizontal_ratio = [round(height/width, 2) for height,width in RESOLUTION_SET]
+    horizontal_ratio = [round(width/height, 2) for width,height in RESOLUTION_SET]
 
-    # vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
-    # reverse the list as vertical_resolution_set
-    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
+    vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
     vertical_ratio = [round(height/width, 2) for height,width in vertical_resolution_set]
-
 
     target_ratio = horizontal_ratio
     target_set = horizontal_resolution_set
@@ -145,8 +128,7 @@ class CachedImageDataset(Dataset):
         self.conditional_dropout_percent = conditional_dropout_percent
         embedding = get_empty_embedding()
         self.empty_prompt_embed = embedding['prompt_embed']  # Tuple of (empty_prompt_embed, empty_pooled_prompt_embed)
-        self.empty_prompt_embed_mask = embedding['prompt_embed_mask']
-        self.empty_data_info = embedding['data_info']
+        self.empty_pooled_prompt_embed = embedding['pooled_prompt_embed']
 
     #returns dataset length
     def __len__(self):
@@ -165,30 +147,26 @@ class CachedImageDataset(Dataset):
         cached_latent = torch.load(metadata['npz_path'])
         latent = cached_latent['latent']
         prompt_embed = cached_latent['prompt_embed']
-        prompt_embed_mask = cached_latent['prompt_embed_mask']
-        data_info = cached_latent['data_info']
-        # meta_index = actual_index
+        pooled_prompt_embed = cached_latent['pooled_prompt_embed']
+        # time_id = cached_latent['time_id']
 
         #conditional_dropout
-        if random.random() < self.conditional_dropout_percent:
-            prompt_embed = self.empty_prompt_embed
-            prompt_embed_mask = self.empty_prompt_embed_mask
-            data_info = self.empty_data_info
+        # if random.random() < self.conditional_dropout_percent:
+        #     prompt_embed = self.empty_prompt_embed
+        #     pooled_prompt_embed = self.empty_pooled_prompt_embed
 
         return {
             "latent": latent,
             "prompt_embed": prompt_embed,
-            "prompt_embed_mask": prompt_embed_mask,
-            "data_info": data_info
-            # ,
-            # "meta_index": meta_index
+            "pooled_prompt_embed": pooled_prompt_embed,
+            # "time_id": time_id,
         }
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(tokenizer,text_encoder,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
-    create_empty_embedding(tokenizer,text_encoder)
-    supported_image_types = ['.jpg','.png','.webp']
+def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
+    create_empty_embedding(tokenizers,text_encoders)
+    supported_image_types = ['.jpg','.jpeg','.png','.webp']
     metadata_path = os.path.join(input_dir, 'metadata.json')
     if recreate:
         # remove metadata.json
@@ -211,7 +189,7 @@ def create_metadata_cache(tokenizer,text_encoder,vae,input_dir,caption_exts='.tx
                 for file in os.listdir(folder_path):
                     for image_type in supported_image_types:
                         if file.endswith(image_type):
-                            json_obj = iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                            json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                             datarows.append(json_obj)
             # handle single files
             else:
@@ -219,7 +197,7 @@ def create_metadata_cache(tokenizer,text_encoder,vae,input_dir,caption_exts='.tx
                 file = item
                 for image_type in supported_image_types:
                     if file.endswith(image_type):
-                        json_obj = iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                        json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                         datarows.append(json_obj)
         
         # Serializing json
@@ -231,7 +209,7 @@ def create_metadata_cache(tokenizer,text_encoder,vae,input_dir,caption_exts='.tx
     
     return datarows
 
-def iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
+def iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -248,12 +226,12 @@ def iterate_image(tokenizer,text_encoder,vae,folder_path,file,caption_exts='.txt
             json_obj['prompt'] = open(text_path, encoding='utf-8').read()
             # datarows.append(caption)
 
-    json_obj = cache_file(tokenizer,text_encoder,vae,json_obj,recreate=recreate_cache)
+    json_obj = cache_file(tokenizers,text_encoders,vae,json_obj,recreate=recreate_cache)
     return json_obj
 
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
-def cache_file(tokenizer,text_encoder,vae,json_obj,cache_ext=".npz",recreate=False):
+def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate=False):
 
     image_path = json_obj["image_path"]
     prompt = json_obj["prompt"]
@@ -297,72 +275,207 @@ def cache_file(tokenizer,text_encoder,vae,json_obj,cache_ext=".npz",recreate=Fal
     image = train_transforms(image)
     
     # create tensor latent
-    pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
-    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    # pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
+    pixel_values = []
+    pixel_values.append(image)
+    pixel_values = torch.stack(pixel_values).to(vae.device)
     del image
 
     
     with torch.no_grad():
         #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
-        latent = vae.encode(pixel_values).latent_dist.sample().squeeze() #squeeze to remove bsz dimension
-        del pixel_values
+        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+        # .squeeze(0) #squeeze to remove bsz dimension
         latent = latent * vae.config.scaling_factor
+        del pixel_values
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    prompt_tokens = tokenizer(
-        prompt, max_length=MAX_LENGTH, padding="max_length", truncation=True, return_tensors="pt",
-        padding_side="right"
-    ).to(text_encoder.device)
-    prompt_embed = text_encoder(prompt_tokens.input_ids, attention_mask=prompt_tokens.attention_mask)[0]
+    # time_id = torch.tensor([
+    #     # original size
+    #     image_height,image_width,
+    #     # crop x,crop y
+    #     0,0,
+    #     # target size
+    #     image_height,image_width
+    # ]).to(vae.device, dtype=vae.dtype)
+    
 
-    data_info = {}
-    data_info['img_hw'] = torch.tensor([image_height, image_width], dtype=torch.float32)
-    data_info['aspect_ratio'] = closest_ratio
+    # prompt_embeds, pooled_prompt_embeds = compel(prompt)
+    # print('prompt_embeds.shape',prompt_embeds.shape)
+    # print('pooled_prompt_embeds.shape',pooled_prompt_embeds.shape)
+    
+    
+    # prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders,tokenizers,prompt)
+    # prompt_embeds = prompt_embeds.squeeze(0)
+    # pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
+    
+    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,prompt,device=vae.device)
+    prompt_embed = prompt_embeds.squeeze(0)
+    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
+    
     latent_dict = {
         "latent": latent.cpu(),
         "prompt_embed": prompt_embed.cpu(), 
-        "prompt_embed_mask": prompt_tokens.attention_mask.cpu(),
-        "data_info": data_info
-        # "img_hw": torch.tensor([image_height, image_width], dtype=torch.float32),
-        # "aspect_ratio":closest_ratio
+        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+        # "time_id": time_id.cpu()
     }
 
     
     # save latent to cache file
     torch.save(latent_dict, npz_path)
-    del prompt_tokens,prompt_embed
-    gc.collect()
-    torch.cuda.empty_cache()
-
+    del latent_dict
     return json_obj
 
-def get_empty_embedding(cache_path="cache/pixart_empty_embedding.npz"):
+
+def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
+    with torch.no_grad():
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders, tokenizers, prompt, device=device)
+        prompt_embeds = prompt_embeds.to(device)
+        pooled_prompt_embeds = pooled_prompt_embeds.to(device)
+    return prompt_embeds, pooled_prompt_embeds
+
+
+def get_empty_embedding(cache_path="cache/empty_embedding_sd3.npsd3"):
     if os.path.exists(cache_path):
         return torch.load(cache_path)
-def create_empty_embedding(tokenizer,text_encoder,cache_path="cache/pixart_empty_embedding.npz",recreate=False):
-    # data_info = {}
-    # data_info['img_hw'] = torch.tensor([BASE_RESOLUTION, BASE_RESOLUTION], dtype=torch.float32)
-    # data_info['aspect_ratio'] = 1.0
+def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_sd3.npsd3",recreate=False):
     if recreate:
         os.remove(cache_path)
 
     if os.path.exists(cache_path):
         return torch.load(cache_path)
 
-    null_tokens = tokenizer(
-        "", max_length=MAX_LENGTH, padding="max_length", truncation=True, return_tensors="pt",
-        padding_side="right"
-    ).to(text_encoder.device)
-    null_token_emb = text_encoder(null_tokens.input_ids, attention_mask=null_tokens.attention_mask)[0]
-    null_emb_dict = {
-        'prompt_embed': null_token_emb, 
-        'prompt_embed_mask': null_tokens.attention_mask,
-        'data_info':{
-            'img_hw': torch.tensor([BASE_RESOLUTION, BASE_RESOLUTION], dtype=torch.float32),
-            'aspect_ratio':1.0
-        }
+    prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders,tokenizers,"")
+    prompt_embeds = prompt_embeds.squeeze(0)
+    pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
+    latent = {
+        "prompt_embed": prompt_embeds.cpu(), 
+        "pooled_prompt_embed": pooled_prompt_embeds.cpu()
     }
     # save latent to cache file
-    torch.save(null_emb_dict, cache_path)
+    torch.save(latent, cache_path)
 
-    return null_emb_dict
+    return latent
+
+
+def tokenize_prompt(tokenizer, prompt):
+    text_inputs = tokenizer(
+        prompt,
+        padding="max_length",
+        max_length=77,
+        truncation=True,
+        return_tensors="pt",
+    )
+    text_input_ids = text_inputs.input_ids
+    return text_input_ids
+
+
+def encode_prompt_with_t5(
+    text_encoder,
+    tokenizer,
+    prompt=None,
+    num_images_per_prompt=1,
+    device=None,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+    batch_size = len(prompt)
+
+    text_inputs = tokenizer(
+        prompt,
+        padding="max_length",
+        max_length=77,
+        truncation=True,
+        add_special_tokens=True,
+        return_tensors="pt",
+    )
+    text_input_ids = text_inputs.input_ids
+    prompt_embeds = text_encoder(text_input_ids.to(device))[0]
+
+    dtype = text_encoder.dtype
+    prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
+
+    _, seq_len, _ = prompt_embeds.shape
+
+    # duplicate text embeddings and attention mask for each generation per prompt, using mps friendly method
+    prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+    prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
+
+    return prompt_embeds
+
+
+def encode_prompt_with_clip(
+    text_encoder,
+    tokenizer,
+    prompt: str,
+    device=None,
+    num_images_per_prompt: int = 1,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+    batch_size = len(prompt)
+
+    text_inputs = tokenizer(
+        prompt,
+        padding="max_length",
+        max_length=77,
+        truncation=True,
+        return_tensors="pt",
+    )
+
+    text_input_ids = text_inputs.input_ids
+    prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
+
+    pooled_prompt_embeds = prompt_embeds[0]
+    prompt_embeds = prompt_embeds.hidden_states[-2]
+    prompt_embeds = prompt_embeds.to(dtype=text_encoder.dtype, device=device)
+
+    _, seq_len, _ = prompt_embeds.shape
+    # duplicate text embeddings for each generation per prompt, using mps friendly method
+    prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+    prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
+
+    return prompt_embeds, pooled_prompt_embeds
+
+
+def encode_prompt(
+    text_encoders,
+    tokenizers,
+    prompt: str,
+    device=None,
+    num_images_per_prompt: int = 1,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+
+    clip_tokenizers = tokenizers[:2]
+    clip_text_encoders = text_encoders[:2]
+
+    clip_prompt_embeds_list = []
+    clip_pooled_prompt_embeds_list = []
+    for tokenizer, text_encoder in zip(clip_tokenizers, clip_text_encoders):
+        prompt_embeds, pooled_prompt_embeds = encode_prompt_with_clip(
+            text_encoder=text_encoder,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            device=device if device is not None else text_encoder.device,
+            num_images_per_prompt=num_images_per_prompt,
+        )
+        clip_prompt_embeds_list.append(prompt_embeds)
+        clip_pooled_prompt_embeds_list.append(pooled_prompt_embeds)
+
+    clip_prompt_embeds = torch.cat(clip_prompt_embeds_list, dim=-1)
+    pooled_prompt_embeds = torch.cat(clip_pooled_prompt_embeds_list, dim=-1)
+
+    t5_prompt_embed = encode_prompt_with_t5(
+        text_encoders[-1],
+        tokenizers[-1],
+        prompt=prompt,
+        num_images_per_prompt=num_images_per_prompt,
+        device=device if device is not None else text_encoders[-1].device,
+    )
+
+    clip_prompt_embeds = torch.nn.functional.pad(
+        clip_prompt_embeds, (0, t5_prompt_embed.shape[-1] - clip_prompt_embeds.shape[-1])
+    )
+    prompt_embeds = torch.cat([clip_prompt_embeds, t5_prompt_embed], dim=-2)
+
+    return prompt_embeds, pooled_prompt_embeds
+
