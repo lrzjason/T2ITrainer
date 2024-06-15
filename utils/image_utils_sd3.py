@@ -161,6 +161,9 @@ class CachedImageDataset(Dataset):
             "pooled_prompt_embed": pooled_prompt_embed,
             # "time_id": time_id,
         }
+        # return {
+        #     "npz_path":metadata['npz_path']
+        # }
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
@@ -376,7 +379,12 @@ def encode_prompt_with_t5(
     prompt=None,
     num_images_per_prompt=1,
     device=None,
+    cpu_offload=False,
 ):
+    # cpu offload the t5
+    if cpu_offload:
+        device = "cpu"
+    text_encoder.to(device)
     prompt = [prompt] if isinstance(prompt, str) else prompt
     batch_size = len(prompt)
 
@@ -400,7 +408,7 @@ def encode_prompt_with_t5(
     prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
     prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
 
-    return prompt_embeds
+    return prompt_embeds.to("cuda")
 
 
 def encode_prompt_with_clip(

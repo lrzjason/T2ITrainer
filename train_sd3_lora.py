@@ -87,7 +87,10 @@ check_min_version("0.28.0.dev0")
 
 logger = get_logger(__name__)
 
-
+def memory_stats():
+    print("\nmemory_stats:\n")
+    print(torch.cuda.memory_allocated()/1024**2)
+    print(torch.cuda.memory_cached()/1024**2)
 
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
@@ -530,15 +533,15 @@ def load_text_encoders(class_one, class_two, class_three):
 
 def main(args):
     args.seed = 4321
-    args.output_dir = 'F:/models/sd3/output'
+    args.output_dir = 'F:/models/sd3'
     args.logging_dir = 'logs'
     args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_008.safetensors'
-    args.mixed_precision = "bf16"
+    args.mixed_precision = "fp16"
     # args.report_to = "tensorboard"
     
     args.report_to = "wandb"
     args.enable_xformers_memory_efficient_attention = True
-    args.gradient_checkpointing = False
+    args.gradient_checkpointing = True
     args.allow_tf32 = True
 
 
@@ -557,12 +560,11 @@ def main(args):
     args.learning_rate = 1
     args.train_batch_size = 1
     # reduce gas from 500 to 100
-    args.gradient_accumulation_steps = 1
     # increase save steps from 50 to 250
-    args.checkpointing_steps = 90
+    # args.checkpointing_steps = 90
     args.resume_from_checkpoint = ""
     # args.resume_from_checkpoint = "F:/models/unet/output/actual_run-50"
-    args.save_name = "sd3_test"
+    args.save_name = "sd3_openxl"
     # args.lr_scheduler = "constant"
     args.lr_scheduler = "cosine"
 
@@ -607,14 +609,15 @@ def main(args):
     
     # args.validation_epochs = 1
     
-    args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
     # args.train_data_dir = "F:/ImageSet/pixart_test_one"
-    # args.train_data_dir = "F:/ImageSet/openxl2_reg_test"
+    args.train_data_dir = "F:/ImageSet/openxl2_reg"
     # args.train_data_dir = "F:/ImageSet/dog"
-    args.num_train_epochs = 300
-    save_model_epochs = 10
-    args.validation_epochs = 10
-    args.rank = 8
+    args.gradient_accumulation_steps = 10
+    args.num_train_epochs = 25
+    save_model_epochs = 1
+    args.validation_epochs = 1
+    args.rank = 16
     skip_epoch = 0
     break_epoch = 0
     skip_step = 0
@@ -641,6 +644,11 @@ def main(args):
     args.prodigy_use_bias_correction = True
     args.prodigy_safeguard_warmup = True
     
+    
+    # create metadata.jsonl if not exist
+    metadata_path = os.path.join(args.train_data_dir, 'metadata_sd3.json')
+    val_metadata_path =  os.path.join(args.train_data_dir, 'val_metadata_sd3.json')
+    
     # accelerator = {
     #     "device": "cuda" if torch.cuda.is_available() else "cpu",
     #     "mixed_precision": "bf16"
@@ -665,57 +673,22 @@ def main(args):
         weight_dtype = torch.bfloat16
     
 
-    # Load the tokenizers
-    tokenizer_one = CLIPTokenizer.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="tokenizer",
-        revision=args.revision,
-    )
-    tokenizer_two = CLIPTokenizer.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="tokenizer_2",
-        revision=args.revision,
-    )
-    tokenizer_three = T5TokenizerFast.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="tokenizer_3",
-        revision=args.revision,
-    )
-
-    # import correct text encoder classes
-    text_encoder_cls_one = import_model_class_from_model_name_or_path(
-        args.pretrained_model_name_or_path, args.revision
-    )
-    text_encoder_cls_two = import_model_class_from_model_name_or_path(
-        args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_2"
-    )
-    text_encoder_cls_three = import_model_class_from_model_name_or_path(
-        args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_3"
-    )
-
     # Load scheduler and models
     noise_scheduler = FlowMatchEulerDiscreteScheduler.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="scheduler"
     )
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
-    text_encoder_one, text_encoder_two, text_encoder_three = load_text_encoders(
-        text_encoder_cls_one, text_encoder_cls_two, text_encoder_cls_three
-    )
-    vae = AutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="vae",
-        revision=args.revision,
-        variant=args.variant,
-    )
+    
+    offload_device = accelerator.device
+    # check cache file created or not
+    if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
+        offload_device = "cpu"
+    
     transformer = SD3Transformer2DModel.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="transformer", revision=args.revision, variant=args.variant
-    ).to(accelerator.device, dtype=weight_dtype)
+    ).to(offload_device, dtype=weight_dtype)
 
     transformer.requires_grad_(False)
-    vae.requires_grad_(False)
-    text_encoder_one.requires_grad_(False)
-    text_encoder_two.requires_grad_(False)
-    text_encoder_three.requires_grad_(False)
 
     # if args.gradient_checkpointing:
     #     transformer.enable_gradient_checkpointing()
@@ -736,13 +709,6 @@ def main(args):
     #     raise ValueError(
     #         "Mixed precision training with bfloat16 is not supported on MPS. Please use fp16 (recommended) or fp32 instead."
     #     )
-
-    vae.to(accelerator.device, dtype=torch.float32)
-    # not train_text_encoder
-    # if not args.train_text_encoder:
-    text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-    text_encoder_two.to(accelerator.device, dtype=weight_dtype)
-    text_encoder_three.to(accelerator.device, dtype=weight_dtype)
 
     # if args.gradient_checkpointing:
     #     transformer.enable_gradient_checkpointing()
@@ -906,8 +872,6 @@ def main(args):
         )
     
 
-    tokenizers = [tokenizer_one, tokenizer_two, tokenizer_three]
-    text_encoders = [text_encoder_one, text_encoder_two, text_encoder_three]
 
 
     # ==========================================================
@@ -919,10 +883,64 @@ def main(args):
     if args.train_data_dir is not None:
         # data_files["train"] = os.path.join(args.train_data_dir, "**")
         
+        # Load the tokenizers
+        tokenizer_one = CLIPTokenizer.from_pretrained(
+            args.pretrained_model_name_or_path,
+            subfolder="tokenizer",
+            revision=args.revision,
+        )
+        tokenizer_two = CLIPTokenizer.from_pretrained(
+            args.pretrained_model_name_or_path,
+            subfolder="tokenizer_2",
+            revision=args.revision,
+        )
+        tokenizer_three = T5TokenizerFast.from_pretrained(
+            args.pretrained_model_name_or_path,
+            subfolder="tokenizer_3",
+            revision=args.revision,
+        )
+
+        # import correct text encoder classes
+        text_encoder_cls_one = import_model_class_from_model_name_or_path(
+            args.pretrained_model_name_or_path, args.revision
+        )
+        text_encoder_cls_two = import_model_class_from_model_name_or_path(
+            args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_2"
+        )
+        text_encoder_cls_three = import_model_class_from_model_name_or_path(
+            args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_3"
+        )
+
+        text_encoder_one, text_encoder_two, text_encoder_three = load_text_encoders(
+            text_encoder_cls_one, text_encoder_cls_two, text_encoder_cls_three
+        )
+        vae = AutoencoderKL.from_pretrained(
+            args.pretrained_model_name_or_path,
+            subfolder="vae",
+            revision=args.revision,
+            variant=args.variant,
+        )
+        
+        vae.requires_grad_(False)
+        text_encoder_one.requires_grad_(False)
+        text_encoder_two.requires_grad_(False)
+        text_encoder_three.requires_grad_(False)
+        
+        vae.to(accelerator.device, dtype=torch.float32)
+        # not train_text_encoder
+        # if not args.train_text_encoder:
+        text_encoder_one.to(accelerator.device, dtype=weight_dtype)
+        text_encoder_two.to(accelerator.device, dtype=weight_dtype)
+        text_encoder_three.to(accelerator.device, dtype=weight_dtype)
+
+        
+        tokenizers = [tokenizer_one, tokenizer_two, tokenizer_three]
+        text_encoders = [text_encoder_one, text_encoder_two, text_encoder_three]
+        
+        
+
+        
         datarows = []
-        # create metadata.jsonl if not exist
-        metadata_path = os.path.join(args.train_data_dir, 'metadata_sd3.json')
-        val_metadata_path =  os.path.join(args.train_data_dir, 'val_metadata_sd3.json')
         if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
             # using compel for longer prompt embedding
             # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -962,7 +980,7 @@ def main(args):
                     outfile.write(val_json_object)
                 
             # clear memory
-            del vae,tokenizer_one, tokenizer_two, tokenizer_three, text_encoder_one, text_encoder_two, text_encoder_three
+            del validation_datarows, vae,tokenizer_one, tokenizer_two, tokenizer_three, text_encoder_one, text_encoder_two, text_encoder_three
             gc.collect()
             torch.cuda.empty_cache()
         else:
@@ -970,6 +988,8 @@ def main(args):
                 datarows = json.loads(readfile.read())
 
 
+    # resume from cpu after cache files
+    transformer.to(accelerator.device)
 
     # ================================================================
     # End create embedding 
@@ -988,6 +1008,12 @@ def main(args):
             "pooled_prompt_embeds": pooled_prompt_embeds,
             # "time_ids": time_ids,
         }
+    # def collate_npz_path_fn(examples):
+    #     npz_paths = [example["npz_path"] for example in examples]
+    #     return {
+    #         "npz_paths":npz_paths
+    #     }
+    
     
     # create dataset based on input_dir
     train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=0.1)
@@ -1113,6 +1139,22 @@ def main(args):
             # optimizer.zero_grad()
             # print("loop dataloader")
             with accelerator.accumulate(transformer):
+                # npz_paths = batch["npz_paths"]
+                # latents = []
+                # prompt_embeds = []
+                # pooled_prompt_embeds = []
+                # for i in range(len(npz_paths)):
+                #     npz_path = npz_paths[i]
+                #     cached_latent = torch.load(npz_path)
+                #     latents.append(cached_latent['latent'])
+                #     prompt_embeds.append(cached_latent['prompt_embed'])
+                #     pooled_prompt_embeds.append(cached_latent['pooled_prompt_embed'])
+                
+                # del npz_paths
+                # latents = torch.stack(latents).to(accelerator.device)
+                # prompt_embeds = torch.stack(prompt_embeds).to(accelerator.device)
+                # pooled_prompt_embeds = torch.stack(pooled_prompt_embeds).to(accelerator.device)
+                
                 latents = batch["latents"].to(accelerator.device)
                 prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                 pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
@@ -1207,7 +1249,7 @@ def main(args):
                 
                 if global_step >= args.max_train_steps:
                     break
-                
+                del step_loss
                 gc.collect()
                 torch.cuda.empty_cache()
             
@@ -1218,122 +1260,135 @@ def main(args):
         if global_step < skip_step:
             continue
         
+        
         # store rng before validation
-        # before_state = torch.random.get_rng_state()
-        # np_seed = np.random.seed()
-        # py_state = python_get_rng_state()
+        before_state = torch.random.get_rng_state()
+        np_seed = np.random.seed()
+        py_state = python_get_rng_state()
         
         if accelerator.is_main_process:
             if epoch >= skip_epoch and epoch % save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
                 accelerator.wait_for_everyone()
                 if accelerator.is_main_process:
-                    # transformer = unwrap_model(transformer)
                     save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
                     accelerator.save_state(save_path)
                     logger.info(f"Saved state to {save_path}")
                     
-        #     if epoch % args.validation_epochs == 0 and epoch > 0:
-        #         # freeze rng
-        #         np.random.seed(0)
-        #         torch.manual_seed(0)
-        #         dataloader_generator = torch.Generator()
-        #         dataloader_generator.manual_seed(0)
-        #         torch.backends.cudnn.deterministic = True
-                
-        #         print('epoch',epoch)
-        #         print('args.validation_epochs',args.validation_epochs)
-        #         print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
-                
-        #         validation_datarows = []
-        #         with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-        #             validation_datarows = json.loads(readfile.read())
-                
-        #         val_bs = args.train_batch_size
-        #         if args.train_batch_size > len(validation_datarows):
-        #             val_bs = 1
-        #         if len(validation_datarows)>0:
-        #             validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
+            if epoch % args.validation_epochs == 0 and epoch > 0:
+                with torch.no_grad():
+                    transformer = unwrap_model(transformer)
+                    # memory_stats()
+                    # freeze rng
+                    np.random.seed(0)
+                    torch.manual_seed(0)
+                    dataloader_generator = torch.Generator()
+                    dataloader_generator.manual_seed(0)
+                    torch.backends.cudnn.deterministic = True
                     
-        #             val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
-
-        #             #initialize the DataLoader with the bucket batch sampler
-        #             val_dataloader = torch.utils.data.DataLoader(
-        #                 validation_dataset,
-        #                 batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-        #                 collate_fn=collate_fn,
-        #                 num_workers=args.dataloader_num_workers,
-        #             )
-
-        #             print("beginning loss_validation")
+                    print('epoch',epoch)
+                    print('args.validation_epochs',args.validation_epochs)
+                    print('epoch _ args.validation_epochs',epoch % args.validation_epochs)
                     
-        #             total_loss = 0.0
-        #             num_batches = len(val_dataloader)
-        #             with torch.cuda.amp.autocast():
-        #                 # basically the as same as the training loop
-        #                 for i, batch in enumerate(val_dataloader):
-        #                     latents = batch["latents"].to(accelerator.device)
-        #                     prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-        #                     pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-        #                     # get latent like random noise
-        #                     noise = torch.randn_like(latents)
-        #                     bsz = latents.shape[0]
-                            
-        #                     # Sample a random timestep for each image
-        #                     indices = torch.randint(0, noise_scheduler_copy.config.num_train_timesteps, (bsz,))
-        #                     timesteps = noise_scheduler_copy.timesteps[indices].to(device=latents.device)
-
-        #                     # Add noise according to flow matching.
-        #                     sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-        #                     noisy_model_input = sigmas * noise + (1.0 - sigmas) * latents
-
-        #                     model_pred = transformer(
-        #                         hidden_states=noisy_model_input,
-        #                         timestep=timesteps,
-        #                         encoder_hidden_states=prompt_embeds,
-        #                         pooled_projections=pooled_prompt_embeds,
-        #                         return_dict=False,
-        #                     )[0]
-                            
-        #                     # Follow: Section 5 of https://arxiv.org/abs/2206.00364.
-        #                     # Preconditioning of the model outputs.
-        #                     model_pred = model_pred * (-sigmas) + noisy_model_input
-
-        #                     # for simple implementation only use weighting_scheme sigma_sqrt
-        #                     # which is the default option
-        #                     weighting = (sigmas**-2.0).float()
-                            
-                            
-        #                     # simplified flow matching aka 0-rectified flow matching loss
-        #                     # target = model_input - noise
-        #                     target = latents
-        #                     # Compute regular loss.
-        #                     loss = torch.mean(
-        #                         (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-        #                         1,
-        #                     )
-        #                     loss = loss.mean()
-        #                     total_loss += loss
-        #                     del target, weighting,model_pred, noisy_model_input, sigmas, timesteps, indices, bsz, noise
-        #                     del latents, prompt_embeds, pooled_prompt_embeds
-        #                     gc.collect()
-        #                     torch.cuda.empty_cache()
-        #                     break
+                    validation_datarows = []
+                    with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                        validation_datarows = json.loads(readfile.read())
+                    
+                    # val_bs = args.train_batch_size
+                    # if args.train_batch_size > len(validation_datarows):
+                    #     val_bs = 1
+                    if len(validation_datarows)>0:
+                        validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                         
-        #             avg_loss = total_loss / num_batches
-        #             logs = {"val_loss": avg_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
-        #             # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
-        #             progress_bar.set_postfix(**logs)
-        #             accelerator.log(logs, step=global_step)
-        #             del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
-        #             gc.collect()
-        #             torch.cuda.empty_cache()
+                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
+
+                        #initialize the DataLoader with the bucket batch sampler
+                        val_dataloader = torch.utils.data.DataLoader(
+                            validation_dataset,
+                            batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                            collate_fn=collate_fn,
+                            num_workers=args.dataloader_num_workers,
+                        )
+
+                        print("beginning loss_validation")
+                        
+                        total_loss = 0.0
+                        num_batches = len(val_dataloader)
+                        # basically the as same as the training loop
+                        for i, batch in enumerate(val_dataloader):
+                            latents = batch["latents"].to(accelerator.device)
+                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                            # get latent like random noise
+                            noise = torch.randn_like(latents)
+                            bsz = latents.shape[0]
+                            
+                            # Sample a random timestep for each image
+                            indices = torch.randint(0, noise_scheduler_copy.config.num_train_timesteps, (bsz,))
+                            timesteps = noise_scheduler_copy.timesteps[indices].to(device=latents.device)
+
+                            # Add noise according to flow matching.
+                            sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                            noisy_model_input = sigmas * noise + (1.0 - sigmas) * latents
+
+                            
+                            model_pred = transformer(
+                                hidden_states=noisy_model_input,
+                                timestep=timesteps,
+                                encoder_hidden_states=prompt_embeds,
+                                pooled_projections=pooled_prompt_embeds,
+                                return_dict=False,
+                            )[0]
+                            model_pred.to(device=latents.device,dtype=weight_dtype)
+                            
+                            # Follow: Section 5 of https://arxiv.org/abs/2206.00364.
+                            # Preconditioning of the model outputs.
+                            model_pred = model_pred * (-sigmas) + noisy_model_input
+
+                            # for simple implementation only use weighting_scheme sigma_sqrt
+                            # which is the default option
+                            weighting = (sigmas**-2.0).float()
+                            
+                            
+                            # simplified flow matching aka 0-rectified flow matching loss
+                            # target = model_input - noise
+                            target = latents
+                            # Compute regular loss.
+                            loss = torch.mean(
+                                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                1,
+                            )
+                            loss = loss.mean()
+                            total_loss += loss
+                            del loss, target, weighting, model_pred, noisy_model_input, sigmas, timesteps, indices, bsz, noise
+                            del latents, prompt_embeds, pooled_prompt_embeds
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                            # break
+                            
+                            # memory_stats()
+                            
+                        avg_loss = total_loss / num_batches
+                        logs = {"val_loss": avg_loss, "val_lr": lr_scheduler.get_last_lr()[0]}
+                        # logs = {"step_loss": loss.detach().item(), "lr": args.learning_rate}
+                        progress_bar.set_postfix(**logs)
+                        accelerator.log(logs, step=global_step)
+                        del num_batches, avg_loss, total_loss, validation_datarows, validation_dataset, 
+                        del val_batch_sampler, val_dataloader
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        # memory_stats()
+            
+        # restore rng before validation
+        np.random.seed(np_seed)
+        torch.random.set_rng_state(before_state)
+        torch.backends.cudnn.deterministic = False
+        version, state, gauss = py_state
+        python_set_rng_state((version, tuple(state), gauss))
         
-        # # restore rng before validation
-        # np.random.seed(np_seed)
-        # torch.random.set_rng_state(before_state)
-        # torch.backends.cudnn.deterministic = False
-        # version, state, gauss = py_state
-        # python_set_rng_state((version, tuple(state), gauss))
+        # del before_state, np_seed, py_state
+        gc.collect()
+        torch.cuda.empty_cache()
+        
         
         # ==================================================
         # end validation part
