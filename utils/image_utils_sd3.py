@@ -6,6 +6,8 @@ import os
 from torchvision import transforms
 from PIL import Image, ImageOps
 from tqdm import tqdm 
+import cv2
+import numpy
 
 BASE_RESOLUTION = 1024
 
@@ -249,8 +251,33 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
         print(f"Failed to open {image_path}: {e}")
         # continue
 
+    ##############################################################################
+    # Simple center crop for others
+    ##############################################################################
+    width, height = image.size
+    open_cv_image = numpy.array(image)
+    # # Convert RGB to BGR
+    image = open_cv_image[:, :, ::-1].copy()
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+    scale_with_height = True
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        image = simple_center_crop(image,scale_with_height,closest_resolution)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
     # set meta data
-    image_width, image_height = image.size
+    image_height, image_width, _ = image.shape
+    ##############################################################################
+    
+    
     json_obj['bucket'] = f"{image_width}x{image_height}"
     
 
@@ -273,10 +300,6 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
             print(e)
             print(f"{npz_path} is corrupted, regenerating...")
     
-    # all images are preprocessed to target size, so it doesn't have crop_top_left
-    # json_obj["original_size"] = (image_height,image_width)
-    # json_obj["crop_top_left"] = (0,0)
-
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
@@ -296,25 +319,6 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
         del pixel_values
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    # time_id = torch.tensor([
-    #     # original size
-    #     image_height,image_width,
-    #     # crop x,crop y
-    #     0,0,
-    #     # target size
-    #     image_height,image_width
-    # ]).to(vae.device, dtype=vae.dtype)
-    
-
-    # prompt_embeds, pooled_prompt_embeds = compel(prompt)
-    # print('prompt_embeds.shape',prompt_embeds.shape)
-    # print('pooled_prompt_embeds.shape',pooled_prompt_embeds.shape)
-    
-    
-    # prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders,tokenizers,prompt)
-    # prompt_embeds = prompt_embeds.squeeze(0)
-    # pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
-    
     prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,prompt,device=vae.device)
     prompt_embed = prompt_embeds.squeeze(0)
     pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
@@ -490,3 +494,72 @@ def encode_prompt(
 
     return prompt_embeds, pooled_prompt_embeds
 
+
+def simple_center_crop(image,scale_with_height,closest_resolution):
+    height, width, _ = image.shape
+    # print("ori size:",width,height)
+    if scale_with_height: 
+        up_scale = height / closest_resolution[1]
+    else:
+        up_scale = width / closest_resolution[0]
+
+    expanded_closest_size = (int(closest_resolution[0] * up_scale + 0.5), int(closest_resolution[1] * up_scale + 0.5))
+    
+    diff_x = abs(expanded_closest_size[0] - width)
+    diff_y = abs(expanded_closest_size[1] - height)
+
+    # crop extra part of the resized images
+    if diff_x>0:
+        crop_x =  diff_x //2
+        cropped_image = image[:,  crop_x:width-diff_x+crop_x]
+    elif diff_y>0:
+        crop_y =  diff_y//2
+        cropped_image = image[crop_y:height-diff_y+crop_y, :]
+    else:
+        # 1:1 ratio
+        cropped_image = image
+
+    print(f"ori ratio:{width/height}")
+    height, width, _ = cropped_image.shape  
+    print(f"cropped ratio:{width/height}")
+    print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
+    # resize image to target resolution
+    # return cv2.resize(cropped_image, closest_resolution)
+    return resize(cropped_image,closest_resolution)
+
+
+def resize(img,resolution):
+    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+    return cv2.resize(img,resolution)
+
+if __name__ == "__main__":
+    image = Image.open("F:/ImageSet/handpick_high_quality/animal/blue-jay-8075346.jpg")
+    
+    # set meta data
+    width, height = image.size
+    
+    
+    open_cv_image = numpy.array(image)
+    # # Convert RGB to BGR
+    image = open_cv_image[:, :, ::-1].copy()
+    
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    # print('init closest_resolution',closest_resolution)
+
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+
+    scale_with_height = True
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        image = simple_center_crop(image,scale_with_height,closest_resolution)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
+    # set meta data
+    image_height, image_width, _ = image.shape

@@ -46,30 +46,8 @@ def main():
     image = cv2.imread(image_path)  # Replace with your image path
 
     filename, ext = os.path.splitext(os.path.basename(image_path))
-    # get nearest resolution
-    # closest_ratio,closest_resolution = get_nearest_resolution(image,resolution_set)
-    # print('init closest_resolution',closest_resolution)
-
+    
     height, width, _ = image.shape
-    # print("ori size:",width,height)
-
-    # # we need to expand the closest resolution to target resolution before cropping
-    # ar_reso = closest_resolution[0] / closest_resolution[1]
-    # image_ratio = width / height
-    # if image_ratio > ar_reso:  # 横が長い→縦を合わせる
-    #     up_scale = height / closest_resolution[1]
-    # else:
-    #     up_scale = width / closest_resolution[0]
-    
-    # expanded_closest_size = (int(closest_resolution[0] * up_scale + 0.5), int(closest_resolution[1] * up_scale + 0.5))
-    
-    # diff_x = abs(expanded_closest_size[0] - width)
-    # diff_y = abs(expanded_closest_size[1] - height)
-    # print("up_scale",up_scale)
-    # print("expanded_closest_size",expanded_closest_size)
-    # print("diff_x",diff_x)
-    # print("diff_y",diff_y)
-
     image_ori = image.copy()
 
     prompt = "<grounding> the main objects of this image are:"
