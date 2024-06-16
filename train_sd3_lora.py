@@ -17,34 +17,17 @@
 import argparse
 import copy
 import gc
-import itertools
-import logging
 import math
 import os
-import random
-import shutil
-import warnings
-from contextlib import nullcontext
-from pathlib import Path
-
 import numpy as np
 import torch
 import torch.utils.checkpoint
-import transformers
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
-from huggingface_hub import create_repo, upload_folder
-from huggingface_hub.utils import insecure_hashlib
-from PIL import Image
-from PIL.ImageOps import exif_transpose
-from torch.utils.data import Dataset
-from torchvision import transforms
-from torchvision.transforms.functional import crop
 from tqdm.auto import tqdm
-from transformers import CLIPTextModelWithProjection, CLIPTokenizer, PretrainedConfig, T5EncoderModel, T5TokenizerFast
+from transformers import CLIPTokenizer, PretrainedConfig, T5TokenizerFast
 
-import diffusers
 from diffusers import (
     AutoencoderKL,
     FlowMatchEulerDiscreteScheduler,
@@ -55,33 +38,18 @@ from diffusers.optimization import get_scheduler
 from diffusers.utils import (
     check_min_version,
     convert_unet_state_dict_to_peft,
-    is_wandb_available,
 )
 from diffusers.training_utils import cast_training_params
-from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
 from diffusers.utils.torch_utils import is_compiled_module
-
-
-import sys
-sys.path.append('F:/T2ITrainer/utils')
-import image_utils_sd3
-from image_utils_sd3 import BucketBatchSampler, CachedImageDataset
-
-
+from utils.image_utils_sd3 import BucketBatchSampler, CachedImageDataset, create_metadata_cache
 from sklearn.model_selection import train_test_split
-
-
 import json
-
-from prodigyopt import Prodigy
-
 # https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
 from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
-
-
 from peft import LoraConfig
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
+
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.28.0.dev0")
 
@@ -681,7 +649,7 @@ def main(args):
             # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
             # create metadata and latent cache
-            datarows = image_utils_sd3.create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,repeats=args.repeats)
+            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,repeats=args.repeats)
             # Serializing json
             json_object = json.dumps(datarows, indent=4)
             # Writing to sample.json
