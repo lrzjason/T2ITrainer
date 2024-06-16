@@ -167,7 +167,7 @@ class CachedImageDataset(Dataset):
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
+def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False, repeats=1):
     create_empty_embedding(tokenizers,text_encoders)
     supported_image_types = ['.jpg','.jpeg','.png','.webp']
     metadata_path = os.path.join(input_dir, 'metadata.json')
@@ -193,7 +193,8 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.
                     for image_type in supported_image_types:
                         if file.endswith(image_type):
                             json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
-                            datarows.append(json_obj)
+                            for i in range(repeats):
+                                datarows.append(json_obj)
             # handle single files
             else:
                 folder_path = input_dir
@@ -201,7 +202,9 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.
                 for image_type in supported_image_types:
                     if file.endswith(image_type):
                         json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
-                        datarows.append(json_obj)
+                        # datarows.append(json_obj)
+                        for i in range(repeats):
+                            datarows.append(json_obj)
         
         # Serializing json
         json_object = json.dumps(datarows, indent=4)

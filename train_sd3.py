@@ -655,7 +655,7 @@ def main(args):
     
     # reduce lr from 1e-5 to 2e-6
     # args.learning_rate = 1.2e-6
-    args.learning_rate = 1e-4
+    # args.learning_rate = 1e-4
     args.train_batch_size = 1
     # reduce gas from 500 to 100
     args.gradient_accumulation_steps = 1
