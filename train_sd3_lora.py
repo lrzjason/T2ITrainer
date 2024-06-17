@@ -52,9 +52,12 @@ from diffusers import (
 from diffusers.optimization import get_scheduler
 from diffusers.utils import (
     check_min_version,
+    convert_unet_state_dict_to_peft,
     is_wandb_available,
 )
 from diffusers.utils.torch_utils import is_compiled_module
+
+from diffusers.training_utils import cast_training_params
 
 from utils.image_utils_sd3 import BucketBatchSampler, CachedImageDataset, create_metadata_cache
 
