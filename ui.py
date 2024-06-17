@@ -65,7 +65,7 @@ def run(
             if not isinstance(value, bool):  # exclude boolean values
                 args.append(str(value))
     # Call the script with the arguments
-    # subprocess.run(args)
+    subprocess.run(args)
     # print(args)
     return " ".join(args)
     
