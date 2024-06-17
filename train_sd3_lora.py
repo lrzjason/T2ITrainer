@@ -73,7 +73,7 @@ from prodigyopt import Prodigy
 from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
 
-
+from peft import LoraConfig
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
