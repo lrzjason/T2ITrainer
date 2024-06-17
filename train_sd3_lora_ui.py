@@ -373,6 +373,10 @@ def load_text_encoders(class_one, class_two, class_three,revision=None,variant=N
     return text_encoder_one, text_encoder_two, text_encoder_three
 
 def main(args):
+    
+    if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
+    if not os.path.exists(args.logging_dir): os.makedirs(args.logging_dir)
+    
     lr_num_cycles = 1
     lr_power = 1
     resume_from_checkpoint = ""
