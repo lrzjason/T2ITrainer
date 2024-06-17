@@ -14,3 +14,6 @@ torch>=2.3.0+cu121
 ```
 python ui.py
 ```
+
+Change logs:
+2024-06-17: UI Initial release 
