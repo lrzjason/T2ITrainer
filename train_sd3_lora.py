@@ -115,15 +115,15 @@ def parse_args(input_args=None):
         "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
-    parser.add_argument(
-        "--resume_from_checkpoint",
-        type=str,
-        default=None,
-        help=(
-            "Whether training should be resumed from a previous checkpoint. Use a path saved by"
-            ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
-        ),
-    )
+    # parser.add_argument(
+    #     "--resume_from_checkpoint",
+    #     type=str,
+    #     default=None,
+    #     help=(
+    #         "Whether training should be resumed from a previous checkpoint. Use a path saved by"
+    #         ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
+    #     ),
+    # )
     
     parser.add_argument(
         "--save_name",
@@ -177,58 +177,58 @@ def parse_args(input_args=None):
         help=('The optimizer type to use. Choose between ["AdamW", "prodigy"]'),
     )
 
-    parser.add_argument(
-        "--use_8bit_adam",
-        action="store_true",
-        help="Whether or not to use 8-bit Adam from bitsandbytes. Ignored if optimizer is not set to AdamW",
-    )
+    # parser.add_argument(
+    #     "--use_8bit_adam",
+    #     action="store_true",
+    #     help="Whether or not to use 8-bit Adam from bitsandbytes. Ignored if optimizer is not set to AdamW",
+    # )
 
-    parser.add_argument(
-        "--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam and Prodigy optimizers."
-    )
-    parser.add_argument(
-        "--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam and Prodigy optimizers."
-    )
-    parser.add_argument(
-        "--prodigy_beta3",
-        type=float,
-        default=None,
-        help="coefficients for computing the Prodidy stepsize using running averages. If set to None, "
-        "uses the value of square root of beta2. Ignored if optimizer is adamW",
-    )
-    parser.add_argument("--prodigy_decouple", type=bool, default=True, help="Use AdamW style decoupled weight decay")
-    parser.add_argument("--adam_weight_decay", type=float, default=1e-02, help="Weight decay to use for unet params")
-    parser.add_argument(
-        "--adam_weight_decay_text_encoder", type=float, default=1e-03, help="Weight decay to use for text_encoder"
-    )
+    # parser.add_argument(
+    #     "--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam and Prodigy optimizers."
+    # )
+    # parser.add_argument(
+    #     "--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam and Prodigy optimizers."
+    # )
+    # parser.add_argument(
+    #     "--prodigy_beta3",
+    #     type=float,
+    #     default=None,
+    #     help="coefficients for computing the Prodidy stepsize using running averages. If set to None, "
+    #     "uses the value of square root of beta2. Ignored if optimizer is adamW",
+    # )
+    # parser.add_argument("--prodigy_decouple", type=bool, default=True, help="Use AdamW style decoupled weight decay")
+    # parser.add_argument("--adam_weight_decay", type=float, default=1e-02, help="Weight decay to use for unet params")
+    # parser.add_argument(
+    #     "--adam_weight_decay_text_encoder", type=float, default=1e-03, help="Weight decay to use for text_encoder"
+    # )
 
-    parser.add_argument(
-        "--adam_epsilon",
-        type=float,
-        default=1e-08,
-        help="Epsilon value for the Adam optimizer and Prodigy optimizers.",
-    )
+    # parser.add_argument(
+    #     "--adam_epsilon",
+    #     type=float,
+    #     default=1e-08,
+    #     help="Epsilon value for the Adam optimizer and Prodigy optimizers.",
+    # )
 
-    parser.add_argument(
-        "--prodigy_use_bias_correction",
-        type=bool,
-        default=True,
-        help="Turn on Adam's bias correction. True by default. Ignored if optimizer is adamW",
-    )
-    parser.add_argument(
-        "--prodigy_safeguard_warmup",
-        type=bool,
-        default=True,
-        help="Remove lr from the denominator of D estimate to avoid issues during warm-up stage. True by default. "
-        "Ignored if optimizer is adamW",
-    )
-    parser.add_argument(
-        "--prodigy_d_coef",
-        type=float,
-        default=2,
-        help=("The dimension of the LoRA update matrices."),
-    )
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
+    # parser.add_argument(
+    #     "--prodigy_use_bias_correction",
+    #     type=bool,
+    #     default=True,
+    #     help="Turn on Adam's bias correction. True by default. Ignored if optimizer is adamW",
+    # )
+    # parser.add_argument(
+    #     "--prodigy_safeguard_warmup",
+    #     type=bool,
+    #     default=True,
+    #     help="Remove lr from the denominator of D estimate to avoid issues during warm-up stage. True by default. "
+    #     "Ignored if optimizer is adamW",
+    # )
+    # parser.add_argument(
+    #     "--prodigy_d_coef",
+    #     type=float,
+    #     default=2,
+    #     help=("The dimension of the LoRA update matrices."),
+    # )
+    # parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
         "--logging_dir",
         type=str,
@@ -276,6 +276,32 @@ def parse_args(input_args=None):
         default=4,
         help=("The dimension of the LoRA update matrices."),
     )
+    parser.add_argument(
+        "--save_model_epochs",
+        type=int,
+        default=1,
+        help=("Save model when x epochs"),
+    )
+    parser.add_argument(
+        "--skip_epoch",
+        type=int,
+        default=1,
+        help=("skip val and save model before x epochs"),
+    )
+    parser.add_argument(
+        "--skip_step",
+        type=int,
+        default=1,
+        help=("skip val and save model before x step"),
+    )
+    
+    parser.add_argument(
+        "--break_epoch",
+        type=int,
+        default=1,
+        help=("break training after x epochs"),
+    )
+    
     
     
     if input_args is not None:
@@ -348,34 +374,28 @@ def main(args):
     lr_power = 1
     
     
-    args.resume_from_checkpoint = ""
+    resume_from_checkpoint = ""
     # args.lr_scheduler = "constant"
     args.lr_scheduler = "cosine"
 
     
 
     # args.scale_lr = False
-    args.use_8bit_adam = True
-    args.adam_beta1 = 0.9
-    # args.adam_beta2 = 0.999
-    args.adam_beta2 = 0.99
+    use_8bit_adam = True
+    adam_beta1 = 0.9
+    # adam_beta2 = 0.999
+    adam_beta2 = 0.99
 
-    args.adam_weight_decay = 1e-2
-    args.adam_epsilon = 1e-08
-    args.resolution = 1024
-    args.max_train_samples = None
-    args.proportion_empty_prompts = 0
-    dataloader_num_workers = 4
+    adam_weight_decay = 1e-2
+    adam_epsilon = 1e-08
+    # args.proportion_empty_prompts = 0
+    dataloader_num_workers = 0
     max_train_steps = None
 
-    args.max_grad_norm = 1.0
+    max_grad_norm = 1.0
     # args.validation_prompt = ""
     
     
-    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
-    # args.train_data_dir = "F:/ImageSet/pixart_test_one"
-    # args.train_data_dir = "F:/ImageSet/openxl2_reg"
-    # args.train_data_dir = "F:/ImageSet/dog"
     args.output_dir = 'F:/models/sd3'
     args.save_name = "sd3_cinematic"
     args.train_data_dir = "F:/ImageSet/handpick_high_quality_b2_train"
@@ -387,12 +407,12 @@ def main(args):
     args.repeats = 10
     args.gradient_accumulation_steps = 10
     args.num_train_epochs = 30
-    save_model_epochs = 1
     args.validation_epochs = 1
     args.rank = 32
-    skip_epoch = 1
-    break_epoch = 0
-    skip_step = 0
+    args.save_model_epochs = 1
+    args.skip_epoch = 1
+    args.break_epoch = 0
+    args.skip_step = 0
     
     args.gradient_checkpointing = True
     args.validation_ratio = 0.1
@@ -550,14 +570,14 @@ def main(args):
         )
         args.optimizer = "adamw"
 
-    if args.use_8bit_adam and not args.optimizer.lower() == "adamw":
+    if use_8bit_adam and not args.optimizer.lower() == "adamw":
         logger.warning(
             f"use_8bit_adam is ignored when optimizer is not set to 'AdamW'. Optimizer was "
             f"set to {args.optimizer.lower()}"
         )
 
     if args.optimizer.lower() == "adamw":
-        if args.use_8bit_adam:
+        if use_8bit_adam:
             try:
                 import bitsandbytes as bnb
             except ImportError:
@@ -571,9 +591,9 @@ def main(args):
 
         optimizer = optimizer_class(
             params_to_optimize,
-            betas=(args.adam_beta1, args.adam_beta2),
-            weight_decay=args.adam_weight_decay,
-            eps=args.adam_epsilon,
+            betas=(adam_beta1, adam_beta2),
+            weight_decay=adam_weight_decay,
+            eps=adam_epsilon,
         )
 
     if args.optimizer.lower() == "prodigy":
@@ -592,11 +612,11 @@ def main(args):
         optimizer = optimizer_class(
             params_to_optimize,
             lr=args.learning_rate,
-            betas=(args.adam_beta1, args.adam_beta2),
+            betas=(adam_beta1, adam_beta2),
             beta3=args.prodigy_beta3,
             d_coef=args.prodigy_d_coef,
-            weight_decay=args.adam_weight_decay,
-            eps=args.adam_epsilon,
+            weight_decay=adam_weight_decay,
+            eps=adam_epsilon,
             decouple=args.prodigy_decouple,
             use_bias_correction=args.prodigy_use_bias_correction,
             safeguard_warmup=args.prodigy_safeguard_warmup,
@@ -813,9 +833,9 @@ def main(args):
 
 
     # Potentially load in the weights and states from a previous save
-    if args.resume_from_checkpoint:
-        if args.resume_from_checkpoint != "latest":
-            path = os.path.basename(args.resume_from_checkpoint)
+    if resume_from_checkpoint:
+        if resume_from_checkpoint != "latest":
+            path = os.path.basename(resume_from_checkpoint)
         else:
             # Get the most recent checkpoint
             dirs = os.listdir(args.output_dir)
@@ -825,9 +845,9 @@ def main(args):
 
         if path is None:
             accelerator.print(
-                f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
+                f"Checkpoint '{resume_from_checkpoint}' does not exist. Starting a new training run."
             )
-            args.resume_from_checkpoint = None
+            resume_from_checkpoint = None
             initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
@@ -916,7 +936,7 @@ def main(args):
                 del loss
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
-                    accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                    accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
 
                 optimizer.step()
                 lr_scheduler.step()
@@ -948,7 +968,7 @@ def main(args):
         # validation part
         # ==================================================
         
-        if global_step < skip_step:
+        if global_step < args.skip_step:
             continue
         
         
@@ -958,7 +978,7 @@ def main(args):
         py_state = python_get_rng_state()
         
         if accelerator.is_main_process:
-            if epoch >= skip_epoch and epoch % save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
+            if epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
                 accelerator.wait_for_everyone()
                 if accelerator.is_main_process:
                     save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
