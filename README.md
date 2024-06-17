@@ -21,3 +21,11 @@ python ui.py
 
 Change logs:
 2024-06-17: UI Initial release 
+
+
+Acknowledgements:
+
+Thanks @minienglish1 and @Freon in EveryDream discord for many help.
+
+Thanks to kohya ss for many references from his training codebase
+
