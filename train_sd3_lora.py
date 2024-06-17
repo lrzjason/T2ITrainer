@@ -347,39 +347,22 @@ def import_model_class_from_model_name_or_path(
         raise ValueError(f"{model_class} is not supported.")
 
 
-def load_text_encoders(class_one, class_two, class_three):
+def load_text_encoders(class_one, class_two, class_three,revision=None,variant=None):
     text_encoder_one = class_one.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
     )
     text_encoder_two = class_two.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder_2", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder_2", revision=revision, variant=variant
     )
     text_encoder_three = class_three.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder_3", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder_3", revision=revision, variant=variant
     )
     return text_encoder_one, text_encoder_two, text_encoder_three
 
 def main(args):
-    args.seed = 4321
-    args.logging_dir = 'logs'
-    # args.model_path = 'F:/models/Stable-diffusion/sdxl/o2/openxl2_008.safetensors'
-    args.mixed_precision = "fp16"
-    # args.report_to = "tensorboard"
-    
-    args.report_to = "wandb"
-    args.enable_xformers_memory_efficient_attention = True
-
-    args.lr_warmup_steps = 1
     lr_num_cycles = 1
     lr_power = 1
-    
-    
     resume_from_checkpoint = ""
-    # args.lr_scheduler = "constant"
-    args.lr_scheduler = "cosine"
-
-    
-
     # args.scale_lr = False
     use_8bit_adam = True
     adam_beta1 = 0.9
@@ -393,15 +376,24 @@ def main(args):
     max_train_steps = None
 
     max_grad_norm = 1.0
+    revision = None
+    variant = None
+    prodigy_decouple = True
+    prodigy_beta3 = None
+    prodigy_use_bias_correction = True
+    prodigy_safeguard_warmup = True
+    prodigy_d_coef = 2
     # args.validation_prompt = ""
     
-    
+    args.seed = 4321
+    args.logging_dir = 'logs'
+    args.mixed_precision = "fp16"
+    args.report_to = "wandb"
+    args.lr_warmup_steps = 1
+    args.lr_scheduler = "cosine"
     args.output_dir = 'F:/models/sd3'
     args.save_name = "sd3_cinematic"
     args.train_data_dir = "F:/ImageSet/handpick_high_quality_b2_train"
-    
-    # reduce lr from 1e-5 to 2e-6
-    # args.learning_rate = 1.2e-6
     args.learning_rate = 1
     args.train_batch_size = 1
     args.repeats = 10
@@ -413,24 +405,12 @@ def main(args):
     args.skip_epoch = 1
     args.break_epoch = 0
     args.skip_step = 0
-    
     args.gradient_checkpointing = True
     args.validation_ratio = 0.1
     args.num_validation_images = 1
-    args.caption_exts = '.txt,.wd14_cap'
-
     args.pretrained_model_name_or_path = "stabilityai/stable-diffusion-3-medium-diffusers"
     args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
-    
-    args.revision = None
-    args.variant = None
-    
     args.optimizer = "prodigy"
-    args.prodigy_decouple = True
-    args.prodigy_beta3 = None
-    args.prodigy_use_bias_correction = True
-    args.prodigy_safeguard_warmup = True
-    args.prodigy_d_coef = 2
     
     
     # create metadata.jsonl if not exist
@@ -470,7 +450,7 @@ def main(args):
     
     if args.model_path is None:
         transformer = SD3Transformer2DModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="transformer", revision=args.revision, variant=args.variant
+            args.pretrained_model_name_or_path, subfolder="transformer", revision=revision, variant=variant
         ).to(offload_device, dtype=weight_dtype)
     else:
         transformer = SD3Transformer2DModel.from_single_file(args.model_path)
@@ -613,13 +593,13 @@ def main(args):
             params_to_optimize,
             lr=args.learning_rate,
             betas=(adam_beta1, adam_beta2),
-            beta3=args.prodigy_beta3,
-            d_coef=args.prodigy_d_coef,
+            beta3=prodigy_beta3,
+            d_coef=prodigy_d_coef,
             weight_decay=adam_weight_decay,
             eps=adam_epsilon,
-            decouple=args.prodigy_decouple,
-            use_bias_correction=args.prodigy_use_bias_correction,
-            safeguard_warmup=args.prodigy_safeguard_warmup,
+            decouple=prodigy_decouple,
+            use_bias_correction=prodigy_use_bias_correction,
+            safeguard_warmup=prodigy_safeguard_warmup,
         )
     
 
@@ -638,28 +618,28 @@ def main(args):
         tokenizer_one = CLIPTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer",
-            revision=args.revision,
+            revision=revision,
         )
         tokenizer_two = CLIPTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer_2",
-            revision=args.revision,
+            revision=revision,
         )
         tokenizer_three = T5TokenizerFast.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer_3",
-            revision=args.revision,
+            revision=revision,
         )
 
         # import correct text encoder classes
         text_encoder_cls_one = import_model_class_from_model_name_or_path(
-            args.pretrained_model_name_or_path, args.revision
+            args.pretrained_model_name_or_path, revision
         )
         text_encoder_cls_two = import_model_class_from_model_name_or_path(
-            args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_2"
+            args.pretrained_model_name_or_path, revision, subfolder="text_encoder_2"
         )
         text_encoder_cls_three = import_model_class_from_model_name_or_path(
-            args.pretrained_model_name_or_path, args.revision, subfolder="text_encoder_3"
+            args.pretrained_model_name_or_path, revision, subfolder="text_encoder_3"
         )
 
         text_encoder_one, text_encoder_two, text_encoder_three = load_text_encoders(
@@ -668,8 +648,8 @@ def main(args):
         vae = AutoencoderKL.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="vae",
-            revision=args.revision,
-            variant=args.variant,
+            revision=revision,
+            variant=variant,
         )
         
         vae.requires_grad_(False)
