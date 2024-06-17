@@ -17,17 +17,32 @@
 import argparse
 import copy
 import gc
+import itertools
+import logging
 import math
 import os
+import random
+import shutil
+import warnings
+from contextlib import nullcontext
+from pathlib import Path
+
 import numpy as np
 import torch
 import torch.utils.checkpoint
+import transformers
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
+from PIL import Image
+from PIL.ImageOps import exif_transpose
+from torch.utils.data import Dataset
+from torchvision import transforms
+from torchvision.transforms.functional import crop
 from tqdm.auto import tqdm
-from transformers import CLIPTokenizer, PretrainedConfig, T5TokenizerFast
+from transformers import CLIPTextModelWithProjection, CLIPTokenizer, PretrainedConfig, T5EncoderModel, T5TokenizerFast
 
+import diffusers
 from diffusers import (
     AutoencoderKL,
     FlowMatchEulerDiscreteScheduler,
@@ -37,18 +52,23 @@ from diffusers import (
 from diffusers.optimization import get_scheduler
 from diffusers.utils import (
     check_min_version,
-    convert_unet_state_dict_to_peft,
+    is_wandb_available,
 )
-from diffusers.training_utils import cast_training_params
 from diffusers.utils.torch_utils import is_compiled_module
+
 from utils.image_utils_sd3 import BucketBatchSampler, CachedImageDataset, create_metadata_cache
+
+
 from sklearn.model_selection import train_test_split
+
+
 import json
+
+from prodigyopt import Prodigy
+
 # https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
 from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
-from peft import LoraConfig
-from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.28.0.dev0")
@@ -1055,7 +1075,5 @@ def main(args):
     accelerator.end_training()
 
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
+    args = parse_args()
     main(args)
