@@ -982,7 +982,7 @@ def main(args):
                     accelerator.save_state(save_path)
                     logger.info(f"Saved state to {save_path}")
                     
-            if epoch % args.validation_epochs == 0 and epoch > 0:
+            if epoch % args.validation_epochs == 0:
                 with torch.no_grad():
                     transformer = unwrap_model(transformer)
                     # freeze rng
