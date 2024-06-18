@@ -1009,7 +1009,7 @@ def main(args):
                             num_workers=dataloader_num_workers,
                         )
 
-                        print("beginning loss_validation")
+                        print("\nStart val_loss\n")
                         
                         total_loss = 0.0
                         num_batches = len(val_dataloader)
@@ -1072,12 +1072,14 @@ def main(args):
                             lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                             lr_name = "val_lr lr/d*lr"
                         logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
+                        print(logs)
                         progress_bar.set_postfix(**logs)
                         accelerator.log(logs, step=global_step)
                         del num_batches, avg_loss, total_loss, validation_datarows, validation_dataset, 
                         del val_batch_sampler, val_dataloader
                         gc.collect()
                         torch.cuda.empty_cache()
+                        print("\nEnd val_loss\n")
             
         # restore rng before validation
         np.random.seed(np_seed)
