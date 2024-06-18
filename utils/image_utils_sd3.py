@@ -172,7 +172,7 @@ class CachedImageDataset(Dataset):
 def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False, repeats=1):
     create_empty_embedding(tokenizers,text_encoders)
     supported_image_types = ['.jpg','.jpeg','.png','.webp']
-    metadata_path = os.path.join(input_dir, 'metadata.json')
+    metadata_path = os.path.join(input_dir, 'metadata_sd3.json')
     if recreate:
         # remove metadata.json
         if os.path.exists(metadata_path):
