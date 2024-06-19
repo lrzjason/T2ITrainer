@@ -428,8 +428,8 @@ def average(lst):
     else:
         return 0
 def main():
-    input_dir = "F:/ImageSet/temp"
-    output_dir = "F:/ImageSet/temp_cropped"
+    input_dir = "F:/ImageSet/8k_images_captioned"
+    output_dir = "F:/ImageSet/8k_images_captioned_cropped"
 
     simple_score_list = []
     preserved_score_list = []
