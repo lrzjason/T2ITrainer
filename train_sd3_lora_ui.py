@@ -315,6 +315,11 @@ def parse_args(input_args=None):
     )
     
     
+    parser.add_argument(
+        "--use_dora",
+        action="store_true",
+        help="Use dora on peft config",
+    )
     
     
     if input_args is not None:
@@ -479,6 +484,7 @@ def main(args):
 
     # now we will add new LoRA weights to the attention layers
     transformer_lora_config = LoraConfig(
+        use_dora=args.use_dora,
         r=args.rank,
         lora_alpha=args.rank,
         init_lora_weights="gaussian",

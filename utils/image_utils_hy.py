@@ -675,9 +675,9 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
         # 1:1 ratio
         cropped_image = image
 
-    print(f"ori ratio:{width/height}")
+    print(f"ori ratio:{height/width}")
     height, width, _ = cropped_image.shape  
-    print(f"cropped ratio:{width/height}")
+    print(f"cropped ratio:{height/width}")
     print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
     # resize image to target resolution
     # return cv2.resize(cropped_image, closest_resolution)

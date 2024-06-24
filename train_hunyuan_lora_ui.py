@@ -122,15 +122,15 @@ def parse_args(input_args=None):
         "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
-    # parser.add_argument(
-    #     "--resume_from_checkpoint",
-    #     type=str,
-    #     default=None,
-    #     help=(
-    #         "Whether training should be resumed from a previous checkpoint. Use a path saved by"
-    #         ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
-    #     ),
-    # )
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        type=str,
+        default=None,
+        help=(
+            "Whether training should be resumed from a previous checkpoint. Use a path saved by"
+            ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
+        ),
+    )
     
     parser.add_argument(
         "--save_name",
@@ -377,42 +377,45 @@ def main(args):
     prodigy_use_bias_correction = True
     prodigy_safeguard_warmup = True
     prodigy_d_coef = 2
-    # args.validation_prompt = ""
     
-    args.seed = 4321
-    args.logging_dir = 'logs'
-    args.mixed_precision = "fp16"
-    args.report_to = "wandb"
     
-    args.output_dir = 'F:/models/hy'
-    args.save_name = "hy_test"
-    args.rank = 64
-    args.skip_epoch = 1
-    args.break_epoch = 0
-    args.skip_step = 0
-    args.gradient_checkpointing = True
-    args.validation_ratio = 0.1
-    args.num_validation_images = 1
-    args.pretrained_model_name_or_path = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers"
-    args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
-    # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
-    args.resume_from_checkpoint = None
-    # args.resume_from_lora_dir = "F:/models/hy/hy_test-1600"
-    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
-    args.train_data_dir = "F:/ImageSet/pixart_test_one"
-    args.learning_rate = 1e-4
-    args.optimizer = "adamw"
-    args.lr_warmup_steps = 1
-    args.lr_scheduler = "constant"
     lr_num_cycles = 1
     lr_power = 1
-    args.save_model_epochs = 1
-    args.validation_epochs = 1
-    args.train_batch_size = 1
-    args.repeats = 100
-    args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 20
-    args.use_dora = True
+    
+    # args.validation_prompt = ""
+    
+    # args.seed = 4321
+    # args.logging_dir = 'logs'
+    # args.mixed_precision = "fp16"
+    # args.report_to = "wandb"
+    
+    # args.output_dir = 'F:/models/hy'
+    # args.save_name = "hy_test"
+    # args.rank = 64
+    # args.skip_epoch = 1
+    # args.break_epoch = 0
+    # args.skip_step = 0
+    # args.gradient_checkpointing = True
+    # args.validation_ratio = 0.1
+    # args.num_validation_images = 1
+    # args.pretrained_model_name_or_path = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers"
+    # args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
+    # # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
+    # args.resume_from_checkpoint = None
+    # # args.resume_from_lora_dir = "F:/models/hy/hy_test-1600"
+    # # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # args.train_data_dir = "F:/ImageSet/pixart_test_one"
+    # args.learning_rate = 1e-4
+    # args.optimizer = "adamw"
+    # args.lr_warmup_steps = 1
+    # args.lr_scheduler = "constant"
+    # args.save_model_epochs = 1
+    # args.validation_epochs = 1
+    # args.train_batch_size = 1
+    # args.repeats = 100
+    # args.gradient_accumulation_steps = 1
+    # args.num_train_epochs = 20
+    # args.use_dora = True
     
     
     # create metadata.jsonl if not exist

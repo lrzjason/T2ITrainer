@@ -4,34 +4,38 @@ import subprocess
 import json
 
 default_config = {
-	"output_dir":"F:/models/sd3",
-    "save_name":"opensd3",
-    "pretrained_model_name_or_path":"stabilityai/stable-diffusion-3-medium-diffusers", 
-    "model_path":"F:/models/Stable-diffusion/sd3/opensd3_b2.safetensors", 
+    "default_script": "train_hunyuan_lora_ui.py",
+    "script_choices": ["train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
+	"output_dir":"F:/models/hy",
+    "save_name":"hy-lora",
+    "pretrained_model_name_or_path":"Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers", 
+    "model_path":None, 
     "train_data_dir":"F:/ImageSet/handpick_high_quality_b2_train", 
     "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":32,
     "train_batch_size":1,
-    "repeats":10,
-    "gradient_accumulation_steps":10,
+    "repeats":1,
+    "gradient_accumulation_steps":1,
     "mixed_precision":"fp16",
     "gradient_checkpointing":True,
-    "optimizer":"prodigy",
-    "lr_scheduler":"cosine", 
-    "learning_rate":1,
+    "optimizer":"adamw",
+    "lr_scheduler":"constant", 
+    "learning_rate":1e-4,
     "lr_warmup_steps":0,
     "seed":4321,
-    "num_train_epochs":60,
+    "num_train_epochs":20,
     "save_model_epochs":1, 
     "validation_epochs":1, 
     "skip_epoch":1, 
     "break_epoch":0,
     "skip_step":0, 
     "validation_ratio":0.1, 
+    "use_dora":False
 }
 
 def run(
+        script,
         seed,
         logging_dir,
         mixed_precision,
@@ -56,7 +60,8 @@ def run(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path
+        model_path,
+        use_dora
     ):
     inputs = {
         "seed":seed,
@@ -83,10 +88,13 @@ def run(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        "model_path":model_path
+        # "model_path":model_path,
+        "use_dora":use_dora
     }
     # Convert the inputs dictionary to a list of arguments
-    args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
+    # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
+    # script = "test_.pyt"
+    args = ["python", script]
     for key, value in inputs.items():
         if value is not None:
             args.append(f"--{key}")
@@ -94,11 +102,12 @@ def run(
                 args.append(str(value))
     # Call the script with the arguments
     subprocess.run(args)
-    # print(args)
+    print(args)
     return " ".join(args)
     
 
 with gr.Blocks() as demo:
+    script = gr.Dropdown(label="script", value=default_config["default_script"], choices=default_config["script_choices"])
     with gr.Accordion("Directory section"):
         # dir section
         with gr.Row():
@@ -111,7 +120,7 @@ with gr.Blocks() as demo:
                 value=default_config["pretrained_model_name_or_path"], 
                 placeholder="repo name or dir contains sd3 medium diffusers structure"
             )
-            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official sd3 medium weight")
+            model_path = gr.Textbox(visible=False, label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official sd3 medium weight")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
             logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
@@ -128,6 +137,7 @@ with gr.Blocks() as demo:
             gradient_accumulation_steps = gr.Number(label="gradient_accumulation_steps", value=default_config["gradient_accumulation_steps"])
             mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["fp16", "bf16"])
             gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", value=default_config["gradient_checkpointing"])
+            use_dora = gr.Checkbox(label="use_dora", value=default_config["use_dora"])
         with gr.Row():
             optimizer = gr.Dropdown(label="optimizer", value=default_config["optimizer"], choices=["adamw","prodigy"])
             lr_scheduler = gr.Dropdown(label="lr_scheduler", value=default_config["lr_scheduler"], 
@@ -149,6 +159,7 @@ with gr.Blocks() as demo:
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
 
     inputs = [
+        script,
         seed,
         logging_dir,
         mixed_precision,
@@ -173,7 +184,8 @@ with gr.Blocks() as demo:
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path]
+        model_path,
+        use_dora]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
