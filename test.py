@@ -13,7 +13,8 @@ pipe.to("cuda")
 
 transformer_ = pipe.transformer
 
-input_dir = "F:/models/hy/hy_test-300"
+name = "dora-600"
+input_dir = f"F:/models/hy/hy_{name}"
 lora_state_dict = StableDiffusion3Pipeline.lora_state_dict(input_dir)
 HunyuanDiTPipeline.load_lora_into_transformer(lora_state_dict,transformer_)
 
@@ -22,4 +23,4 @@ prompt = "cotton doll, A plush toy character of a blonde policy officer"
 # prompt = "cotton doll, A plush toy character of a beatiful woman"
 image = pipe(prompt).images[0]
 
-image.save("img.png")
+image.save(f"img-{name}.png")
