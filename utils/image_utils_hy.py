@@ -9,11 +9,17 @@ from tqdm import tqdm
 import cv2
 import numpy
 
-from IndexKits.index_kits import ResolutionGroup
-
 import numpy as np
 from typing import Union
-from hydit.constants import VAE_EMA_PATH, TEXT_ENCODER, TOKENIZER, T5_ENCODER
+
+T5_ENCODER = {
+    'MT5': 'ckpts/t2i/mt5',
+    'attention_mask': True,
+    'layer_index': -1,
+    'attention_pool': True,
+    'torch_dtype': torch.float16,
+    'learnable_replace': True
+}
 
 BASE_RESOLUTION = 1024
 
@@ -320,22 +326,29 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
     # return freqs_cis_img
     
     
-    resolutions = ResolutionGroup(1024,
-                                    align=16,
-                                    step=64,
-                                    target_ratios=["1:1", "3:4", "4:3", "16:9", "9:16"]).data
+    # resolutions = ResolutionGroup(1024,
+    #                                 align=16,
+    #                                 step=64,
+    #                                 target_ratios=["1:1", "3:4", "4:3", "16:9", "9:16"]).data
+    resolutions = [
+        (1024,1024),
+        (864,1152),
+        (1152,864),
+        (1280,720),
+        (720,1280),
+    ]
     rope_img="base512"
     patch_size=2
     hidden_size=1408
     num_heads=16
     rope_real=True
     freqs_cis_img = {}
-    for reso in resolutions:
-        th, tw = reso.height // 8 // patch_size, reso.width // 8 // patch_size
+    for height,width in resolutions:
+        th, tw = height // 8 // patch_size, width // 8 // patch_size
         sub_args = calc_sizes(rope_img, patch_size, th, tw)
-        freqs_cis_img[str(reso)] = get_2d_rotary_pos_embed(hidden_size // num_heads, *sub_args, use_real=rope_real)
-        print(f"    Using image RoPE ({rope_img}) ({'real' if rope_real else 'complex'}): {sub_args} | ({reso}) "
-               f"{freqs_cis_img[str(reso)][0].shape if rope_real else freqs_cis_img[str(reso)].shape}")
+        freqs_cis_img[f"{height}x{width}"] = get_2d_rotary_pos_embed(hidden_size // num_heads, *sub_args, use_real=rope_real)
+        # print(f"    Using image RoPE ({rope_img}) ({'real' if rope_real else 'complex'}): {sub_args} | ({height}x{width}) "
+        #        f"{freqs_cis_img[f"{height}x{width}"][0].shape if rope_real else freqs_cis_img[f"{height}x{width}"].shape}")
     
     image = numpy.array(image)
     # get nearest resolution

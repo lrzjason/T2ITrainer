@@ -13,12 +13,12 @@ pipe.to("cuda")
 
 transformer_ = pipe.transformer
 
-input_dir = "F:/models/hy/hy_test-800"
+input_dir = "F:/models/hy/hy_test-200"
 lora_state_dict = StableDiffusion3Pipeline.lora_state_dict(input_dir)
 HunyuanDiTPipeline.load_lora_into_transformer(lora_state_dict,transformer_)
 
 pipe.transformer = transformer_
-prompt = "cotton doll, A plush toy character with pink hair, a yellow crown adorned with a red gem, and large blue eyes. She is dressed in a white dress with a blue pendant around her neck. Surrounding her are cotton balls, which appear soft and fluffy. The backdrop is a solid peach color, providing contrast to the character's pastel hues. The overall composition gives off a warm and cute vibe, emphasizing the character's innocence and royalty."
+prompt = "cotton doll, A plush toy character of a policy office"
 # prompt = "cotton doll, A plush toy character of a beatiful woman"
 image = pipe(prompt).images[0]
 

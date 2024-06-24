@@ -51,7 +51,6 @@ from diffusers import (
     # FlowMatchEulerDiscreteScheduler,
     HunyuanDiT2DModel,
     HunyuanDiTPipeline,
-    StableDiffusion3Pipeline,
 )
 from diffusers.training_utils import compute_snr
 from diffusers.optimization import get_scheduler
@@ -379,10 +378,6 @@ def main(args):
     args.logging_dir = 'logs'
     args.mixed_precision = "fp16"
     args.report_to = "wandb"
-    args.lr_warmup_steps = 1
-    args.lr_scheduler = "cosine_with_restarts"
-    lr_num_cycles = 2
-    lr_power = 1
     
     args.output_dir = 'F:/models/hy'
     args.save_name = "hy_test"
@@ -395,17 +390,23 @@ def main(args):
     args.num_validation_images = 1
     args.pretrained_model_name_or_path = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers"
     args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
-    args.resume_from_checkpoint = "F:/models/hy/hy_test-400"
+    # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
+    args.resume_from_checkpoint = None
+    # args.resume_from_lora_dir = "F:/models/hy/hy_test-1600"
     # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
     args.train_data_dir = "F:/ImageSet/pixart_test_one"
     args.learning_rate = 1e-4
     args.optimizer = "adamw"
+    args.lr_warmup_steps = 1
+    args.lr_scheduler = "constant"
+    lr_num_cycles = 1
+    lr_power = 1
     args.save_model_epochs = 1
     args.validation_epochs = 1
     args.train_batch_size = 1
     args.repeats = 100
-    args.gradient_accumulation_steps = 10
-    args.num_train_epochs = 80
+    args.gradient_accumulation_steps = 1
+    args.num_train_epochs = 20
     
     
     # create metadata.jsonl if not exist
@@ -498,21 +499,8 @@ def main(args):
             else:
                 raise ValueError(f"unexpected save model: {model.__class__}")
 
-        lora_state_dict = StableDiffusion3Pipeline.lora_state_dict(input_dir)
-
-        transformer_state_dict = {
-            f'{k.replace("transformer.", "")}': v for k, v in lora_state_dict.items() if k.startswith("unet.")
-        }
-        transformer_state_dict = convert_unet_state_dict_to_peft(transformer_state_dict)
-        incompatible_keys = set_peft_model_state_dict(transformer_, transformer_state_dict, adapter_name="default")
-        if incompatible_keys is not None:
-            # check only for unexpected keys
-            unexpected_keys = getattr(incompatible_keys, "unexpected_keys", None)
-            if unexpected_keys:
-                logger.warning(
-                    f"Loading adapter weights from state_dict led to unexpected keys not found in the model: "
-                    f" {unexpected_keys}. "
-                )
+        lora_state_dict = HunyuanDiTPipeline.lora_state_dict(input_dir)
+        HunyuanDiTPipeline.load_lora_into_transformer(lora_state_dict,transformer_)
 
         # Make sure the trainable params are in float32. This is again needed since the base models
         # are in `weight_dtype`. More details:
@@ -525,12 +513,6 @@ def main(args):
 
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
-
-    # Make sure the trainable params are in float32.
-    if args.mixed_precision == "fp16":
-        models = [transformer]
-        # only upcast trainable parameters (LoRA) into fp32
-        cast_training_params(models, dtype=torch.float32)
 
     transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
 
@@ -795,7 +777,7 @@ def main(args):
     global_step = 0
     first_epoch = 0
 
-
+    resume_step = 0
     # Potentially load in the weights and states from a previous save
     if args.resume_from_checkpoint:
         if args.resume_from_checkpoint != "latest":
@@ -819,6 +801,7 @@ def main(args):
             global_step = int(path.split("-")[1])
 
             initial_global_step = global_step
+            resume_step = global_step
             first_epoch = global_step // num_update_steps_per_epoch
 
     else:
@@ -923,7 +906,10 @@ def main(args):
                 lr = lr_scheduler.get_last_lr()[0]
                 lr_name = "lr"
                 if args.optimizer == "prodigy":
-                    lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                    if resume_step>0 and resume_step == global_step:
+                        lr = 0
+                    else:
+                        lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
                 logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
                 accelerator.log(logs, step=global_step)
