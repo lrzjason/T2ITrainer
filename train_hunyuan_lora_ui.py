@@ -320,6 +320,11 @@ def parse_args(input_args=None):
         default=None,
         help=("seperate model path"),
     )
+    parser.add_argument(
+        "--use_dora",
+        action="store_true",
+        help="Use dora on peft config",
+    )
     
     
     
@@ -407,6 +412,7 @@ def main(args):
     args.repeats = 100
     args.gradient_accumulation_steps = 1
     args.num_train_epochs = 20
+    args.use_dora = True
     
     
     # create metadata.jsonl if not exist
@@ -458,6 +464,7 @@ def main(args):
 
     # now we will add new LoRA weights to the attention layers
     transformer_lora_config = LoraConfig(
+        use_dora=args.use_dora,
         r=args.rank,
         lora_alpha=args.rank,
         init_lora_weights="gaussian",
@@ -511,6 +518,7 @@ def main(args):
             cast_training_params(models)
 
 
+
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
 
@@ -519,6 +527,15 @@ def main(args):
     # Optimization parameters
     transformer_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
     params_to_optimize = [transformer_parameters_with_lr]
+    
+    
+    # Make sure the trainable params are in float32. This is again needed since the base models
+    # are in `weight_dtype`. More details:
+    # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
+    if args.mixed_precision == "fp16":
+        models = [transformer]
+        # only upcast trainable parameters (LoRA) into fp32
+        cast_training_params(models)
 
     # Optimizer creation
     if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
