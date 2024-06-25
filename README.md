@@ -1,6 +1,5 @@
 Still rough but it has something.
 
-Please activate your virtual environment if needed.
 
 ## **PyTorch should be installed above 2.3.0 and cu121**
 torch>=2.3.0+cu121
@@ -8,8 +7,13 @@ torch>=2.3.0+cu121
 ## **Hardware requirements:** 
 Requires a cuda gpu above 13GB of memory for hunyuan lora training.
 
+Please activate your virtual environment if needed.
 ## **1. Install dependencies:**
 ```
+git clone https://github.com/lrzjason/T2ITrainer.git
+
+cd T2ITrainer
+
 pip install -r requirements.txt
 ```
 
