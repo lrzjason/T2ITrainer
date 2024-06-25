@@ -20,7 +20,7 @@ python ui.py
 ```
 
 ## **Change logs:**
-2024-06-17: UI Initial release 
+2024-06-17: UI Initial release \
 2024-06-25: Update hunyuan lora training script, update UI for multiple training script
 
 
