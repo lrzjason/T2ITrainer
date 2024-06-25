@@ -19,6 +19,11 @@ pip install -r requirements.txt
 python ui.py
 ```
 
+## **3. HunyuanDit lora testing:**
+Modify the test.py output_dir, lora_dir_name and prompt to generate image with lora.
+```
+python test.py
+```
 ## **Change logs:**
 2024-06-17: UI Initial release \
 2024-06-25: Update hunyuan lora training script, update UI for multiple training script
