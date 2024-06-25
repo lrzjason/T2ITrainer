@@ -6,7 +6,7 @@ Please activate your virtual environment if needed.
 torch>=2.3.0+cu121
 
 ## **Hardware requirements:** 
-Requires a cuda gpu with at 24GB of memory.
+Requires a cuda gpu above 13GB of memory for hunyuan lora training.
 
 ## **1. Install dependencies:**
 ```
