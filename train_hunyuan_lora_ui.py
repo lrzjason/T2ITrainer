@@ -50,8 +50,9 @@ from diffusers import (
     DDPMScheduler,
     # FlowMatchEulerDiscreteScheduler,
     HunyuanDiT2DModel,
-    HunyuanDiTPipeline,
+    # HunyuanDiTPipeline,
 )
+from hunyuandit.pipeline_hunyuandit import HunyuanDiTPipeline
 from diffusers.training_utils import compute_snr
 from diffusers.optimization import get_scheduler
 from diffusers.utils import (
