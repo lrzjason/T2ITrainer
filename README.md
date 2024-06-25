@@ -1,6 +1,3 @@
-Still rough but it has something.
-
-
 ## **PyTorch should be installed above 2.3.0 and cu121**
 torch>=2.3.0+cu121
 

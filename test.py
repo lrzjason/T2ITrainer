@@ -1,6 +1,7 @@
 
 import torch
-from diffusers import HunyuanDiTPipeline, StableDiffusion3Pipeline
+from diffusers import StableDiffusion3Pipeline
+from hunyuandit.pipeline_hunyuandit import HunyuanDiTPipeline
 
 from diffusers.utils import (
     convert_unet_state_dict_to_peft,
@@ -14,8 +15,8 @@ pipe.to("cuda")
 transformer_ = pipe.transformer
 
 output_dir = f"F:/models/hy/"
-lora_dir_name = "hy-dora-600"
-prompt = "cotton doll, A plush toy character of a blonde policy officer"
+lora_dir_name = "hy-dora-500"
+prompt = "A stunning conceptual art piece showcasing a vibrant, fantastical magical sea creature. The creature, with a mix of both reptilian and aquatic features, has a mesmerizing iridescent blue and celestial purple color palette. It's adorned with elegant, flowing fabric, reminiscent of fashionable attire. The background is a magical, swirling combination of sky blue and celestial purple, creating a mesmerizing atmosphere. The image showcases a blend of fashion, fantasy, and art, evoking a sense of wonder and enchantment., conceptual art, photo, fashion, vibrant, painting, 3d render"
 
 
 lora_path = f"{output_dir}{lora_dir_name}"
