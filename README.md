@@ -35,4 +35,5 @@ python test.py
 Thanks @minienglish1 and @Freon in EveryDream discord for many help.
 
 Thanks to kohya ss for many references from his training codebase
+Thanks to Kblueleaf for coding reference on hunyuandit gradient checkpoint implementation
 
