@@ -31,7 +31,9 @@ default_config = {
     "break_epoch":0,
     "skip_step":0, 
     "validation_ratio":0.1, 
-    "use_dora":False
+    "use_dora":False,
+    "recreate_cache":False,
+
 }
 
 def run(
@@ -61,7 +63,8 @@ def run(
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
-        use_dora
+        use_dora,
+        recreate_cache
     ):
     inputs = {
         "seed":seed,
@@ -89,7 +92,8 @@ def run(
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
         # "model_path":model_path,
-        "use_dora":use_dora
+        "use_dora":use_dora,
+        "recreate_cache":recreate_cache
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -157,7 +161,7 @@ with gr.Blocks() as demo:
             break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
             skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
-
+            recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
     inputs = [
         script,
         seed,
@@ -185,7 +189,9 @@ with gr.Blocks() as demo:
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
-        use_dora]
+        use_dora,
+        recreate_cache
+        ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")

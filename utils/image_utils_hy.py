@@ -41,18 +41,18 @@ BASE_RESOLUTION = 1024
 #     return buckets
 
 # height / width for pixart
-# RESOLUTION_SET = [
-#     (1024, 1024), # 1:1
-#     (896, 1152),  # 0.7777 3:4 0.75
-#     (832, 1216),  # 0.6842 
-#     (768, 1344),  # 0.5714 9:16 0.5625
-#     (640, 1536),  # 0.4666
-# ]
 RESOLUTION_SET = [
-    (1024,1024),
-    (864,1152),
-    (720,1280)
+    (1024, 1024), # 1:1
+    (896, 1152),  # 0.7777 3:4 0.75
+    (832, 1216),  # 0.6842 
+    (768, 1344),  # 0.5714 9:16 0.5625
+    (640, 1536),  # 0.4666
 ]
+# RESOLUTION_SET = [
+#     (1024,1024),
+#     (864,1152),
+#     (720,1280)
+# ]
 
 def get_buckets():
     buckets = {}
@@ -363,10 +363,12 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
         scale_with_height = False
     try:
         image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
-        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
     except Exception as e:
         print(e)
         raise e
+    
+    # test = Image.fromarray(image)
+    # test.show()
     # set meta data
     image_height, image_width, _ = image.shape
     target_size = (image_width,image_height)
@@ -681,7 +683,7 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
     # resize image to target resolution
     # return cv2.resize(cropped_image, closest_resolution)
-    return resize(cropped_image,closest_resolution),crop_x,crop_y
+    return resize(cropped_image,(closest_resolution[1],closest_resolution[0])),crop_x,crop_y
 
 
 def resize(img,resolution):

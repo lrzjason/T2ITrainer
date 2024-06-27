@@ -320,6 +320,12 @@ def parse_args(input_args=None):
         action="store_true",
         help="Use dora on peft config",
     )
+    parser.add_argument(
+        "--recreate_cache",
+        action="store_true",
+        help="recreate all cache",
+    )
+    
     
     
     if input_args is not None:
@@ -698,7 +704,7 @@ def main(args):
             # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
             # create metadata and latent cache
-            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,repeats=args.repeats)
+            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache)
             # Serializing json
             json_object = json.dumps(datarows, indent=4)
             # Writing to sample.json
@@ -740,6 +746,11 @@ def main(args):
                 datarows = json.loads(readfile.read())
 
 
+    repeat_datarows = []
+    for datarow in datarows:
+        for i in range(args.repeats):
+            repeat_datarows.append(datarow)
+    datarows = repeat_datarows
     # resume from cpu after cache files
     transformer.to(accelerator.device)
 

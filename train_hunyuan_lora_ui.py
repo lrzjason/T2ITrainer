@@ -326,6 +326,11 @@ def parse_args(input_args=None):
         action="store_true",
         help="Use dora on peft config",
     )
+    parser.add_argument(
+        "--recreate_cache",
+        action="store_true",
+        help="recreate all cache",
+    )
     
     
     
@@ -659,7 +664,7 @@ def main(args):
             # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
             # create metadata and latent cache
-            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir)
+            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache)
             validation_datarows = []
             # prepare validation_slipt
             if args.validation_ratio > 0:
