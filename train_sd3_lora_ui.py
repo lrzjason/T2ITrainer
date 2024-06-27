@@ -699,7 +699,7 @@ def main(args):
 
         
         datarows = []
-        if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
+        if (not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path)) or args.recreate_cache:
             # using compel for longer prompt embedding
             # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
