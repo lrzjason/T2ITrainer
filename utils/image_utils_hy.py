@@ -330,13 +330,18 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
     #                                 align=16,
     #                                 step=64,
     #                                 target_ratios=["1:1", "3:4", "4:3", "16:9", "9:16"]).data
-    resolutions = [
-        (1024,1024),
-        (864,1152),
-        (1152,864),
-        (1280,720),
-        (720,1280),
-    ]
+    # resolutions = [
+    #     (1024,1024),
+    #     (864,1152),
+    #     (1152,864),
+    #     (1280,720),
+    #     (720,1280),
+    # ]
+    
+    
+    horizontal_resolution_set = RESOLUTION_SET
+    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
+    resolutions = horizontal_resolution_set + vertical_resolution_set[1:]
     rope_img="base512"
     patch_size=2
     hidden_size=1408
