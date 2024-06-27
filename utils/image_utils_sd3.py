@@ -173,7 +173,7 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.
     create_empty_embedding(tokenizers,text_encoders)
     supported_image_types = ['.jpg','.jpeg','.png','.webp']
     metadata_path = os.path.join(input_dir, metadata_name)
-    if recreate:
+    if recreate or recreate_cache:
         # remove metadata.json
         if os.path.exists(metadata_path):
             os.remove(metadata_path)
