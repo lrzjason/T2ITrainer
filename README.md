@@ -27,7 +27,8 @@ python test.py
 ```
 ## **Change logs:**
 2024-06-17: UI Initial release \
-2024-06-25: Update hunyuan lora training script, update UI for multiple training script
+2024-06-25: Update hunyuan lora training script, update UI for multiple training script \
+2024-06-27: Fix incorrect bucketing on hunyuan lora training
 
 
 ## **Acknowledgements:**
