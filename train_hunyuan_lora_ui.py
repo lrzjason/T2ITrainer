@@ -961,7 +961,7 @@ def main(args):
         py_state = python_get_rng_state()
         
         if accelerator.is_main_process:
-            if epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0 or epoch == args.num_train_epochs - 1:
+            if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1:
                 accelerator.wait_for_everyone()
                 if accelerator.is_main_process:
                     save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")

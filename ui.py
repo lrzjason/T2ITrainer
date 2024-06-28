@@ -27,7 +27,7 @@ default_config = {
     "num_train_epochs":20,
     "save_model_epochs":1, 
     "validation_epochs":1, 
-    "skip_epoch":1, 
+    "skip_epoch":0, 
     "break_epoch":0,
     "skip_step":0, 
     "validation_ratio":0.1, 
