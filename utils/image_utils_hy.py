@@ -41,18 +41,21 @@ BASE_RESOLUTION = 1024
 #     return buckets
 
 # height / width for pixart
-RESOLUTION_SET = [
-    (1024, 1024), # 1:1
-    (896, 1152),  # 0.7777 3:4 0.75
-    (832, 1216),  # 0.6842 
-    (768, 1344),  # 0.5714 9:16 0.5625
-    (640, 1536),  # 0.4666
-]
 # RESOLUTION_SET = [
-#     (1024,1024),
-#     (864,1152),
-#     (720,1280)
+#     (1024, 1024), # 1:1
+#     (896, 1152),  # 0.7777 3:4 0.75
+#     (832, 1216),  # 0.6842 
+#     (768, 1344),  # 0.5714 9:16 0.5625
+#     (640, 1536),  # 0.4666
 # ]
+
+
+RESOLUTION_SET = [
+    (1024, 1024),
+    (768, 1280),  # 9:16
+    (864, 1152),
+    (960, 1280),  # 3:4
+]
 
 def get_buckets():
     buckets = {}
@@ -476,7 +479,7 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
 
     freqs_cis_img = {}
     th, tw = 1024 // 8 // 2, 1024 // 8 // 2
-    rope_img = "base1024"
+    rope_img = "base512"
     reso = "1024x1024"
     sub_args = calc_sizes(rope_img, 2, th, tw)
     freqs_cis_img[str(reso)] = get_2d_rotary_pos_embed(1408 // 16, *sub_args, use_real=True)

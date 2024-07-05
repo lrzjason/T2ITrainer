@@ -4,24 +4,27 @@ import subprocess
 import json
 
 default_config = {
-    "default_script": "train_hunyuan_lora_ui.py",
+    "default_script": "train_sd3_lora_ui.py",
     "script_choices": ["train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
-	"output_dir":"F:/models/hy",
-    "save_name":"hy-lora",
-    "pretrained_model_name_or_path":"Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers", 
+	"output_dir":"F:/models/sd3",
+    "save_name":"opensd3-b4",
+    "pretrained_model_name_or_path":"stabilityai/stable-diffusion-3-medium-diffusers", 
+	# "output_dir":"F:/models/hy",
+    # "save_name":"hy-zhaojinmai",
+    # "pretrained_model_name_or_path":"Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers", 
     "model_path":None, 
-    "train_data_dir":"F:/ImageSet/handpick_high_quality_b2_train", 
+    "train_data_dir":"F:/ImageSet/sd3_test", 
     "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":32,
     "train_batch_size":1,
-    "repeats":1,
+    "repeats":30,
     "gradient_accumulation_steps":1,
     "mixed_precision":"fp16",
     "gradient_checkpointing":True,
-    "optimizer":"adamw",
-    "lr_scheduler":"constant", 
-    "learning_rate":1e-4,
+    "optimizer":"prodigy",
+    "lr_scheduler":"cosine", 
+    "learning_rate":1,
     "lr_warmup_steps":0,
     "seed":4321,
     "num_train_epochs":20,
@@ -33,7 +36,6 @@ default_config = {
     "validation_ratio":0.1, 
     "use_dora":False,
     "recreate_cache":False,
-
 }
 
 def run(
@@ -101,9 +103,13 @@ def run(
     args = ["python", script]
     for key, value in inputs.items():
         if value is not None:
-            args.append(f"--{key}")
-            if not isinstance(value, bool):  # exclude boolean values
+            if isinstance(value, bool):  # exclude boolean values
+                if value == True:
+                    args.append(f"--{key}")
+            else:
+                args.append(f"--{key}")
                 args.append(str(value))
+                
     # Call the script with the arguments
     subprocess.run(args)
     print(args)

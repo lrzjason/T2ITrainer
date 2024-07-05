@@ -1000,7 +1000,7 @@ def main(args):
                         total_loss = 0.0
                         num_batches = len(val_dataloader)
                         # basically the as same as the training loop
-                        for i, batch in enumerate(val_dataloader):
+                        for i, batch in tqdm(enumerate(val_dataloader),position=1):
                             # v-prediction reference from https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth.py#L1302
                             latents = batch["latents"].to(accelerator.device)
                             bsz, _, _, _ = latents.shape
