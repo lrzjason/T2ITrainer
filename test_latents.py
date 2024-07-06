@@ -11,7 +11,13 @@ import cv2
 import torchvision.transforms as T
 import torchvision
 
-vae = AutoencoderKL.from_single_file("F:/models/VAE/SD3_16c_vae.safetensors")
+vae = AutoencoderKL.from_pretrained(
+    "stabilityai/stable-diffusion-3-medium-diffusers",
+    subfolder="vae",
+    revision=None,
+    variant=None,
+)
+
 vae.to("cuda").to(torch.float16)
 npz_path = "F:/ImageSet/sd3_test/1_people/alan-w-ZpmFJoWRqUE-unsplash.npsd3"
 # image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
