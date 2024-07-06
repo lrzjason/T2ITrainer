@@ -29,6 +29,7 @@ python test.py
 2024-06-17: UI Initial release \
 2024-06-25: Update hunyuan lora training script, update UI for multiple training script \
 2024-06-27: Fix incorrect bucketing on hunyuan lora training, add recreate cache option in ui
+2024-07-06: Fix wrong channel, RGB to BGR in sd3 latent
 
 
 ## **Acknowledgements:**
