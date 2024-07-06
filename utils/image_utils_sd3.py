@@ -252,9 +252,7 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
     # Simple center crop for others
     ##############################################################################
     width, height = image.size
-    open_cv_image = numpy.array(image)
-    # # Convert RGB to BGR
-    image = open_cv_image[:, :, ::-1].copy()
+    image = numpy.array(image)
     # get nearest resolution
     closest_ratio,closest_resolution = get_nearest_resolution(image)
     # we need to expand the closest resolution to target resolution before cropping
@@ -270,6 +268,8 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
     except Exception as e:
         print(e)
         raise e
+    # test = Image.fromarray(image)
+    # test.show()
     # set meta data
     image_height, image_width, _ = image.shape
     ##############################################################################

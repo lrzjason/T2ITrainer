@@ -11,15 +11,10 @@ import cv2
 import torchvision.transforms as T
 import torchvision
 
-vae = AutoencoderKL.from_pretrained(
-    "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers",
-    subfolder="vae",
-    revision=None,
-    variant=None,
-)
+vae = AutoencoderKL.from_single_file("F:/models/VAE/SD3_16c_vae.safetensors")
 vae.to("cuda").to(torch.float16)
-npz_path = "F:/ImageSet/handpick_high_quality_b2_train/1_tags/ganyu_5672750_centered.nphy"
-image_path = "F:/ImageSet/handpick_high_quality_b2_train/1_tags/ganyu_5672750_centered.webp"
+npz_path = "F:/ImageSet/sd3_test/1_people/alan-w-ZpmFJoWRqUE-unsplash.npsd3"
+# image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
 
 latents = torch.load(npz_path)
 latent = latents['latent'].to("cuda").unsqueeze(0).to(torch.float16)
