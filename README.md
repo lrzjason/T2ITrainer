@@ -2,6 +2,10 @@
 torch>=2.3.0+cu121
 
 ## For Kolors merging SDXL checkpoint
+## **!!!Important!!!** 
+After a discussion of the merge effective, it might not have very meaningful of merging kolors with SDXL checkpoint.
+It does affect the weight but it might not able to transfer the knowledge of SDXL checkpoint to Kolors.
+It more like adding randoms noise the Kolors and reverse some overfitting from the Kolors training.
 ## **Hardware requirements:** 
 Requires 20GB+ RAM for model merging
 
