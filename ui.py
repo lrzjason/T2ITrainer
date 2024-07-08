@@ -93,7 +93,7 @@ def run(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        # "model_path":model_path,
+        "model_path":model_path,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache
     }
@@ -130,7 +130,7 @@ with gr.Blocks() as demo:
                 value=default_config["pretrained_model_name_or_path"], 
                 placeholder="repo name or dir contains sd3 medium diffusers structure"
             )
-            model_path = gr.Textbox(visible=False, label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official sd3 medium weight")
+            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official sd3 medium weight")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
             logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
