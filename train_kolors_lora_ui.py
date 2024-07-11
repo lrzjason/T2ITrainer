@@ -556,11 +556,13 @@ def main(args):
                 # make sure to pop weight so that corresponding model is not saved again
                 weights.pop()
 
+            # save all
             StableDiffusionXLPipeline.save_lora_weights(
                 output_dir,
                 unet_lora_layers=unet_lora_layers_to_save
             )
             
+            # save to kohya
             kohya_state_dict = convert_state_dict_to_kohya(peft_state_dict)
             last_part = os.path.basename(os.path.normpath(output_dir))
             file_path = f"{output_dir}/{last_part}.safetensors"
