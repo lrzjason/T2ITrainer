@@ -1,6 +1,37 @@
 ## **PyTorch should be installed above 2.3.0 and cu121**
 torch>=2.3.0+cu121
 
+## For lora training
+## **Hardware requirements:** 
+Requires a cuda gpu above 13GB of memory for hunyuan lora training.
+
+Please activate your virtual environment if needed.
+## **1. Install dependencies:**
+```
+git clone https://github.com/lrzjason/T2ITrainer.git
+
+cd T2ITrainer
+
+pip install -r requirements.txt
+```
+## **2. Run the script:**
+```
+python ui.py
+```
+## **3. Testing:**
+For hunyuan 1.1
+Modify the test.py output_dir, lora_dir_name and prompt to generate image with lora.
+```
+python test.py
+```
+
+For kolors \
+Install the following plugins and update comfyui \
+https://github.com/kijai/ComfyUI-KwaiKolorsWrapper \
+https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ \
+
+Then, you could use normal lora loader to load the lora in comfyui
+
 ## For Kolors merging SDXL checkpoint
 ## **!!!Important!!!** 
 After a discussion of the merging effective, it might not have very meaningful of merging kolors with SDXL checkpoint.
@@ -27,29 +58,6 @@ python ui_for_merge.py
 At 2024-07-08, Kolors inference is very limited. \
 I am using this repo for the testing https://github.com/kijai/ComfyUI-KwaiKolorsWrapper \
 Backup the original Kolors model first and replace the merged verion to ComfyUI\models\diffusers\Kolors\unet\diffusion_pytorch_model.fp16.safetensors
-
-## For hunyuan dit 1.1 training
-## **Hardware requirements:** 
-Requires a cuda gpu above 13GB of memory for hunyuan lora training.
-
-Please activate your virtual environment if needed.
-## **1. Install dependencies:**
-```
-git clone https://github.com/lrzjason/T2ITrainer.git
-
-cd T2ITrainer
-
-pip install -r requirements.txt
-```
-## **2. Run the script:**
-```
-python ui.py
-```
-## **3. HunyuanDit lora testing:**
-Modify the test.py output_dir, lora_dir_name and prompt to generate image with lora.
-```
-python test.py
-```
 
 ## **Change logs:**
 2024-06-17: UI Initial release \
