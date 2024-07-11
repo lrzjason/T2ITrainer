@@ -62,10 +62,10 @@ Backup the original Kolors model first and replace the merged verion to ComfyUI\
 ## **Change logs:**
 2024-06-17: UI Initial release \
 2024-06-25: Update hunyuan lora training script, update UI for multiple training script \
-2024-06-27: Fix incorrect bucketing on hunyuan lora training, add recreate cache option in ui
-2024-07-06: Fix wrong channel, RGB to BGR in sd3 latent
-2024-07-08: Added a merge_state_dict.py for merging kolors and normal sdxl state dict, save as kolors unet
-2024-07-11: Added kolors training script to ui.
+2024-06-27: Fix incorrect bucketing on hunyuan lora training, add recreate cache option in ui \
+2024-07-06: Fix wrong channel, RGB to BGR in sd3 latent \
+2024-07-08: Added a merge_state_dict.py for merging kolors and normal sdxl state dict, save as kolors unet \
+2024-07-11: Added kolors training script to ui. \
 
 
 ## **Acknowledgements:**
@@ -73,6 +73,6 @@ Backup the original Kolors model first and replace the merged verion to ComfyUI\
 Thanks @minienglish1 and @Freon in EveryDream discord for many help.
 
 Thanks kohya ss for many references from his training codebase \
-Thanks Kblueleaf for coding reference on hunyuandit gradient checkpoint implementation
-Thanks Kolors for the open source checkpoint
-Thanks comfyui for his wonderful codebase
+Thanks Kblueleaf for coding reference on hunyuandit gradient checkpoint implementation \
+Thanks Kolors for the open source checkpoint \
+Thanks comfyui for his wonderful codebase \
