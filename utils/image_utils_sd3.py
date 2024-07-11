@@ -538,7 +538,7 @@ if __name__ == "__main__":
     
     open_cv_image = numpy.array(image)
     # # Convert RGB to BGR
-    image = open_cv_image[:, :, ::-1].copy()
+    # image = open_cv_image[:, :, ::-1].copy()
     
     # get nearest resolution
     closest_ratio,closest_resolution = get_nearest_resolution(image)

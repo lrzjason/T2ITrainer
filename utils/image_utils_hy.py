@@ -306,7 +306,7 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
     # Simple center crop for others
     ##############################################################################
     width, height = image.size
-    origin_size = image.size
+    original_size = (height,width)
     
     rope_img = f"base{BASE_RESOLUTION}"
     buckets = get_buckets()
@@ -379,7 +379,7 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
     # test.show()
     # set meta data
     image_height, image_width, _ = image.shape
-    target_size = (image_width,image_height)
+    target_size = (image_height,image_width)
     ##############################################################################
     
     # json_obj['bucket'] = f"{image_width}x{image_height}"
@@ -424,8 +424,8 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
         del pixel_values
         
         cos_cis_img, sin_cis_img = freqs_cis_img[json_obj['bucket']]
-        # image_meta_size = [origin_size + target_size + (crop_x,crop_y)]
-        image_meta_size = tuple(origin_size) + tuple(target_size) + tuple((crop_x,crop_y))
+        # image_meta_size = [origin_size + target_size + (crop_y,crop_x)]
+        image_meta_size = tuple(original_size) + tuple(target_size) + tuple((crop_y,crop_x))
         kwargs = {
             'image_meta_size': image_meta_size,
             'style':0,

@@ -1164,9 +1164,9 @@ def main(args):
                 accelerator.backward(loss)
                 # optimizer.step()
 
-                # if accelerator.sync_gradients:
-                #     params_to_clip = unet.parameters()
-                #     accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
+                if accelerator.sync_gradients:
+                    params_to_clip = unet.parameters()
+                    accelerator.clip_grad_norm_(params_to_clip, args.max_grad_norm)
                 
                 # args.gradient_accumulation_steps
                 # https://huggingface.co/docs/accelerate/usage_guides/gradient_accumulation 

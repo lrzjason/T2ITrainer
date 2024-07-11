@@ -57,6 +57,7 @@ python test.py
 2024-06-27: Fix incorrect bucketing on hunyuan lora training, add recreate cache option in ui
 2024-07-06: Fix wrong channel, RGB to BGR in sd3 latent
 2024-07-08: Added a merge_state_dict.py for merging kolors and normal sdxl state dict, save as kolors unet
+2024-07-11: Added kolors training script to ui.
 
 
 ## **Acknowledgements:**

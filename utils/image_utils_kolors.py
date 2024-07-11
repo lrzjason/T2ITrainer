@@ -6,6 +6,8 @@ import os
 from torchvision import transforms
 from PIL import Image, ImageOps
 from tqdm import tqdm 
+import cv2
+import numpy
 
 BASE_RESOLUTION = 1024
 
@@ -150,11 +152,6 @@ class CachedImageDataset(Dataset):
         pooled_prompt_embed = cached_latent['pooled_prompt_embed']
         time_id = cached_latent['time_id']
 
-        #conditional_dropout
-        if random.random() < self.conditional_dropout_percent:
-            prompt_embed = self.empty_prompt_embed
-            pooled_prompt_embed = self.empty_pooled_prompt_embed
-
         return {
             "latent": latent,
             "prompt_embed": prompt_embed,
@@ -164,11 +161,11 @@ class CachedImageDataset(Dataset):
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False):
-    create_empty_embedding(compel)
-    supported_image_types = ['.jpg','.png','.webp']
-    metadata_path = os.path.join(input_dir, 'metadata.json')
-    if recreate:
+def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False,  metadata_name="metadata_kolors.json"):
+    create_empty_embedding(tokenizers,text_encoders)
+    supported_image_types = ['.jpg','.jpeg','.png','.webp']
+    metadata_path = os.path.join(input_dir, metadata_name)
+    if recreate or recreate_cache:
         # remove metadata.json
         if os.path.exists(metadata_path):
             os.remove(metadata_path)
@@ -189,7 +186,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
                 for file in os.listdir(folder_path):
                     for image_type in supported_image_types:
                         if file.endswith(image_type):
-                            json_obj = iterate_image(compel,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                            json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                             datarows.append(json_obj)
             # handle single files
             else:
@@ -197,7 +194,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
                 file = item
                 for image_type in supported_image_types:
                     if file.endswith(image_type):
-                        json_obj = iterate_image(compel,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
+                        json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
                         datarows.append(json_obj)
         
         # Serializing json
@@ -209,7 +206,7 @@ def create_metadata_cache(compel,vae,input_dir,caption_exts='.txt,.wd14_cap',rec
     
     return datarows
 
-def iterate_image(compel,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
+def iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -226,12 +223,12 @@ def iterate_image(compel,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recr
             json_obj['prompt'] = open(text_path, encoding='utf-8').read()
             # datarows.append(caption)
 
-    json_obj = cache_file(compel,vae,json_obj,recreate=recreate_cache)
+    json_obj = cache_file(tokenizers,text_encoders,vae,json_obj,recreate=recreate_cache)
     return json_obj
 
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
-def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
+def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npkolors",recreate=False):
 
     image_path = json_obj["image_path"]
     prompt = json_obj["prompt"]
@@ -243,8 +240,37 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
         print(f"Failed to open {image_path}: {e}")
         # continue
 
+    ##############################################################################
+    # Simple center crop for others
+    ##############################################################################
+    width, height = image.size
+    original_size = (height, width)
+    image = numpy.array(image)
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+    scale_with_height = True
+    crops_coords_top_left = (0,0)
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        # image = simple_center_crop(image,scale_with_height,closest_resolution)
+        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+        crops_coords_top_left = (crop_y,crop_x)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
+    # test = Image.fromarray(image)
+    # test.show()
     # set meta data
-    image_width, image_height = image.size
+    image_height, image_width, _ = image.shape
+    target_size = (image_height,image_width)
+    ##############################################################################
+    
     json_obj['bucket'] = f"{image_width}x{image_height}"
     
 
@@ -267,72 +293,216 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
             print(e)
             print(f"{npz_path} is corrupted, regenerating...")
     
-    # all images are preprocessed to target size, so it doesn't have crop_top_left
-    # json_obj["original_size"] = (image_height,image_width)
-    # json_obj["crop_top_left"] = (0,0)
-
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent
-    pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
+    # pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
+    pixel_values = []
+    pixel_values.append(image)
+    pixel_values = torch.stack(pixel_values).to(vae.device)
     del image
-
     
     with torch.no_grad():
         #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
-        latent = vae.encode(pixel_values).latent_dist.sample().squeeze() #squeeze to remove bsz dimension
-        del pixel_values
+        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+        # .squeeze(0) #squeeze to remove bsz dimension
         latent = latent * vae.config.scaling_factor
+        del pixel_values
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    time_id = torch.tensor([
-        # original size
-        image_height,image_width,
-        # crop y,crop x,
-        0,0,
-        # target size
-        image_height,image_width
-    ]).to(vae.device, dtype=vae.dtype)
-    
+    # time_id = torch.tensor([
+    #     # original size
+    #     height,width,
+    #     # crop_y,crop_x,
+    #     crop_y,crop_x,
+    #     # target size
+    #     image_height,image_width
+    # ]).to(vae.device, dtype=vae.dtype)
+    time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
 
-    prompt_embeds, pooled_prompt_embeds = compel(prompt)
-    prompt_embeds = torch.squeeze(prompt_embeds)
-    pooled_prompt_embeds = torch.squeeze(pooled_prompt_embeds)
-    # print('prompt_embeds.shape',prompt_embeds.shape)
-    # print('pooled_prompt_embeds.shape',pooled_prompt_embeds.shape)
+    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,prompt,device=vae.device)
+    prompt_embed = prompt_embeds.squeeze(0)
+    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
     
     latent_dict = {
         "latent": latent.cpu(),
-        "prompt_embed": prompt_embeds.cpu(), 
-        "pooled_prompt_embed": pooled_prompt_embeds.cpu(),
+        "prompt_embed": prompt_embed.cpu(), 
+        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
         "time_id": time_id.cpu()
     }
 
     
     # save latent to cache file
     torch.save(latent_dict, npz_path)
-
+    del latent_dict
     return json_obj
 
-def get_empty_embedding(cache_path="cache/empty_embedding.npz"):
+
+def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
+    with torch.no_grad():
+        prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders, tokenizers, prompt, device=device)
+        prompt_embeds = prompt_embeds.to(device)
+        pooled_prompt_embeds = pooled_prompt_embeds.to(device)
+    return prompt_embeds, pooled_prompt_embeds
+
+
+def get_empty_embedding(cache_path="cache/empty_embedding_kolors.npkolors"):
     if os.path.exists(cache_path):
         return torch.load(cache_path)
-def create_empty_embedding(compel,cache_path="cache/empty_embedding.npz",recreate=False):
+def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors.npkolors",recreate=False):
     if recreate:
         os.remove(cache_path)
 
     if os.path.exists(cache_path):
         return torch.load(cache_path)
 
-    prompt_embeds, pooled_prompt_embeds = compel("")
-    prompt_embeds = torch.squeeze(prompt_embeds)
-    pooled_prompt_embeds = torch.squeeze(pooled_prompt_embeds)
+    prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders,tokenizers,"")
+    prompt_embeds = prompt_embeds.squeeze(0)
+    pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
+    time_id = torch.tensor([
+        # original size
+        1024,1024,
+        0,0,
+        # target size
+        1024,1024
+    ])
     latent = {
         "prompt_embed": prompt_embeds.cpu(), 
-        "pooled_prompt_embed": pooled_prompt_embeds.cpu()
+        "pooled_prompt_embed": pooled_prompt_embeds.cpu(),
+        "time_id":time_id.cpu()
     }
     # save latent to cache file
     torch.save(latent, cache_path)
 
     return latent
+
+def encode_prompt_with_glm(
+    text_encoder,
+    tokenizer,
+    prompt: str,
+    device=None,
+    num_images_per_prompt: int = 1,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+    # batch_size = len(prompt)
+
+    text_inputs = tokenizer(
+        prompt,
+        padding="max_length",
+        max_length=256,
+        truncation=True,
+        return_tensors="pt",
+    ).to(device)
+
+    output = text_encoder(
+            input_ids=text_inputs['input_ids'],
+            attention_mask=text_inputs['attention_mask'],
+            position_ids=text_inputs['position_ids'],
+            output_hidden_states=True)
+    # text_input_ids = text_inputs.input_ids
+    # prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
+    prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
+    text_proj = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
+    bs_embed, seq_len, _ = prompt_embeds.shape
+    prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+    prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
+    
+    pooled_prompt_embeds = text_proj.repeat(1, num_images_per_prompt).view(
+        bs_embed * num_images_per_prompt, -1
+    )
+    
+    return prompt_embeds, pooled_prompt_embeds
+
+
+def encode_prompt(
+    text_encoders,
+    tokenizers,
+    prompt: str,
+    device=None,
+    num_images_per_prompt: int = 1,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+
+    text_encoder = text_encoders[0]
+    tokenizer = tokenizers[0]
+    prompt_embeds, pooled_prompt_embeds = encode_prompt_with_glm(
+        text_encoder=text_encoder,
+        tokenizer=tokenizer,
+        prompt=prompt,
+        device=device if device is not None else text_encoder.device,
+        num_images_per_prompt=num_images_per_prompt,
+    )
+    return prompt_embeds, pooled_prompt_embeds
+    
+def simple_center_crop(image,scale_with_height,closest_resolution):
+    height, width, _ = image.shape
+    # print("ori size:",width,height)
+    if scale_with_height: 
+        up_scale = height / closest_resolution[1]
+    else:
+        up_scale = width / closest_resolution[0]
+
+    expanded_closest_size = (int(closest_resolution[0] * up_scale + 0.5), int(closest_resolution[1] * up_scale + 0.5))
+    
+    diff_x = abs(expanded_closest_size[0] - width)
+    diff_y = abs(expanded_closest_size[1] - height)
+
+    crop_x = 0
+    crop_y = 0
+    # crop extra part of the resized images
+    if diff_x>0:
+        crop_x =  diff_x //2
+        cropped_image = image[:,  crop_x:width-diff_x+crop_x]
+    elif diff_y>0:
+        crop_y =  diff_y//2
+        cropped_image = image[crop_y:height-diff_y+crop_y, :]
+    else:
+        # 1:1 ratio
+        cropped_image = image
+
+    print(f"ori ratio:{width/height}")
+    height, width, _ = cropped_image.shape  
+    print(f"cropped ratio:{width/height}")
+    print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
+    # resize image to target resolution
+    # return cv2.resize(cropped_image, closest_resolution)
+    return resize(cropped_image,closest_resolution),crop_x,crop_y
+
+
+def resize(img,resolution):
+    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+    return cv2.resize(img,resolution)
+
+if __name__ == "__main__":
+    image = Image.open("F:/ImageSet/handpick_high_quality/animal/blue-jay-8075346.jpg")
+    
+    # set meta data
+    width, height = image.size
+    
+    
+    open_cv_image = numpy.array(image)
+    # # Convert RGB to BGR
+    image = open_cv_image[:, :, ::-1].copy()
+    
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    # print('init closest_resolution',closest_resolution)
+
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+
+    scale_with_height = True
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        # image = simple_center_crop(image,scale_with_height,closest_resolution)
+        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
+    # set meta data
+    image_height, image_width, _ = image.shape

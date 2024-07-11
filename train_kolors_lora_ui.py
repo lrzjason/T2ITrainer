@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # coding=utf-8
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
@@ -13,64 +12,91 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
+# limitations under the License.
+
+# this is a practice codebase, mainly inspired from diffusers train_text_to_image_sdxl.py
+# this codebase mainly to get the training working rather than many option to set
+# therefore, it would assume something like fp16 vae fixed and baked in model, etc
+# some option, me doesn't used in training wouldn't implemented like ema, etc
+
+# before 20240401, initial codebase
+# 20240401, added caption ext support
+#           need to handle multi batch size and gas for dataset stack images.
+#           need to implement validation loss
+#           need to add te training
+# 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
+#          added whole repeats to dataset
+# 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
+from diffusers.models.attention_processor import AttnProcessor2_0
+import jsonlines
 
 import argparse
-import copy
+import functools
 import gc
-import itertools
 import logging
 import math
 import os
 import random
 import shutil
-import warnings
-from contextlib import nullcontext
 from pathlib import Path
 
+import accelerate
+import datasets
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.utils.checkpoint
 import transformers
+import diffusers
+
+from diffusers.image_processor import VaeImageProcessor
+
 from accelerate import Accelerator
-from accelerate.logging import get_logger
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
-from PIL import Image
-from PIL.ImageOps import exif_transpose
-from torch.utils.data import Dataset
+from accelerate.logging import get_logger
+from accelerate.utils import ProjectConfiguration, set_seed
+from datasets import load_dataset
+from packaging import version
 from torchvision import transforms
 from torchvision.transforms.functional import crop
 from tqdm.auto import tqdm
-# from transformers import CLIPTextModelWithProjection, CLIPTokenizer, PretrainedConfig, T5EncoderModel, T5TokenizerFast
-
-from transformers import BertModel, BertTokenizer, CLIPImageProcessor, MT5Tokenizer, T5EncoderModel
-# import diffusers
+from transformers import AutoTokenizer, PretrainedConfig
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
-    # FlowMatchEulerDiscreteScheduler,
-    HunyuanDiT2DModel,
-    # HunyuanDiTPipeline,
+    EulerDiscreteScheduler,
+    DiffusionPipeline,
+    UNet2DConditionModel,
 )
-from hunyuandit.pipeline_hunyuandit import HunyuanDiTPipeline
-from diffusers.training_utils import compute_snr
+from pathlib import Path
 from diffusers.optimization import get_scheduler
+from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params, compute_snr
 from diffusers.utils import (
     check_min_version,
+    convert_all_state_dict_to_peft,
+    convert_state_dict_to_diffusers,
+    convert_state_dict_to_kohya,
     convert_unet_state_dict_to_peft,
     is_wandb_available,
 )
+from diffusers.loaders import LoraLoaderMixin
+from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
-from diffusers.training_utils import cast_training_params
-
-from utils.image_utils_hy import BucketBatchSampler, CachedImageDataset, create_metadata_cache
-
+# from diffusers import StableDiffusionXLPipeline
+from kolors.pipelines.pipeline_stable_diffusion_xl_chatglm_256 import StableDiffusionXLPipeline
+from tqdm import tqdm 
+from PIL import Image 
+from compel import Compel, ReturnedEmbeddingsType
 
 from sklearn.model_selection import train_test_split
 
 
 import json
+
+
+import sys
+from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
 
 from prodigyopt import Prodigy
 
@@ -81,14 +107,22 @@ from random import setstate as python_set_rng_state
 
 from peft import LoraConfig
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
+from kolors.models.modeling_chatglm import ChatGLMModel
+from kolors.models.tokenization_chatglm import ChatGLMTokenizer
+try:
+    from diffusers.utils import randn_tensor
+except:
+    from diffusers.utils.torch_utils import randn_tensor
 
-
+if is_wandb_available():
+    import wandb
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
-check_min_version("0.28.0.dev0")
+# check_min_version("0.30.0.dev0")
+
+
 
 logger = get_logger(__name__)
-
 def memory_stats():
     print("\nmemory_stats:\n")
     print(torch.cuda.memory_allocated()/1024**2)
@@ -185,58 +219,58 @@ def parse_args(input_args=None):
         help=('The optimizer type to use. Choose between ["AdamW", "prodigy"]'),
     )
 
-    # parser.add_argument(
-    #     "--use_8bit_adam",
-    #     action="store_true",
-    #     help="Whether or not to use 8-bit Adam from bitsandbytes. Ignored if optimizer is not set to AdamW",
-    # )
+    parser.add_argument(
+        "--use_8bit_adam",
+        action="store_true",
+        help="Whether or not to use 8-bit Adam from bitsandbytes. Ignored if optimizer is not set to AdamW",
+    )
 
-    # parser.add_argument(
-    #     "--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam and Prodigy optimizers."
-    # )
-    # parser.add_argument(
-    #     "--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam and Prodigy optimizers."
-    # )
-    # parser.add_argument(
-    #     "--prodigy_beta3",
-    #     type=float,
-    #     default=None,
-    #     help="coefficients for computing the Prodidy stepsize using running averages. If set to None, "
-    #     "uses the value of square root of beta2. Ignored if optimizer is adamW",
-    # )
-    # parser.add_argument("--prodigy_decouple", type=bool, default=True, help="Use AdamW style decoupled weight decay")
-    # parser.add_argument("--adam_weight_decay", type=float, default=1e-02, help="Weight decay to use for unet params")
-    # parser.add_argument(
-    #     "--adam_weight_decay_text_encoder", type=float, default=1e-03, help="Weight decay to use for text_encoder"
-    # )
+    parser.add_argument(
+        "--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam and Prodigy optimizers."
+    )
+    parser.add_argument(
+        "--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam and Prodigy optimizers."
+    )
+    parser.add_argument(
+        "--prodigy_beta3",
+        type=float,
+        default=None,
+        help="coefficients for computing the Prodidy stepsize using running averages. If set to None, "
+        "uses the value of square root of beta2. Ignored if optimizer is adamW",
+    )
+    parser.add_argument("--prodigy_decouple", type=bool, default=True, help="Use AdamW style decoupled weight decay")
+    parser.add_argument("--adam_weight_decay", type=float, default=1e-02, help="Weight decay to use for unet params")
+    parser.add_argument(
+        "--adam_weight_decay_text_encoder", type=float, default=1e-03, help="Weight decay to use for text_encoder"
+    )
 
-    # parser.add_argument(
-    #     "--adam_epsilon",
-    #     type=float,
-    #     default=1e-08,
-    #     help="Epsilon value for the Adam optimizer and Prodigy optimizers.",
-    # )
+    parser.add_argument(
+        "--adam_epsilon",
+        type=float,
+        default=1e-08,
+        help="Epsilon value for the Adam optimizer and Prodigy optimizers.",
+    )
 
-    # parser.add_argument(
-    #     "--prodigy_use_bias_correction",
-    #     type=bool,
-    #     default=True,
-    #     help="Turn on Adam's bias correction. True by default. Ignored if optimizer is adamW",
-    # )
-    # parser.add_argument(
-    #     "--prodigy_safeguard_warmup",
-    #     type=bool,
-    #     default=True,
-    #     help="Remove lr from the denominator of D estimate to avoid issues during warm-up stage. True by default. "
-    #     "Ignored if optimizer is adamW",
-    # )
-    # parser.add_argument(
-    #     "--prodigy_d_coef",
-    #     type=float,
-    #     default=2,
-    #     help=("The dimension of the LoRA update matrices."),
-    # )
-    # parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
+    parser.add_argument(
+        "--prodigy_use_bias_correction",
+        type=bool,
+        default=True,
+        help="Turn on Adam's bias correction. True by default. Ignored if optimizer is adamW",
+    )
+    parser.add_argument(
+        "--prodigy_safeguard_warmup",
+        type=bool,
+        default=True,
+        help="Remove lr from the denominator of D estimate to avoid issues during warm-up stage. True by default. "
+        "Ignored if optimizer is adamW",
+    )
+    parser.add_argument(
+        "--prodigy_d_coef",
+        type=float,
+        default=2,
+        help=("The dimension of the LoRA update matrices."),
+    )
+    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
     parser.add_argument(
         "--logging_dir",
         type=str,
@@ -347,7 +381,6 @@ def parse_args(input_args=None):
     
     
     
-    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
@@ -408,38 +441,44 @@ def main(args):
     # args.mixed_precision = "fp16"
     # args.report_to = "wandb"
     
-    # args.output_dir = 'F:/models/hy'
-    # args.save_name = "hy_test"
-    # args.rank = 64
+    # args.output_dir = 'F:/models/kolors'
+    # args.save_name = "kolors_cotton"
+    # args.rank = 32
     # args.skip_epoch = 1
     # args.break_epoch = 0
     # args.skip_step = 0
     # args.gradient_checkpointing = True
     # args.validation_ratio = 0.1
     # args.num_validation_images = 1
-    # args.pretrained_model_name_or_path = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers"
+    # args.pretrained_model_name_or_path = "F:/Kolors"
     # args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
     # # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
     # args.resume_from_checkpoint = None
     # # args.resume_from_lora_dir = "F:/models/hy/hy_test-1600"
-    # # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
-    # args.train_data_dir = "F:/ImageSet/pixart_test_one"
-    # args.learning_rate = 1e-4
-    # args.optimizer = "adamw"
-    # args.lr_warmup_steps = 1
-    # args.lr_scheduler = "constant"
+    # args.train_data_dir = "F:/ImageSet/pixart_test_cropped"
+    # # args.train_data_dir = "F:/ImageSet/kolors_test"
+    # # args.train_data_dir = "F:/ImageSet/pixart_test_one"
+    
+    # args.learning_rate = 1
+    # args.optimizer = "prodigy"
+    # args.lr_warmup_steps = 500
+    # args.lr_scheduler = "cosine"
     # args.save_model_epochs = 1
     # args.validation_epochs = 1
     # args.train_batch_size = 1
-    # args.repeats = 100
+    # args.repeats = 10
     # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 20
-    # args.use_dora = True
+    # args.num_train_epochs = 10
+    # args.use_dora = False
+    # args.caption_dropout = 0.2
+    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+
     
     
     # create metadata.jsonl if not exist
-    metadata_path = os.path.join(args.train_data_dir, 'metadata_hy.json')
-    val_metadata_path =  os.path.join(args.train_data_dir, 'val_metadata_hy.json')
+    metadata_suffix = "kolors"
+    metadata_path = os.path.join(args.train_data_dir, f'metadata_{metadata_suffix}.json')
+    val_metadata_path =  os.path.join(args.train_data_dir, f'val_metadata_{metadata_suffix}.json')
     
     logging_dir = "test"
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
@@ -473,92 +512,104 @@ def main(args):
         offload_device = torch.device("cpu")
     
     if args.model_path is None:
-        transformer = HunyuanDiT2DModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="transformer", revision=revision, variant=variant
+        unet = UNet2DConditionModel.from_pretrained(
+            args.pretrained_model_name_or_path, subfolder="unet", revision=revision, variant=variant
         ).to(offload_device, dtype=weight_dtype)
     else:
-        transformer = HunyuanDiT2DModel.from_single_file(args.model_path)
+        unet = UNet2DConditionModel.from_single_file(args.model_path)
 
-    transformer.requires_grad_(False)
+    unet.requires_grad_(False)
 
     if args.gradient_checkpointing:
-        transformer.enable_gradient_checkpointing()
+        unet.enable_gradient_checkpointing()
 
     # now we will add new LoRA weights to the attention layers
-    transformer_lora_config = LoraConfig(
+    unet_lora_config = LoraConfig(
         use_dora=args.use_dora,
         r=args.rank,
         lora_alpha=args.rank,
         init_lora_weights="gaussian",
         target_modules=["to_k", "to_q", "to_v", "to_out.0"],
     )
-    transformer.add_adapter(transformer_lora_config)
+    unet.add_adapter(unet_lora_config)
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
         return model
 
-    # create custom saving & loading hooks so that `accelerator.save_state(...)` serializes in a nice format
     def save_model_hook(models, weights, output_dir):
-        with torch.no_grad():
-            if accelerator.is_main_process:
-                transformer_lora_layers_to_save = None
+        if accelerator.is_main_process:
+            # there are only two options here. Either are just the unet attn processor layers
+            # or there are the unet and text encoder atten layers
+            unet_lora_layers_to_save = None
+            
+            for model in models:
+                if isinstance(model, type(unwrap_model(unet))):
+                    unet_lora_layers_to_save = convert_state_dict_to_diffusers(get_peft_model_state_dict(model))
+                
+                else:
+                    raise ValueError(f"unexpected save model: {model.__class__}")
 
-                for model in models:
-                    if isinstance(model, type(unwrap_model(transformer))):
-                        transformer_lora_layers_to_save = get_peft_model_state_dict(model)
-                    else:
-                        raise ValueError(f"unexpected save model: {model.__class__}")
+                # make sure to pop weight so that corresponding model is not saved again
+                weights.pop()
 
-                    # make sure to pop weight so that corresponding model is not saved again
-                    weights.pop()
-
-                HunyuanDiTPipeline.save_lora_weights(
-                    output_dir, transformer_lora_layers=transformer_lora_layers_to_save
-                )
+            StableDiffusionXLPipeline.save_lora_weights(
+                output_dir,
+                unet_lora_layers=unet_lora_layers_to_save
+            )
 
     def load_model_hook(models, input_dir):
-        transformer_ = None
-
+        unet_ = None
         while len(models) > 0:
             model = models.pop()
-
-            if isinstance(model, type(unwrap_model(transformer))):
-                transformer_ = model
+            if isinstance(model, type(unwrap_model(unet))):
+                unet_ = model
             else:
                 raise ValueError(f"unexpected save model: {model.__class__}")
 
-        lora_state_dict = HunyuanDiTPipeline.lora_state_dict(input_dir)
-        HunyuanDiTPipeline.load_lora_into_transformer(lora_state_dict,transformer_)
+        lora_state_dict, network_alphas = LoraLoaderMixin.lora_state_dict(input_dir)
+
+        unet_state_dict = {f'{k.replace("unet.", "")}': v for k, v in lora_state_dict.items() if k.startswith("unet.")}
+        unet_state_dict = convert_unet_state_dict_to_peft(unet_state_dict)
+        incompatible_keys = set_peft_model_state_dict(unet_, unet_state_dict, adapter_name="default")
+        if incompatible_keys is not None:
+            # check only for unexpected keys
+            unexpected_keys = getattr(incompatible_keys, "unexpected_keys", None)
+            if unexpected_keys:
+                logger.warning(
+                    f"Loading adapter weights from state_dict led to unexpected keys not found in the model: "
+                    f" {unexpected_keys}. "
+                )
+
 
         # Make sure the trainable params are in float32. This is again needed since the base models
         # are in `weight_dtype`. More details:
         # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
         if args.mixed_precision == "fp16":
-            models = [transformer_]
+            models = [unet_]
             # only upcast trainable parameters (LoRA) into fp32
             cast_training_params(models)
-
 
 
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
 
-    transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
+    # Enable TF32 for faster training on Ampere GPUs,
+    # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
 
-    # Optimization parameters
-    transformer_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
-    params_to_optimize = [transformer_parameters_with_lr]
-    
-    
-    # Make sure the trainable params are in float32. This is again needed since the base models
-    # are in `weight_dtype`. More details:
-    # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
+    # Make sure the trainable params are in float32.
     if args.mixed_precision == "fp16":
-        models = [transformer]
+        models = [unet]
         # only upcast trainable parameters (LoRA) into fp32
-        cast_training_params(models)
+        cast_training_params(models, dtype=torch.float32)
 
+    unet_lora_parameters = list(filter(lambda p: p.requires_grad, unet.parameters()))
+    # Optimization parameters
+    unet_lora_parameters_with_lr = {"params": unet_lora_parameters, "lr": args.learning_rate}
+    params_to_optimize = [unet_lora_parameters_with_lr]
+    
     # Optimizer creation
     if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
         logger.warning(
@@ -619,9 +670,6 @@ def main(args):
             safeguard_warmup=prodigy_safeguard_warmup,
         )
     
-
-
-
     # ==========================================================
     # Create train dataset
     # ==========================================================
@@ -629,27 +677,17 @@ def main(args):
     # this part need more work afterward, you need to prepare 
     # the train files and val files split first before the training
     if args.train_data_dir is not None:
-        # data_files["train"] = os.path.join(args.train_data_dir, "**")
-        
         # Load the tokenizers
-        tokenizer_one = BertTokenizer.from_pretrained(
+        tokenizer_one = ChatGLMTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
-            subfolder="tokenizer",
-            revision=revision,
-        )
-        tokenizer_two = MT5Tokenizer.from_pretrained(
-            args.pretrained_model_name_or_path,
-            subfolder="tokenizer_2",
-            revision=revision,
+            subfolder="text_encoder",
+            revision=revision, 
+            variant=variant
         )
 
-        text_encoder_one = BertModel.from_pretrained(
+        text_encoder_one = ChatGLMModel.from_pretrained(
             args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
         )
-        text_encoder_two = T5EncoderModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="text_encoder_2", revision=revision, variant=variant
-        )
-        
         if args.vae_path:
             vae = AutoencoderKL.from_single_file(
                 args.vae_path
@@ -658,33 +696,19 @@ def main(args):
             vae = AutoencoderKL.from_pretrained(
                 args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
             )
-        # vae = AutoencoderKL.from_pretrained(
-        #     args.pretrained_model_name_or_path,
-        #     subfolder="vae",
-        #     revision=revision,
-        #     variant=variant,
-        # )
         
         vae.requires_grad_(False)
         text_encoder_one.requires_grad_(False)
-        text_encoder_two.requires_grad_(False)
         
         vae.to(accelerator.device, dtype=torch.float32)
         text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-        text_encoder_two.to(accelerator.device, dtype=weight_dtype)
 
         
-        tokenizers = [tokenizer_one, tokenizer_two]
-        text_encoders = [text_encoder_one, text_encoder_two]
-        
-        
-
+        tokenizers = [tokenizer_one]
+        text_encoders = [text_encoder_one]
         
         datarows = []
         if (not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path)) or args.recreate_cache:
-            # using compel for longer prompt embedding
-            # compel = Compel(tokenizer=[pipeline.tokenizer, pipeline.tokenizer_2] , text_encoder=[text_encoder_one, text_encoder_two], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-
             # create metadata and latent cache
             datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache)
             validation_datarows = []
@@ -714,7 +738,7 @@ def main(args):
                     outfile.write(val_json_object)
                 
             # clear memory
-            del validation_datarows, vae,tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
+            del validation_datarows, vae,tokenizer_one, text_encoder_one
             gc.collect()
             torch.cuda.empty_cache()
         else:
@@ -728,38 +752,31 @@ def main(args):
             repeat_datarows.append(datarow)
     datarows = repeat_datarows
     # resume from cpu after cache files
-    transformer.to(accelerator.device)
+    unet.to(accelerator.device)
 
     # ================================================================
     # End create embedding 
     # ================================================================
     
+    # ================================================================
+    # End create embedding 
+    # ================================================================
+    
     def collate_fn(examples):
-        latents = torch.stack([example["latent"] for example in examples])
         # not sure if this would have issue when using multiple aspect ratio
-        encoder_hidden_states = torch.stack([example["encoder_hidden_state"] for example in examples])
-        text_embedding_mask = torch.stack([example["text_embedding_mask"] for example in examples])
-        encoder_hidden_states_t5 = torch.stack([example["encoder_hidden_state_t5"] for example in examples])
-        text_embedding_mask_t5 = torch.stack([example["text_embedding_mask_t5"] for example in examples])
-        image_meta_size = torch.stack([example["image_meta_size"] for example in examples])
-        styles = torch.stack([example["style"] for example in examples])
-        cos_cis_img = torch.stack([example["cos_cis_img"] for example in examples])[0]
-        sin_cis_img = torch.stack([example["sin_cis_img"] for example in examples])[0]
-
+        latents = torch.stack([example["latent"] for example in examples])
+        time_ids = torch.stack([example["time_id"] for example in examples])
+        prompt_embeds = torch.stack([example["prompt_embed"] for example in examples])
+        pooled_prompt_embeds = torch.stack([example["pooled_prompt_embed"] for example in examples])
 
         return {
             "latents": latents,
-            "encoder_hidden_states": encoder_hidden_states,
-            "text_embedding_mask": text_embedding_mask,
-            "encoder_hidden_states_t5": encoder_hidden_states_t5,
-            "text_embedding_mask_t5": text_embedding_mask_t5,
-            "image_meta_size": image_meta_size,
-            "style": styles,
-            "cos_cis_img": cos_cis_img,
-            "sin_cis_img": sin_cis_img,
+            "prompt_embeds": prompt_embeds,
+            "pooled_prompt_embeds": pooled_prompt_embeds,
+            "time_ids": time_ids,
         }
     # create dataset based on input_dir
-    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=0.1)
+    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=args.caption_dropout)
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
@@ -802,15 +819,15 @@ def main(args):
         num_cycles=lr_num_cycles,
         power=lr_power,
     )
-    transformer, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        transformer, optimizer, train_dataloader, lr_scheduler
+    unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        unet, optimizer, train_dataloader, lr_scheduler
     )
 
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "dreambooth-hy-lora"
+        tracker_name = "kolors-lora"
         accelerator.init_trackers(tracker_name, config=vars(args))
     # Train!
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
@@ -824,6 +841,20 @@ def main(args):
     logger.info(f"  Total optimization steps = {max_train_steps}")
     global_step = 0
     first_epoch = 0
+
+
+    # def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
+    #     sigmas = noise_scheduler.sigmas.to(device=accelerator.device, dtype=dtype)
+    #     schedule_timesteps = noise_scheduler.timesteps.to(accelerator.device)
+    #     timesteps = timesteps.to(accelerator.device)
+
+    #     step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
+
+    #     sigma = sigmas[step_indices].flatten()
+    #     while len(sigma.shape) < n_dim:
+    #         sigma = sigma.unsqueeze(-1)
+    #     return sigma
+
 
     resume_step = 0
     # Potentially load in the weights and states from a previous save
@@ -864,110 +895,96 @@ def main(args):
     
 
     for epoch in range(first_epoch, args.num_train_epochs):
-        transformer.train()
+        unet.train()
         for step, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
-            with accelerator.accumulate(transformer):
+            with accelerator.accumulate(unet):
                 with accelerator.autocast():
-                    # v-prediction reference from https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth.py#L1302
                     latents = batch["latents"].to(accelerator.device)
+                    
+                    # vae = AutoencoderKL.from_single_file(
+                    #     vae_path
+                    # )
+                    # vae.to(device=accelerator.device)
+                    
                     bsz, _, _, _ = latents.shape
-                    timesteps = torch.randint(
-                        0, noise_scheduler.config.num_train_timesteps, (bsz,), device=accelerator.device
-                    )
+                    
+                    indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
+                    timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
+                    
                     noise = torch.randn_like(latents)
+                    
                     # Add noise to the model input according to the noise magnitude at each timestep
                     # (this is the forward diffusion process)
                     noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
                     
-                    timesteps = timesteps.long()
-                    model_kwargs = dict(
-                        encoder_hidden_states = batch["encoder_hidden_states"].to(accelerator.device),
-                        text_embedding_mask = batch["text_embedding_mask"].to(accelerator.device),
-                        encoder_hidden_states_t5 = batch["encoder_hidden_states_t5"].to(accelerator.device),
-                        text_embedding_mask_t5 = batch["text_embedding_mask_t5"].to(accelerator.device),
-                        image_meta_size = batch["image_meta_size"].to(accelerator.device),
-                        style = batch["style"].to(accelerator.device),
-                        cos_cis_img = batch["cos_cis_img"].to(accelerator.device),
-                        sin_cis_img = batch["sin_cis_img"].to(accelerator.device)
-                    )
+
+                    # timesteps = timesteps.long()
                     
-                    # predict the noise residual
-                    model_pred = transformer(
+                    # add_time_ids = torch.cat(
+                    #     [
+                    #         batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
+                    #     ]
+                    # )
+                    add_time_ids = batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
+                    unet_added_conditions = {"time_ids": add_time_ids}
+                    prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                    pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                    unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
+                    model_pred = unet(
                         noisy_model_input,
                         timesteps,
-                        encoder_hidden_states=model_kwargs["encoder_hidden_states"],
-                        text_embedding_mask=model_kwargs["text_embedding_mask"],
-                        encoder_hidden_states_t5=model_kwargs["encoder_hidden_states_t5"],
-                        text_embedding_mask_t5=model_kwargs["text_embedding_mask_t5"],
-                        image_meta_size=model_kwargs["image_meta_size"],
-                        style=model_kwargs["style"],
-                        image_rotary_emb=(model_kwargs["cos_cis_img"], model_kwargs["sin_cis_img"]),
+                        encoder_hidden_states=prompt_embeds,
+                        added_cond_kwargs=unet_added_conditions,
                         return_dict=False,
                     )[0]
-                    model_pred = model_pred.chunk(2, dim=1)[0]
                     
-                    # Get the target for loss depending on the prediction type
-                    if noise_scheduler.config.prediction_type == "v_prediction":
-                        target = noise_scheduler.get_velocity(latents, noise, timesteps)
-                    else:
-                        raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-                    # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-                    # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-                    # This is discussed in Section 4.2 of the same paper.
-                    snr = compute_snr(noise_scheduler, timesteps)
-                    base_weight = (
-                        # "SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
-                        torch.stack([snr, 5.0 * torch.ones_like(timesteps)], dim=1).min(dim=1)[0] / snr
-                    )
-                    # Velocity objective needs to be floored to an SNR weight of one.
-                    mse_loss_weights = base_weight + 1
-                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                    loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
-                    loss = loss.mean()
-                
+                    # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+                    # with torch.no_grad():
+                    #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
+                    # image = image_processor.postprocess(image, output_type="pil")[0]
+                    # image.save("model_pred.png")
                     
-                    del target, mse_loss_weights, base_weight, model_pred,  timesteps,  bsz, noise, snr, noisy_model_input
-                    del latents, model_kwargs
                     
+                    target = noise
+                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    
+                    # Backpropagate
+                    accelerator.backward(loss)
+                    step_loss = loss.detach().item()
+                    del loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
+                    if accelerator.sync_gradients:
+                        params_to_clip = unet_lora_parameters
+                        accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
 
-                # Backpropagate
-                accelerator.backward(loss)
-                step_loss = loss.detach().item()
-                del loss
-                if accelerator.sync_gradients:
-                    params_to_clip = transformer_lora_parameters
-                    accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
+                    optimizer.step()
+                    lr_scheduler.step()
+                    optimizer.zero_grad()
 
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad()
-
-                # Checks if the accelerator has performed an optimization step behind the scenes
-                #post batch check for gradient updates
-                accelerator.wait_for_everyone()
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-                
-                lr = lr_scheduler.get_last_lr()[0]
-                lr_name = "lr"
-                if args.optimizer == "prodigy":
-                    if resume_step>0 and resume_step == global_step:
-                        lr = 0
-                    else:
-                        lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                    lr_name = "lr/d*lr"
-                logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
-                accelerator.log(logs, step=global_step)
-                progress_bar.set_postfix(**logs)
-                
-                if global_step >= max_train_steps:
-                    break
-                del step_loss
-                gc.collect()
-                torch.cuda.empty_cache()
+                    # Checks if the accelerator has performed an optimization step behind the scenes
+                    #post batch check for gradient updates
+                    accelerator.wait_for_everyone()
+                    if accelerator.sync_gradients:
+                        progress_bar.update(1)
+                        global_step += 1
+                    
+                    lr = lr_scheduler.get_last_lr()[0]
+                    lr_name = "lr"
+                    if args.optimizer == "prodigy":
+                        if resume_step>0 and resume_step == global_step:
+                            lr = 0
+                        else:
+                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                        lr_name = "lr/d*lr"
+                    logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+                    
+                    if global_step >= max_train_steps:
+                        break
+                    del step_loss
+                    gc.collect()
+                    torch.cuda.empty_cache()
             
         # ==================================================
         # validation part
@@ -992,7 +1009,7 @@ def main(args):
                     
             if epoch % args.validation_epochs == 0:
                 with torch.no_grad():
-                    transformer = unwrap_model(transformer)
+                    unet = unwrap_model(unet)
                     # freeze rng
                     np.random.seed(0)
                     torch.manual_seed(0)
@@ -1023,67 +1040,41 @@ def main(args):
                         num_batches = len(val_dataloader)
                         # basically the as same as the training loop
                         for i, batch in tqdm(enumerate(val_dataloader),position=1):
-                            # v-prediction reference from https://github.com/huggingface/diffusers/blob/main/examples/dreambooth/train_dreambooth.py#L1302
                             latents = batch["latents"].to(accelerator.device)
                             bsz, _, _, _ = latents.shape
-                            timesteps = torch.randint(
-                                0, noise_scheduler.config.num_train_timesteps, (bsz,), device=accelerator.device
-                            )
+                            
+                            indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
+                            timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
+                            
                             noise = torch.randn_like(latents)
+                            
                             # Add noise to the model input according to the noise magnitude at each timestep
                             # (this is the forward diffusion process)
                             noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
                             
                             timesteps = timesteps.long()
-                            model_kwargs = dict(
-                                encoder_hidden_states = batch["encoder_hidden_states"].to(accelerator.device),
-                                text_embedding_mask = batch["text_embedding_mask"].to(accelerator.device),
-                                encoder_hidden_states_t5 = batch["encoder_hidden_states_t5"].to(accelerator.device),
-                                text_embedding_mask_t5 = batch["text_embedding_mask_t5"].to(accelerator.device),
-                                image_meta_size = batch["image_meta_size"].to(accelerator.device),
-                                style = batch["style"].to(accelerator.device),
-                                cos_cis_img = batch["cos_cis_img"].to(accelerator.device),
-                                sin_cis_img = batch["sin_cis_img"].to(accelerator.device)
-                            )
                             
-                            # predict the noise residual
-                            model_pred = transformer(
+                            add_time_ids = torch.cat(
+                                [
+                                    batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
+                                ]
+                            )
+                            unet_added_conditions = {"time_ids": add_time_ids}
+                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                            unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
+                            model_pred = unet(
                                 noisy_model_input,
                                 timesteps,
-                                encoder_hidden_states=model_kwargs["encoder_hidden_states"],
-                                text_embedding_mask=model_kwargs["text_embedding_mask"],
-                                encoder_hidden_states_t5=model_kwargs["encoder_hidden_states_t5"],
-                                text_embedding_mask_t5=model_kwargs["text_embedding_mask_t5"],
-                                image_meta_size=model_kwargs["image_meta_size"],
-                                style=model_kwargs["style"],
-                                image_rotary_emb=(model_kwargs["cos_cis_img"], model_kwargs["sin_cis_img"]),
+                                prompt_embeds,
+                                added_cond_kwargs=unet_added_conditions,
                                 return_dict=False,
                             )[0]
-                            model_pred = model_pred.chunk(2, dim=1)[0]
                             
-                            # Get the target for loss depending on the prediction type
-                            if noise_scheduler.config.prediction_type == "v_prediction":
-                                target = noise_scheduler.get_velocity(latents, noise, timesteps)
-                            else:
-                                raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
-
-                            # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-                            # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-                            # This is discussed in Section 4.2 of the same paper.
-                            snr = compute_snr(noise_scheduler, timesteps)
-                            base_weight = (
-                                # "SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
-                                torch.stack([snr, 5.0 * torch.ones_like(timesteps)], dim=1).min(dim=1)[0] / snr
-                            )
-                            # Velocity objective needs to be floored to an SNR weight of one.
-                            mse_loss_weights = base_weight + 1
-                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                            loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
-                            loss = loss.mean()
+                            target = noise
+                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                             total_loss+=loss.detach()
-                            
-                            del target, mse_loss_weights, base_weight, model_pred,  timesteps,  bsz, noise, snr, noisy_model_input
-                            del latents, model_kwargs
+                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
                             gc.collect()
                             torch.cuda.empty_cache()
                             

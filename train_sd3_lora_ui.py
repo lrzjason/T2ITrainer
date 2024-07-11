@@ -325,6 +325,18 @@ def parse_args(input_args=None):
         action="store_true",
         help="recreate all cache",
     )
+    parser.add_argument(
+        "--caption_dropout",
+        type=float,
+        default=0.1,
+        help=("caption_dropout ratio which drop the caption and update the unconditional space"),
+    )
+    parser.add_argument(
+        "--vae_path",
+        type=str,
+        default=None,
+        help=("seperate vae path"),
+    )
     
     
     
@@ -674,12 +686,21 @@ def main(args):
         text_encoder_one, text_encoder_two, text_encoder_three = load_text_encoders(
             text_encoder_cls_one, text_encoder_cls_two, text_encoder_cls_three
         )
-        vae = AutoencoderKL.from_pretrained(
-            args.pretrained_model_name_or_path,
-            subfolder="vae",
-            revision=revision,
-            variant=variant,
-        )
+        # vae = AutoencoderKL.from_pretrained(
+        #     args.pretrained_model_name_or_path,
+        #     subfolder="vae",
+        #     revision=revision,
+        #     variant=variant,
+        # )
+        
+        if args.vae_path:
+            vae = AutoencoderKL.from_single_file(
+                args.vae_path
+            )
+        else:
+            vae = AutoencoderKL.from_pretrained(
+                args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
+            )
         
         vae.requires_grad_(False)
         text_encoder_one.requires_grad_(False)

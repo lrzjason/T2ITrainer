@@ -3,22 +3,30 @@ import gradio as gr
 import subprocess
 import json
 
+
+
 default_config = {
-    "default_script": "train_sd3_lora_ui.py",
-    "script_choices": ["train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
-	"output_dir":"F:/models/sd3",
-    "save_name":"opensd3-b4",
-    "pretrained_model_name_or_path":"stabilityai/stable-diffusion-3-medium-diffusers", 
+    "default_script": "train_kolors_lora_ui.py",
+    "script_choices": ["train_kolors_lora_ui.py","train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
+	# "output_dir":"F:/models/sd3",
+    # "save_name":"opensd3-b4",
+    # "pretrained_model_name_or_path":"stabilityai/stable-diffusion-3-medium-diffusers", 
+    # "train_data_dir":"F:/ImageSet/sd3_test", 
 	# "output_dir":"F:/models/hy",
-    # "save_name":"hy-zhaojinmai",
+    # "save_name":"hy-test",
     # "pretrained_model_name_or_path":"Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers", 
+    # "train_data_dir":"F:/ImageSet/sd3_test", 
+    "output_dir":"F:/models/kolors",
+    "save_name":"kolors-lora",
+    "pretrained_model_name_or_path":"F:/Kolors", 
+    "train_data_dir":"F:/ImageSet/kolors_test", 
+    "vae_path":"F:/models/VAE/sdxl_vae.safetensors", 
     "model_path":None, 
-    "train_data_dir":"F:/ImageSet/sd3_test", 
     "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":32,
     "train_batch_size":1,
-    "repeats":30,
+    "repeats":10,
     "gradient_accumulation_steps":1,
     "mixed_precision":"fp16",
     "gradient_checkpointing":True,
@@ -36,6 +44,7 @@ default_config = {
     "validation_ratio":0.1, 
     "use_dora":False,
     "recreate_cache":False,
+    "caption_dropout":0.1
 }
 
 def run(
@@ -128,9 +137,10 @@ with gr.Blocks() as demo:
         with gr.Row():
             pretrained_model_name_or_path = gr.Textbox(label="pretrained_model_name_or_path", 
                 value=default_config["pretrained_model_name_or_path"], 
-                placeholder="repo name or dir contains sd3 medium diffusers structure"
+                placeholder="repo name or dir contains diffusers model structure"
             )
-            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official sd3 medium weight")
+            vae_path = gr.Textbox(label="vae_path", value=default_config["vae_path"], placeholder="separate vae single file path")
+            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
             logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
