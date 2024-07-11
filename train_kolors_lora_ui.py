@@ -511,7 +511,7 @@ def main(args):
     if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
         offload_device = torch.device("cpu")
     
-    if args.model_path is None:
+    if args.model_path is None or args.model_path == "":
         unet = UNet2DConditionModel.from_pretrained(
             args.pretrained_model_name_or_path, subfolder="unet", revision=revision, variant=variant
         ).to(offload_device, dtype=weight_dtype)
