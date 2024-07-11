@@ -116,6 +116,8 @@ except:
 
 if is_wandb_available():
     import wandb
+    
+from safetensors.torch import save_file
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
@@ -542,10 +544,11 @@ def main(args):
             # there are only two options here. Either are just the unet attn processor layers
             # or there are the unet and text encoder atten layers
             unet_lora_layers_to_save = None
-            
+            peft_state_dict = None 
             for model in models:
                 if isinstance(model, type(unwrap_model(unet))):
-                    unet_lora_layers_to_save = convert_state_dict_to_diffusers(get_peft_model_state_dict(model))
+                    peft_state_dict = get_peft_model_state_dict(model)
+                    unet_lora_layers_to_save = convert_state_dict_to_diffusers(peft_state_dict)
                 
                 else:
                     raise ValueError(f"unexpected save model: {model.__class__}")
@@ -557,6 +560,12 @@ def main(args):
                 output_dir,
                 unet_lora_layers=unet_lora_layers_to_save
             )
+            
+            kohya_state_dict = convert_state_dict_to_kohya(peft_state_dict)
+            last_part = os.path.basename(os.path.normpath(output_dir))
+            file_path = f"{output_dir}/{last_part}.safetensors"
+            # save comfyui/webui lora as the name of parent
+            save_file(kohya_state_dict, file_path)
 
     def load_model_hook(models, input_dir):
         unet_ = None
