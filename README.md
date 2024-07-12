@@ -42,7 +42,7 @@ python ui.py
 ## Kolors Merging SDXL Checkpoint
 
 ### **!!! Important !!!**
-After merging, note that it may not effectively transfer knowledge from SDXL checkpoint to Kolors. It might add random noise and reverse some overfitting.
+After merging, note that it may not effectively transfer knowledge from SDXL checkpoint to Kolors. It might just add random noise and reverse some overfitting.
 
 - **Hardware requirements:**
   Requires 20GB+ RAM for model merging.
