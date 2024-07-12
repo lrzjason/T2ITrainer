@@ -71,6 +71,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-06:** Fixed RGB to BGR channel issue in sd3 latent.
 - **2024-07-08:** Added `merge_state_dict.py` for merging Kolors and SDXL state dicts, saving as Kolors unet.
 - **2024-07-11:** Added Kolors training script to UI.
+- **2024-07-11:(2)** Added resume from checkpoint
 
 ## Acknowledgements:
 - Thanks to @minienglish1 and @Freon in EveryDream Discord for the assistance.
