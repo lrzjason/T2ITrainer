@@ -73,8 +73,8 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-11:** Added Kolors training script to UI.
 
 ## Acknowledgements:
-- Thanks to @minienglish1 and @Freon in EveryDream Discord for their assistance.
-- Special thanks to kohya ss for references from their training codebase.
+- Thanks to @minienglish1 and @Freon in EveryDream Discord for the assistance.
+- Special thanks to kohya ss for references from the training codebase.
 - Thanks to Kblueleaf for coding reference on hunyuandit gradient checkpoint implementation.
 - Thanks to Kolors for the open-source checkpoint.
 - Thanks to comfyui for the wonderful codebase.
