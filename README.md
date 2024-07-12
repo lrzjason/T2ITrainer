@@ -1,9 +1,10 @@
 ## **PyTorch should be installed above 2.3.0 and cu121**
 torch>=2.3.0+cu121
 
-## For lora training
+## For lora training, now support kolors, sd3, hunyuandit 1.1
 ## **Hardware requirements:** 
 Requires a cuda gpu above 13GB of memory for hunyuan lora training.
+Requires a cuda gpu above 24GB of memory for kolors training.
 
 Please activate your virtual environment if needed.
 ## **1. Install dependencies:**
