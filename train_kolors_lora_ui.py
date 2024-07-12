@@ -868,7 +868,7 @@ def main(args):
 
     resume_step = 0
     # Potentially load in the weights and states from a previous save
-    if args.resume_from_checkpoint:
+    if args.resume_from_checkpoint and args.resume_from_checkpoint != "":
         if args.resume_from_checkpoint != "latest":
             path = os.path.basename(args.resume_from_checkpoint)
         else:
@@ -887,7 +887,7 @@ def main(args):
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
             accelerator.load_state(os.path.join(args.output_dir, path))
-            global_step = int(path.split("-")[1])
+            global_step = int(path.split("-")[-1])
 
             initial_global_step = global_step
             resume_step = global_step

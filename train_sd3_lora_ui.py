@@ -868,9 +868,9 @@ def main(args):
 
 
     # Potentially load in the weights and states from a previous save
-    if resume_from_checkpoint:
-        if resume_from_checkpoint != "latest":
-            path = os.path.basename(resume_from_checkpoint)
+    if args.resume_from_checkpoint and args.resume_from_checkpoint != "":
+        if args.resume_from_checkpoint != "latest":
+            path = os.path.basename(args.resume_from_checkpoint)
         else:
             # Get the most recent checkpoint
             dirs = os.listdir(args.output_dir)
@@ -880,9 +880,9 @@ def main(args):
 
         if path is None:
             accelerator.print(
-                f"Checkpoint '{resume_from_checkpoint}' does not exist. Starting a new training run."
+                f"Checkpoint '{args.resume_from_checkpoint}' does not exist. Starting a new training run."
             )
-            resume_from_checkpoint = None
+            args.resume_from_checkpoint = None
             initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")

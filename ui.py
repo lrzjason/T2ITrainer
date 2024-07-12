@@ -21,6 +21,7 @@ default_config = {
     "pretrained_model_name_or_path":"F:/Kolors", 
     "train_data_dir":"F:/ImageSet/kolors_test", 
     "vae_path":"F:/models/VAE/sdxl_vae.safetensors", 
+    "resume_from_checkpoint":None,
     "model_path":None, 
     "logging_dir":"logs",
     "report_to":"wandb", 
@@ -74,6 +75,7 @@ def run(
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
+        resume_from_checkpoint,
         use_dora,
         recreate_cache
     ):
@@ -103,6 +105,7 @@ def run(
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
         "model_path":model_path,
+        "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache
     }
@@ -140,7 +143,9 @@ with gr.Blocks() as demo:
                 placeholder="repo name or dir contains diffusers model structure"
             )
             vae_path = gr.Textbox(label="vae_path", value=default_config["vae_path"], placeholder="separate vae single file path")
+        with gr.Row():
             model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
+            resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
             logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
@@ -205,6 +210,7 @@ with gr.Blocks() as demo:
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
+        resume_from_checkpoint,
         use_dora,
         recreate_cache
         ]
