@@ -1,4 +1,4 @@
-# T2ITrainer README
+# T2ITrainer
 
 ## Prerequisites
 - PyTorch version >= 2.3.0 with CUDA 12.1 support (`torch>=2.3.0+cu121`).
