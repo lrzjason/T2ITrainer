@@ -544,11 +544,9 @@ def main(args):
             # there are only two options here. Either are just the unet attn processor layers
             # or there are the unet and text encoder atten layers
             unet_lora_layers_to_save = None
-            peft_state_dict = None 
             for model in models:
                 if isinstance(model, type(unwrap_model(unet))):
-                    peft_state_dict = get_peft_model_state_dict(model)
-                    unet_lora_layers_to_save = convert_state_dict_to_diffusers(peft_state_dict)
+                    unet_lora_layers_to_save = convert_state_dict_to_diffusers(get_peft_model_state_dict(model))
                 
                 else:
                     raise ValueError(f"unexpected save model: {model.__class__}")
@@ -563,6 +561,7 @@ def main(args):
             )
             
             # save to kohya
+            peft_state_dict = convert_all_state_dict_to_peft(unet_lora_layers_to_save)
             kohya_state_dict = convert_state_dict_to_kohya(peft_state_dict)
             last_part = os.path.basename(os.path.normpath(output_dir))
             file_path = f"{output_dir}/{last_part}.safetensors"
