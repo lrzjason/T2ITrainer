@@ -73,6 +73,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-11:** Added Kolors training script to UI.
 - **2024-07-11:(2)** Added resume from checkpoint
 - **2024-07-13:** Remove some unused dependencies
+- **2024-07-13:(2)** Fix bugs on saved lora, added prefix to keys
 
 ## Acknowledgements:
 - Thanks to @minienglish1 and @Freon in EveryDream Discord for the assistance.
