@@ -2,6 +2,7 @@ import gradio as gr
 
 import subprocess
 import json
+import sys
 
 
 
@@ -114,7 +115,7 @@ def run(
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
     # script = "test_.pyt"
-    args = ["python", script]
+    args = [sys.executable, script]
     for key, value in inputs.items():
         if value is not None:
             if isinstance(value, bool):  # exclude boolean values
@@ -125,8 +126,9 @@ def run(
                 args.append(str(value))
                 
     # Call the script with the arguments
-    subprocess.run(args)
-    print(args)
+    # subprocess.run(args)
+    subprocess.call(args)
+    # print(args)
     return " ".join(args)
     
 
