@@ -8,3 +8,4 @@ prodigyopt
 compel
 json
 peft
+logging
