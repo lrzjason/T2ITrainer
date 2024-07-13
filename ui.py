@@ -18,9 +18,9 @@ default_config = {
     # "train_data_dir":"F:/ImageSet/sd3_test", 
     "output_dir":"F:/models/kolors",
     "save_name":"kolors-lora",
-    "pretrained_model_name_or_path":"F:/Kolors", 
+    "pretrained_model_name_or_path":"Kwai-Kolors/Kolors", # or local folder F:\Kolors
     "train_data_dir":"F:/ImageSet/kolors_test", 
-    "vae_path":"F:/models/VAE/sdxl_vae.safetensors", 
+    "vae_path":None, # or local file
     "resume_from_checkpoint":None,
     "model_path":None, 
     "logging_dir":"logs",
@@ -77,7 +77,8 @@ def run(
         model_path,
         resume_from_checkpoint,
         use_dora,
-        recreate_cache
+        recreate_cache,
+        vae_path
     ):
     inputs = {
         "seed":seed,
@@ -107,7 +108,8 @@ def run(
         "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
-        "recreate_cache":recreate_cache
+        "recreate_cache":recreate_cache,
+        "vae_path":vae_path
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
