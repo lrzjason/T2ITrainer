@@ -9,3 +9,6 @@ compel
 json
 peft
 logging
+typing
+sentencepiece
+opencv-python

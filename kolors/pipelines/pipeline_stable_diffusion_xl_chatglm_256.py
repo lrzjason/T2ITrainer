@@ -19,8 +19,8 @@ from kolors.models.tokenization_chatglm import ChatGLMTokenizer
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import torch
-from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
-from transformers import XLMRobertaModel, ChineseCLIPTextModel
+# from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+# from transformers import XLMRobertaModel, ChineseCLIPTextModel
 
 from diffusers.image_processor import VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, LoraLoaderMixin, TextualInversionLoaderMixin
