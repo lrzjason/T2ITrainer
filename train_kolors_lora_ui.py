@@ -55,7 +55,7 @@ from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
-from datasets import load_dataset
+# from datasets import load_dataset
 # from packaging import version
 # from torchvision import transforms
 # from torchvision.transforms.functional import crop
