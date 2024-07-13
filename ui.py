@@ -212,7 +212,8 @@ with gr.Blocks() as demo:
         model_path,
         resume_from_checkpoint,
         use_dora,
-        recreate_cache
+        recreate_cache,
+        vae_path
         ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
