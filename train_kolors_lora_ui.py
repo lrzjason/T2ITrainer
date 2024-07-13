@@ -562,10 +562,13 @@ def main(args):
             # save to kohya
             peft_state_dict = convert_all_state_dict_to_peft(unet_lora_layers_to_save)
             kohya_state_dict = convert_state_dict_to_kohya(peft_state_dict)
+            # add prefix to keys
+            prefix = 'lora_unet_'
+            prefixed_state_dict = {prefix + key: value for key, value in kohya_state_dict.items()}
             last_part = os.path.basename(os.path.normpath(output_dir))
             file_path = f"{output_dir}/{last_part}.safetensors"
             # save comfyui/webui lora as the name of parent
-            save_file(kohya_state_dict, file_path)
+            save_file(prefixed_state_dict, file_path)
 
     def load_model_hook(models, input_dir):
         unet_ = None
