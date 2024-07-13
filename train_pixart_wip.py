@@ -27,7 +27,7 @@
 # 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
 #          added whole repeats to dataset
 from diffusers.models.attention_processor import AttnProcessor2_0
-import jsonlines
+# import jsonlines
 
 import datetime
 import time

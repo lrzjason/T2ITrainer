@@ -28,20 +28,20 @@
 #          added whole repeats to dataset
 # 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
 from diffusers.models.attention_processor import AttnProcessor2_0
-import jsonlines
+# import jsonlines
 
 import argparse
-import functools
+# import functools
 import gc
-import logging
+# import logging
 import math
 import os
-import random
-import shutil
-from pathlib import Path
+# import random
+# import shutil
+# from pathlib import Path
 
 import accelerate
-import datasets
+# import datasets
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -49,30 +49,31 @@ import torch.utils.checkpoint
 import transformers
 import diffusers
 
-from diffusers.image_processor import VaeImageProcessor
+# from diffusers.image_processor import VaeImageProcessor
 
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
 from datasets import load_dataset
-from packaging import version
-from torchvision import transforms
-from torchvision.transforms.functional import crop
+# from packaging import version
+# from torchvision import transforms
+# from torchvision.transforms.functional import crop
 from tqdm.auto import tqdm
-from transformers import AutoTokenizer, PretrainedConfig
+# from transformers import AutoTokenizer, PretrainedConfig
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
-    EulerDiscreteScheduler,
-    DiffusionPipeline,
+    # EulerDiscreteScheduler,
+    # DiffusionPipeline,
     UNet2DConditionModel,
 )
 from pathlib import Path
 from diffusers.optimization import get_scheduler
-from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params, compute_snr
+# from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params, compute_snr
+from diffusers.training_utils import cast_training_params
 from diffusers.utils import (
-    check_min_version,
+    # check_min_version,
     convert_all_state_dict_to_peft,
     convert_state_dict_to_diffusers,
     convert_state_dict_to_kohya,
@@ -80,23 +81,23 @@ from diffusers.utils import (
     is_wandb_available,
 )
 from diffusers.loaders import LoraLoaderMixin
-from diffusers.utils.import_utils import is_xformers_available
+# from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
 # from diffusers import StableDiffusionXLPipeline
 from kolors.pipelines.pipeline_stable_diffusion_xl_chatglm_256 import StableDiffusionXLPipeline
 from tqdm import tqdm 
-from PIL import Image 
+# from PIL import Image 
 
 from sklearn.model_selection import train_test_split
 
 import json
 
 
-import sys
+# import sys
 from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
 
-from prodigyopt import Prodigy
+# from prodigyopt import Prodigy
 
 
 # https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
@@ -107,10 +108,10 @@ from peft import LoraConfig
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 from kolors.models.modeling_chatglm import ChatGLMModel
 from kolors.models.tokenization_chatglm import ChatGLMTokenizer
-try:
-    from diffusers.utils import randn_tensor
-except:
-    from diffusers.utils.torch_utils import randn_tensor
+# try:
+#     from diffusers.utils import randn_tensor
+# except:
+#     from diffusers.utils.torch_utils import randn_tensor
 
 if is_wandb_available():
     import wandb
