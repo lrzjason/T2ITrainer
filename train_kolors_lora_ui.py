@@ -87,10 +87,8 @@ from diffusers.utils.torch_utils import is_compiled_module
 from kolors.pipelines.pipeline_stable_diffusion_xl_chatglm_256 import StableDiffusionXLPipeline
 from tqdm import tqdm 
 from PIL import Image 
-from compel import Compel, ReturnedEmbeddingsType
 
 from sklearn.model_selection import train_test_split
-
 
 import json
 
