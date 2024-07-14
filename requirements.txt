@@ -11,3 +11,4 @@ logging
 typing
 sentencepiece
 opencv-python
+adamw-bf16

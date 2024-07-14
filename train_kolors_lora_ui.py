@@ -439,11 +439,11 @@ def main(args):
     
     # args.seed = 4321
     # args.logging_dir = 'logs'
-    # args.mixed_precision = "fp16"
+    # args.mixed_precision = "bf16"
     # args.report_to = "wandb"
     
     # args.output_dir = 'F:/models/kolors'
-    # args.save_name = "kolors_cotton"
+    # args.save_name = "kolors_test"
     # args.rank = 32
     # args.skip_epoch = 1
     # args.break_epoch = 0
@@ -460,16 +460,16 @@ def main(args):
     # # args.train_data_dir = "F:/ImageSet/kolors_test"
     # # args.train_data_dir = "F:/ImageSet/pixart_test_one"
     
-    # args.learning_rate = 1
-    # args.optimizer = "prodigy"
-    # args.lr_warmup_steps = 500
+    # args.learning_rate = 1e-4
+    # args.optimizer = "adamw"
+    # args.lr_warmup_steps = 1
     # args.lr_scheduler = "cosine"
     # args.save_model_epochs = 1
     # args.validation_epochs = 1
     # args.train_batch_size = 1
-    # args.repeats = 10
+    # args.repeats = 1
     # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 10
+    # args.num_train_epochs = 5
     # args.use_dora = False
     # args.caption_dropout = 0.2
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
@@ -597,7 +597,7 @@ def main(args):
         # Make sure the trainable params are in float32. This is again needed since the base models
         # are in `weight_dtype`. More details:
         # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
-        if args.mixed_precision == "fp16":
+        if args.mixed_precision == "fp16" or args.mixed_precision == "bf16":
             models = [unet_]
             # only upcast trainable parameters (LoRA) into fp32
             cast_training_params(models)
@@ -646,6 +646,14 @@ def main(args):
                 )
 
             optimizer_class = bnb.optim.AdamW8bit
+        if args.mixed_precision == "bf16":
+            try:
+                from adamw_bf16 import AdamWBF16
+            except ImportError:
+                raise ImportError(
+                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
+                )
+            optimizer_class = AdamWBF16
         else:
             optimizer_class = torch.optim.AdamW
 
@@ -689,38 +697,38 @@ def main(args):
     # this part need more work afterward, you need to prepare 
     # the train files and val files split first before the training
     if args.train_data_dir is not None:
-        # Load the tokenizers
-        tokenizer_one = ChatGLMTokenizer.from_pretrained(
-            args.pretrained_model_name_or_path,
-            subfolder="text_encoder",
-            revision=revision, 
-            variant=variant
-        )
-
-        text_encoder_one = ChatGLMModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
-        )
-        if args.vae_path:
-            vae = AutoencoderKL.from_single_file(
-                args.vae_path
-            )
-        else:
-            vae = AutoencoderKL.from_pretrained(
-                args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
-            )
-        
-        vae.requires_grad_(False)
-        text_encoder_one.requires_grad_(False)
-        
-        vae.to(accelerator.device, dtype=torch.float32)
-        text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-
-        
-        tokenizers = [tokenizer_one]
-        text_encoders = [text_encoder_one]
-        
         datarows = []
         if (not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path)) or args.recreate_cache:
+            # Load the tokenizers
+            tokenizer_one = ChatGLMTokenizer.from_pretrained(
+                args.pretrained_model_name_or_path,
+                subfolder="text_encoder",
+                revision=revision, 
+                variant=variant
+            )
+
+            text_encoder_one = ChatGLMModel.from_pretrained(
+                args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
+            )
+            if args.vae_path:
+                vae = AutoencoderKL.from_single_file(
+                    args.vae_path
+                )
+            else:
+                vae = AutoencoderKL.from_pretrained(
+                    args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
+                )
+            
+            vae.requires_grad_(False)
+            text_encoder_one.requires_grad_(False)
+            
+            vae.to(accelerator.device, dtype=torch.float32)
+            text_encoder_one.to(accelerator.device, dtype=weight_dtype)
+
+            
+            tokenizers = [tokenizer_one]
+            text_encoders = [text_encoder_one]
+            
             # create metadata and latent cache
             datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache)
             validation_datarows = []
@@ -1124,6 +1132,8 @@ def main(args):
         # ==================================================
     
     accelerator.end_training()
+    print("Saved to ")
+    print(args.output_dir)
 
 
 if __name__ == "__main__":
