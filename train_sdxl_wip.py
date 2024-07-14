@@ -32,7 +32,7 @@ from diffusers.models.attention_processor import AttnProcessor2_0
 import argparse
 import functools
 import gc
-import logging
+# import logging
 import math
 import os
 import random
@@ -613,11 +613,11 @@ def main(args):
             raise ImportError("Make sure to install wandb if you want to use it for logging during training.")
         import wandb
     # Make one log on every process with the configuration for debugging.
-    logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-    )
+    # logging.basicConfig(
+    #     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    #     datefmt="%m/%d/%Y %H:%M:%S",
+    #     level=logging.INFO,
+    # )
     
     logging_dir = Path(args.output_dir, args.logging_dir)
     # create accelerator

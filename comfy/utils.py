@@ -9,7 +9,7 @@ import struct
 import safetensors.torch
 import numpy as np
 from PIL import Image
-import logging
+# import logging
 
 # def load_torch_file(ckpt, safe_load=False, device=None):
 #     if device is None:

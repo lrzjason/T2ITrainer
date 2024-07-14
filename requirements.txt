@@ -7,7 +7,6 @@ gradio>=4.36.1
 prodigyopt
 compel
 peft
-logging
 typing
 sentencepiece
 opencv-python
