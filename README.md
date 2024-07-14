@@ -7,7 +7,7 @@
 - For Lora training: Supports kolors, sd3, and hunyuandit 1.1.
   - **Hardware requirements:**
     - CUDA GPU with >13GB memory for hunyuandit lora training.
-    - CUDA GPU with 24GB memory for kolors training.
+    - CUDA GPU with 11GB memory for kolors training.
 
 Please activate your virtual environment if needed.
 
