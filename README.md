@@ -25,7 +25,7 @@ python -m venv venv
 venv\Scripts\activate
 ```
 
-Install pytorch from https://pytorch.org/get-started/locally/
+If created virtual environment, install pytorch from https://pytorch.org/get-started/locally/
 (Recommanded Torch version >= 2.3.0+cu121)
 Example:
 ```
