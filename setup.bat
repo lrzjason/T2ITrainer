@@ -17,8 +17,7 @@ python -m pip install --upgrade pip
 echo Step 3. Install torch
 if "!setup_venv!" == "y"(
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-)
-else (
+) else (
    set /p install_torch=Do you want to install torch? [Y/n]:
    if "!install_torch!" == "y" (
       pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
