@@ -222,6 +222,8 @@ def iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts='.t
             # metadata_file.write(read_caption(folder_path,filename,ext))
             json_obj['prompt'] = open(text_path, encoding='utf-8').read()
             # datarows.append(caption)
+        else:
+            json_obj['prompt'] = ''
 
     json_obj = cache_file(tokenizers,text_encoders,vae,json_obj,recreate=recreate_cache)
     return json_obj
