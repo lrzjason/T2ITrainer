@@ -1055,7 +1055,9 @@ def main(args):
                         total_loss = 0.0
                         num_batches = len(val_dataloader)
                         # if no val data, skip the following 
-                        if num_batches > 0:
+                        if num_batches == 0:
+                            print("No validation data, skip validation.")
+                        else:
                             # basically the as same as the training loop
                             for i, batch in tqdm(enumerate(val_dataloader),position=1):
                                 latents = batch["latents"].to(accelerator.device)
