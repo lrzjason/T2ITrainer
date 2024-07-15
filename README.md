@@ -9,8 +9,6 @@
     - CUDA GPU with >13GB memory for hunyuandit lora training.
     - CUDA GPU with 11GB memory for kolors training.
 
-Please activate your virtual environment if needed.
-
 ## Installation
 ### 1. Setup environment using setup.bat:
 setup.bat include 5 steps: 
@@ -54,18 +52,18 @@ python ui.py
 ```
 
 ### 3. Testing:
-- For hunyuandit 1.1:
-  Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
-  ```
-  python test.py
-  ```
-
 - For kolors:
   Install plugins from:
   - [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper)
   - [ComfyUI-Kolors-MZ](https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ)
   
   Then use the normal lora loader in ComfyUI.
+
+- For hunyuandit 1.1:
+  Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
+  ```
+  python test.py
+  ```
 
 ## Kolors Merging SDXL Checkpoint
 
