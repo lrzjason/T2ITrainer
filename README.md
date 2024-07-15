@@ -101,6 +101,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-13:** Remove some unused dependencies
 - **2024-07-13:(2)** Fix bugs on saved lora, added prefix to keys
 - **2024-07-14:** Avoid loading text encoder unnecessarily after cached latent
+- **2024-07-15:** Added setup.bat for windows users
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
