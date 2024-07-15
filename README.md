@@ -12,27 +12,38 @@
 Please activate your virtual environment if needed.
 
 ## Installation
-### 0. Setup environment:
+### 1. Setup environment using setup.bat:
+setup.bat include 5 steps: 
+- Step 1. Setup venv (optional)
+- Step 2. Upgrade pip
+- Step 3. Install torch (auto,optional) if setup venv install torch automatically.
+- Step 4. Install other dependencies from requirements.txt
+- Step 5. Download the Model Files (optional)
+```
+git clone https://github.com/lrzjason/T2ITrainer.git
+cd T2ITrainer
+setup.bat
+```
+Goto point 2 after setup.bat
+
+### 1. Setup environment manually (optional):
 Clone repository
 ```
 git clone https://github.com/lrzjason/T2ITrainer.git
 cd T2ITrainer
 ```
-
 Create virtual environment if you want:
 ```
 python -m venv venv
 venv\Scripts\activate
 ```
-
 If created virtual environment, install pytorch from https://pytorch.org/get-started/locally/
 (Recommanded Torch version >= 2.3.0+cu121)
 Example:
 ```
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
-
-### 1. Install dependencies:
+Install dependencies:
 ```
 pip install -r requirements.txt
 ```
