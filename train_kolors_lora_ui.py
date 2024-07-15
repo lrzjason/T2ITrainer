@@ -848,7 +848,10 @@ def main(args):
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
         tracker_name = "kolors-lora"
-        accelerator.init_trackers(tracker_name, config=vars(args))
+        try:
+            accelerator.init_trackers(tracker_name, config=vars(args))
+        except:
+            print("Trackers not initialized")
     # Train!
     total_batch_size = args.train_batch_size * accelerator.num_processes * args.gradient_accumulation_steps
 
