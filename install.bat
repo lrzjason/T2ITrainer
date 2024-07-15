@@ -1,13 +1,13 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-rem Check if the virtual environment exists and create it if not
-if not exist venv (
+rem Ask if the user wants to setup venv
+set /p setup_venv=Do you want to setup venv? [Y/n]:
+if "!setup_venv!" == "y" (
    python -m venv venv
+   rem Activate the virtual environment
+   call venv\Scripts\activate
 )
-
-rem Activate the virtual environment
-call venv\Scripts\activate
 
 rem Upgrade pip
 python -m pip install --upgrade pip
