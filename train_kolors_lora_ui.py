@@ -1040,7 +1040,12 @@ def main(args):
                     if len(validation_datarows)>0:
                         validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                         
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
+                        batch_size = args.train_batch_size
+                        # handle batch size > validation dataset size
+                        if batch_size > len(validation_datarows):
+                            batch_size = 1
+                        
+                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
 
                         #initialize the DataLoader with the bucket batch sampler
                         val_dataloader = torch.utils.data.DataLoader(
@@ -1059,7 +1064,8 @@ def main(args):
                             print("No validation data, skip validation.")
                         else:
                             # basically the as same as the training loop
-                            for i, batch in tqdm(enumerate(val_dataloader),position=1):
+                            enumerate_val_dataloader = enumerate(val_dataloader)
+                            for i, batch in tqdm(enumerate_val_dataloader,position=1):
                                 latents = batch["latents"].to(accelerator.device)
                                 bsz, _, _, _ = latents.shape
                                 
@@ -1072,13 +1078,7 @@ def main(args):
                                 # (this is the forward diffusion process)
                                 noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
                                 
-                                timesteps = timesteps.long()
-                                
-                                add_time_ids = torch.cat(
-                                    [
-                                        batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
-                                    ]
-                                )
+                                add_time_ids = batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
                                 unet_added_conditions = {"time_ids": add_time_ids}
                                 prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                                 pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
