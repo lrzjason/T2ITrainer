@@ -922,11 +922,6 @@ def main(args):
                 with accelerator.autocast():
                     latents = batch["latents"].to(accelerator.device)
                     
-                    # vae = AutoencoderKL.from_single_file(
-                    #     vae_path
-                    # )
-                    # vae.to(device=accelerator.device)
-                    
                     bsz, _, _, _ = latents.shape
                     
                     indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
@@ -938,14 +933,6 @@ def main(args):
                     # (this is the forward diffusion process)
                     noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
                     
-
-                    # timesteps = timesteps.long()
-                    
-                    # add_time_ids = torch.cat(
-                    #     [
-                    #         batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
-                    #     ]
-                    # )
                     add_time_ids = batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
                     unet_added_conditions = {"time_ids": add_time_ids}
                     prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
@@ -959,11 +946,17 @@ def main(args):
                         return_dict=False,
                     )[0]
                     
+                    # ====================Debug latent====================
+                    # vae = AutoencoderKL.from_single_file(
+                    #     vae_path
+                    # )
+                    # vae.to(device=accelerator.device)
                     # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
                     # with torch.no_grad():
                     #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
                     # image = image_processor.postprocess(image, output_type="pil")[0]
                     # image.save("model_pred.png")
+                    # ====================Debug latent====================
                     
                     
                     target = noise

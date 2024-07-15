@@ -7,6 +7,12 @@ if "!setup_venv!" == "y" (
    python -m venv venv
    rem Activate the virtual environment
    call venv\Scripts\activate
+) else (
+   if exist venv\ (
+      rem Activate the virtual environment
+      call venv\Scripts\activate
+      setup_venv = "y"
+   )
 )
 
 
@@ -15,7 +21,7 @@ python -m pip install --upgrade pip
 
 
 echo Step 3. Install torch
-if "!setup_venv!" == "y"(
+if "!setup_venv!" == "y" (
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ) else (
    set /p install_torch=Do you want to install torch? [Y/n]:
