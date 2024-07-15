@@ -1054,59 +1054,61 @@ def main(args):
                         
                         total_loss = 0.0
                         num_batches = len(val_dataloader)
-                        # basically the as same as the training loop
-                        for i, batch in tqdm(enumerate(val_dataloader),position=1):
-                            latents = batch["latents"].to(accelerator.device)
-                            bsz, _, _, _ = latents.shape
+                        # if no val data, skip the following 
+                        if num_batches > 0:
+                            # basically the as same as the training loop
+                            for i, batch in tqdm(enumerate(val_dataloader),position=1):
+                                latents = batch["latents"].to(accelerator.device)
+                                bsz, _, _, _ = latents.shape
+                                
+                                indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
+                                timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
+                                
+                                noise = torch.randn_like(latents)
+                                
+                                # Add noise to the model input according to the noise magnitude at each timestep
+                                # (this is the forward diffusion process)
+                                noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
+                                
+                                timesteps = timesteps.long()
+                                
+                                add_time_ids = torch.cat(
+                                    [
+                                        batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
+                                    ]
+                                )
+                                unet_added_conditions = {"time_ids": add_time_ids}
+                                prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                                unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
+                                model_pred = unet(
+                                    noisy_model_input,
+                                    timesteps,
+                                    prompt_embeds,
+                                    added_cond_kwargs=unet_added_conditions,
+                                    return_dict=False,
+                                )[0]
+                                
+                                target = noise
+                                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                                total_loss+=loss.detach()
+                                del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
+                                gc.collect()
+                                torch.cuda.empty_cache()
+                                
+                            avg_loss = total_loss / num_batches
                             
-                            indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
-                            timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
-                            
-                            noise = torch.randn_like(latents)
-                            
-                            # Add noise to the model input according to the noise magnitude at each timestep
-                            # (this is the forward diffusion process)
-                            noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
-                            
-                            timesteps = timesteps.long()
-                            
-                            add_time_ids = torch.cat(
-                                [
-                                    batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
-                                ]
-                            )
-                            unet_added_conditions = {"time_ids": add_time_ids}
-                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                            unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
-                            model_pred = unet(
-                                noisy_model_input,
-                                timesteps,
-                                prompt_embeds,
-                                added_cond_kwargs=unet_added_conditions,
-                                return_dict=False,
-                            )[0]
-                            
-                            target = noise
-                            loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                            total_loss+=loss.detach()
-                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
-                            gc.collect()
-                            torch.cuda.empty_cache()
-                            
-                        avg_loss = total_loss / num_batches
-                        
-                        lr = lr_scheduler.get_last_lr()[0]
-                        lr_name = "val_lr"
-                        if args.optimizer == "prodigy":
-                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                            lr_name = "val_lr lr/d*lr"
-                        logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
-                        print(logs)
-                        progress_bar.set_postfix(**logs)
-                        accelerator.log(logs, step=global_step)
-                        del num_batches, avg_loss, total_loss, validation_datarows, validation_dataset, 
-                        del val_batch_sampler, val_dataloader
+                            lr = lr_scheduler.get_last_lr()[0]
+                            lr_name = "val_lr"
+                            if args.optimizer == "prodigy":
+                                lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                                lr_name = "val_lr lr/d*lr"
+                            logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
+                            print(logs)
+                            progress_bar.set_postfix(**logs)
+                            accelerator.log(logs, step=global_step)
+                            del num_batches, avg_loss, total_loss
+                        del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
                         gc.collect()
                         torch.cuda.empty_cache()
                         print("\nEnd val_loss\n")
