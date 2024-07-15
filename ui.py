@@ -4,8 +4,6 @@ import subprocess
 import json
 import sys
 
-
-
 default_config = {
     "default_script": "train_kolors_lora_ui.py",
     "script_choices": ["train_kolors_lora_ui.py","train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
@@ -131,30 +129,65 @@ def run(
     # print(args)
     return " ".join(args)
     
+global_local_storage = f"""
+function() {{
+    globalThis.setStorage = (key, value) => {{
+        localStorage.setItem(key, JSON.stringify(value));
+    }};
+
+    globalThis.getStorage = (key) => {{
+        return JSON.parse(localStorage.getItem(key));
+    }};
+
+    const script = getStorage('script') || '{default_config["default_script"]}';
+    const output_dir = getStorage('output_dir') || '{default_config["output_dir"]}';
+    const save_name = getStorage('save_name') || '{default_config["save_name"]}';
+    const pretrained_model_name_or_path = getStorage('pretrained_model_name_or_path') || '{default_config["pretrained_model_name_or_path"]}';
+    const vae_path = getStorage('vae_path') || '{default_config["vae_path"] if default_config["vae_path"] else ""}';
+    const model_path = getStorage('model_path') || '{default_config["model_path"] if default_config["model_path"] else ""}';
+    const resume_from_checkpoint = getStorage('resume_from_checkpoint') || '{default_config["resume_from_checkpoint"] if default_config["resume_from_checkpoint"] else ""}';
+    const train_data_dir = getStorage('train_data_dir') || '{default_config["train_data_dir"]}';
+    const logging_dir = getStorage('logging_dir') || '{default_config["logging_dir"]}';
+    const report_to = getStorage('report_to') || '{default_config["report_to"]}';
+
+    return [script, output_dir, save_name, pretrained_model_name_or_path, vae_path, model_path, resume_from_checkpoint, train_data_dir, logging_dir, report_to];
+}}
+"""
 
 with gr.Blocks() as demo:
     script = gr.Dropdown(label="script", value=default_config["default_script"], choices=default_config["script_choices"])
+    script.change(lambda x: x, script, None, js="(x) => {setStorage('script', x)}")
     with gr.Accordion("Directory section"):
         # dir section
         with gr.Row():
             output_dir = gr.Textbox(label="output_dir", value=default_config["output_dir"],
                                    placeholder="checkpoint save to")
+            output_dir.change(lambda x: x, output_dir, None, js="(x) => {setStorage('output_dir', x)}")
+
             save_name = gr.Textbox(label="save_name", value=default_config["save_name"],
                                    placeholder="checkpoint save name")
+            save_name.change(lambda x: x, save_name, None, js="(x) => {setStorage('save_name', x)}")
         with gr.Row():
             pretrained_model_name_or_path = gr.Textbox(label="pretrained_model_name_or_path", 
                 value=default_config["pretrained_model_name_or_path"], 
                 placeholder="repo name or dir contains diffusers model structure"
             )
+            pretrained_model_name_or_path.change(lambda x: x, pretrained_model_name_or_path, None, js="(x) => {setStorage('pretrained_model_name_or_path', x)}")
             vae_path = gr.Textbox(label="vae_path", value=default_config["vae_path"], placeholder="separate vae single file path")
+            vae_path.change(lambda x: x, vae_path, None, js="(x) => {setStorage('vae_path', x)}")
         with gr.Row():
             model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
+            model_path.change(lambda x: x, model_path, None, js="(x) => {setStorage('model_path', x)}")
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
+            resume_from_checkpoint.change(lambda x: x, resume_from_checkpoint, None, js="(x) => {setStorage('resume_from_checkpoint', x)}")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
+            train_data_dir.change(lambda x: x, train_data_dir, None, js="(x) => {setStorage('train_data_dir', x)}")
             logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
+            logging_dir.change(lambda x: x, logging_dir, None, js="(x) => {setStorage('logging_dir', x)}")
         with gr.Row():
             report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
+            report_to.change(lambda x: x, report_to, None, js="(x) => {setStorage('report_to', x)}")
 
     with gr.Accordion("Lora Config"):
         # train related section
@@ -223,4 +256,5 @@ with gr.Blocks() as demo:
     run_btn = gr.Button("Run")
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
     
+    demo.load(None, inputs=None, outputs=[script, output_dir, save_name, pretrained_model_name_or_path, vae_path, model_path, resume_from_checkpoint, train_data_dir, logging_dir, report_to], js=global_local_storage)
 demo.launch()
