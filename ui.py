@@ -213,6 +213,11 @@ def run(
         recreate_cache,
         vae_path
     ):
+    if not vae_path is None and not vae_path.endswith('.safetensors'):
+        msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
+        gr.Warning(msg)
+        return msg
+    
     inputs = {
         "seed":seed,
         "logging_dir":logging_dir,
