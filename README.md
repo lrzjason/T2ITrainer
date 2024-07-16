@@ -1,4 +1,6 @@
 # T2ITrainer
+T2ITrainer is still under development stage and not stable yet. \
+It updates very frequently, please check the change logs for details.
 
 ## Prerequisites
 - PyTorch version >= 2.3.0 with CUDA 12.1 support (`torch>=2.3.0+cu121`).
@@ -103,6 +105,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-14:** Avoid loading text encoder unnecessarily after cached latent
 - **2024-07-15:** Added setup.bat for windows users
 - **2024-07-16:** Added save and load config.json
+- **2024-07-16:(2)** disable adamw-bf16 which seems end up with noise
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
