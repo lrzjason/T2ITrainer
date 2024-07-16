@@ -259,7 +259,7 @@ def run(
                 
     # Call the script with the arguments
     # subprocess.run(args)
-    # subprocess.call(args)
+    subprocess.call(args)
     # print(args)
     return " ".join(args)
     
