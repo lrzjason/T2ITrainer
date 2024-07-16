@@ -10,5 +10,4 @@ peft
 typing
 sentencepiece
 opencv-python
-adamw-bf16
 urllib3==1.26.19

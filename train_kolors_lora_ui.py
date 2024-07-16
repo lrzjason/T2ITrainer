@@ -646,14 +646,14 @@ def main(args):
                 )
 
             optimizer_class = bnb.optim.AdamW8bit
-        if args.mixed_precision == "bf16":
-            try:
-                from adamw_bf16 import AdamWBF16
-            except ImportError:
-                raise ImportError(
-                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
-                )
-            optimizer_class = AdamWBF16
+        # elif args.mixed_precision == "bf16":
+        #     try:
+        #         from adamw_bf16 import AdamWBF16
+        #     except ImportError:
+        #         raise ImportError(
+        #             "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
+        #         )
+        #     optimizer_class = AdamWBF16
         else:
             optimizer_class = torch.optim.AdamW
 
