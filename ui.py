@@ -268,7 +268,7 @@ with gr.Blocks() as demo:
     script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
     with gr.Row(equal_height=True):
             # Text input for user to specify another config save and load dir
-        config_path = gr.Textbox(scale=3, label="Config Dir", value=default_config["config_path"], placeholder="Enter path to save/load config")
+        config_path = gr.Textbox(scale=3, label="Config Path (.json file)", value=default_config["config_path"], placeholder="Enter path to save/load config")
         save_config_btn = gr.Button("Save", scale=1)
         load_config_btn = gr.Button("load", scale=1)
 
