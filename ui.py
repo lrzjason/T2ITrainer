@@ -290,7 +290,7 @@ with gr.Blocks() as demo:
                 value=default_config["pretrained_model_name_or_path"], 
                 placeholder="repo name or dir contains diffusers model structure"
             )
-            vae_path = gr.Textbox(label="fp16_fix_vae_path", value=default_config["vae_path"], placeholder="separate fp16 fix vae single file path. File end with .safetensors Url: https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main")
+            vae_path = gr.Textbox(label="fp16_fix_vae_path Url: https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main", value=default_config["vae_path"], placeholder="separate fp16 fix vae single file path. File end with .safetensors")
         with gr.Row():
             model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
