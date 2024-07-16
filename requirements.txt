@@ -10,4 +10,5 @@ peft
 typing
 sentencepiece
 opencv-python
+bitsandbytes
 urllib3==1.26.19
