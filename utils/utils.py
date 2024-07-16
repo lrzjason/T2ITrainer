@@ -510,3 +510,26 @@ def mask_feature(emb, mask):
     else:
         masked_feature = emb * mask[:, None, :, None]
         return masked_feature, emb.shape[2]
+    
+
+def replace_non_utf8_characters(filepath):
+    content = ""
+    # Helper function to filter out non-UTF-8 characters
+    def clean_text(text):
+        return ''.join([char if ord(char) < 128 else '' for char in text])
+
+    try:
+        # Read file content
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+
+        # Clean content by removing non-UTF-8 characters
+        cleaned_content = clean_text(content)
+
+        # Write cleaned content back to the file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(cleaned_content)
+    except Exception as e:
+        print(f"Error processing {filepath}: {e}")
+    
+    return cleaned_content

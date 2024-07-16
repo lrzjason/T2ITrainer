@@ -8,6 +8,7 @@ from PIL import Image, ImageOps
 from tqdm import tqdm 
 import cv2
 import numpy
+from utils.utils import replace_non_utf8_characters
 
 BASE_RESOLUTION = 1024
 
@@ -216,14 +217,16 @@ def iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts='.t
     # read caption
     for ext in caption_exts.split(','):
         text_path = os.path.join(folder_path, f'{filename}{ext}')
-        # prompt = ''
+        json_obj['prompt'] = ''
         if os.path.exists(text_path):
             json_obj["text_path"] = text_path
-            # metadata_file.write(read_caption(folder_path,filename,ext))
-            json_obj['prompt'] = open(text_path, encoding='utf-8').read()
-            # datarows.append(caption)
-        else:
-            json_obj['prompt'] = ''
+            try:
+                json_obj['prompt'] = open(text_path, encoding='utf-8').read()
+            except:
+                content = open(text_path, encoding='utf-8').read()
+                # try to remove non utf8 character
+                content = replace_non_utf8_characters(content)
+                json_obj['prompt'] = content
 
     json_obj = cache_file(tokenizers,text_encoders,vae,json_obj,recreate=recreate_cache)
     return json_obj
