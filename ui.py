@@ -3,20 +3,45 @@ import gradio as gr
 import subprocess
 import json
 import sys
+import os
 
-
+config_keys = [
+    'script',
+    'seed',
+    'logging_dir',
+    'mixed_precision',
+    'report_to',
+    'lr_warmup_steps',
+    'output_dir',
+    'save_name',
+    'train_data_dir',
+    'optimizer',
+    'lr_scheduler',
+    'learning_rate',
+    'train_batch_size',
+    'repeats',
+    'gradient_accumulation_steps',
+    'num_train_epochs',
+    'save_model_epochs',
+    'validation_epochs',
+    'rank',
+    'skip_epoch',
+    'break_epoch',
+    'skip_step',
+    'gradient_checkpointing',
+    'validation_ratio',
+    'pretrained_model_name_or_path',
+    'model_path',
+    'resume_from_checkpoint',
+    'use_dora',
+    'recreate_cache',
+    'vae_path',
+    'config_path'
+]
 
 default_config = {
-    "default_script": "train_kolors_lora_ui.py",
+    "script": "train_kolors_lora_ui.py",
     "script_choices": ["train_kolors_lora_ui.py","train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
-	# "output_dir":"F:/models/sd3",
-    # "save_name":"opensd3-b4",
-    # "pretrained_model_name_or_path":"stabilityai/stable-diffusion-3-medium-diffusers", 
-    # "train_data_dir":"F:/ImageSet/sd3_test", 
-	# "output_dir":"F:/models/hy",
-    # "save_name":"hy-test",
-    # "pretrained_model_name_or_path":"Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers", 
-    # "train_data_dir":"F:/ImageSet/sd3_test", 
     "output_dir":"F:/models/kolors",
     "save_name":"kolors-lora",
     "pretrained_model_name_or_path":"Kwai-Kolors/Kolors", # or local folder F:\Kolors
@@ -46,9 +71,116 @@ default_config = {
     "validation_ratio":0.1, 
     "use_dora":False,
     "recreate_cache":False,
-    "caption_dropout":0.1
+    "caption_dropout":0.1,
+    "config_path":"config.json"
 }
 
+
+# Function to save configuration to a specified directory
+def save_config( 
+        script,
+        seed,
+        logging_dir,
+        mixed_precision,
+        report_to,
+        lr_warmup_steps,
+        output_dir,
+        save_name,
+        train_data_dir,
+        optimizer,
+        lr_scheduler,
+        learning_rate,
+        train_batch_size,
+        repeats,
+        gradient_accumulation_steps,
+        num_train_epochs,
+        save_model_epochs,
+        validation_epochs,
+        rank,
+        skip_epoch,
+        break_epoch,
+        skip_step,
+        gradient_checkpointing,
+        validation_ratio,
+        pretrained_model_name_or_path,
+        model_path,
+        resume_from_checkpoint,
+        use_dora,
+        recreate_cache,
+        vae_path,
+        config_path
+    ):
+    config = {
+        "script":script,
+        "seed":seed,
+        "logging_dir":logging_dir,
+        "mixed_precision":mixed_precision,
+        "report_to":report_to,
+        "lr_warmup_steps":lr_warmup_steps,
+        "output_dir":output_dir,
+        "save_name":save_name,
+        "train_data_dir":train_data_dir,
+        "optimizer":optimizer,
+        "lr_scheduler":lr_scheduler,
+        "learning_rate":learning_rate,
+        "train_batch_size":train_batch_size,
+        "repeats":repeats,
+        "gradient_accumulation_steps":gradient_accumulation_steps,
+        "num_train_epochs":num_train_epochs,
+        "save_model_epochs":save_model_epochs,
+        "validation_epochs":validation_epochs,
+        "rank":rank,
+        "skip_epoch":skip_epoch,
+        "break_epoch":break_epoch,
+        "skip_step":skip_step,
+        "gradient_checkpointing":gradient_checkpointing,
+        "validation_ratio":validation_ratio,
+        "pretrained_model_name_or_path":pretrained_model_name_or_path,
+        "model_path":model_path,
+        "resume_from_checkpoint":resume_from_checkpoint,
+        "use_dora":use_dora,
+        "recreate_cache":recreate_cache,
+        "vae_path":vae_path,
+        "config_path":config_path,
+    }
+    # config_path = os.path.join(config_dir, f"{filename}{ext}")
+    with open(config_path, 'w') as f:
+        json.dump(config, f, indent=4)
+    print(f"Configuration saved to {config_path}")
+    print(f"Update default config")
+    with open("config.json", 'w') as f:
+        json.dump(config, f, indent=4)
+
+# Function to load configuration from a specified directory
+def load_config(config_path):
+    if not config_path.endswith(".json"):
+        print("!!!File is not json format.")
+        print("Load default config")
+        config_path = "config.json"
+    if not os.path.exists(config_path):
+        # create config
+        with open(config_path, 'w') as f:
+            config = {}
+            for key in config_keys:
+                if key in default_config.keys():
+                    config[key] = default_config[key]
+            json.dump(config, f, indent=4)
+        return config
+    config_path = os.path.join(config_path)
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+    except:
+        config_path = "config.json"
+    print(f"Loaded configuration from {config_path}")
+    for key in config:
+        if key in config_keys:
+            default_config[key] = config[key]
+            
+    return config['script'],config['seed'],config['logging_dir'],config['mixed_precision'],config['report_to'],config['lr_warmup_steps'],config['output_dir'],config['save_name'],config['train_data_dir'],config['optimizer'],config['lr_scheduler'],config['learning_rate'],config['train_batch_size'],config['repeats'],config['gradient_accumulation_steps'],config['num_train_epochs'],config['save_model_epochs'],config['validation_epochs'],config['rank'],config['skip_epoch'],config['break_epoch'],config['skip_step'],config['gradient_checkpointing'],config['validation_ratio'],config['pretrained_model_name_or_path'],config['model_path'],config['resume_from_checkpoint'],config['use_dora'],config['recreate_cache'],config['vae_path'],config_path
+
+# load config.json by default
+load_config("config.json")
 def run(
         script,
         seed,
@@ -127,13 +259,19 @@ def run(
                 
     # Call the script with the arguments
     # subprocess.run(args)
-    subprocess.call(args)
+    # subprocess.call(args)
     # print(args)
     return " ".join(args)
     
 
 with gr.Blocks() as demo:
-    script = gr.Dropdown(label="script", value=default_config["default_script"], choices=default_config["script_choices"])
+    script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
+    with gr.Row(equal_height=True):
+            # Text input for user to specify another config save and load dir
+        config_path = gr.Textbox(scale=3, label="Config Dir", value=default_config["config_path"], placeholder="Enter path to save/load config")
+        save_config_btn = gr.Button("Save", scale=1)
+        load_config_btn = gr.Button("load", scale=1)
+
     with gr.Accordion("Directory section"):
         # dir section
         with gr.Row():
@@ -222,5 +360,7 @@ with gr.Blocks() as demo:
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
-    
+    inputs.append(config_path)
+    save_config_btn.click(fn=save_config, inputs=inputs)
+    load_config_btn.click(fn=load_config, inputs=[config_path], outputs=inputs)
 demo.launch()
