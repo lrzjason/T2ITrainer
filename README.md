@@ -93,7 +93,8 @@ python ui_for_merge.py
 As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing.
 
 ## Star History
-[Star History Chart](https://star-history.com/#lrzjason/T2ITrainer&Date)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
 
 ## Change Logs:
 - **2024-06-17:** Initial UI release.
