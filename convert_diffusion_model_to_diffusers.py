@@ -8,12 +8,14 @@ import json
 import comfy.utils as utils
 import copy
 import argparse
+import os
 
 def main(args):
     print("running merge_state_dict")
     kolors_model_path = args.kolors_model_path
     convert_target_path = args.convert_target_path
     save_path = args.save_path
+    os.makedirs(save_path, exist_ok=True)
     print("kolors_model_path:",kolors_model_path)
     print("convert_target_path:",convert_target_path)
     kolors_model = safetensors.safe_open(kolors_model_path, 'pt')
@@ -54,8 +56,8 @@ def main(args):
         except:
             print("convert error")
             print(err_k,err_v)
-        
-    save_file(new_diffusers_weight, save_path, kolors_model.metadata())
+    
+    save_file(new_diffusers_weight, f"{save_path}/diffusion_pytorch_model.fp16.safetensors", kolors_model.metadata())
     print("convert End")
 
 
@@ -117,6 +119,6 @@ def parse_args(input_args=None):
 if __name__ == "__main__":
     args = parse_args()
     args.kolors_model_path = "F:/models/unet/new_kolors/diffusion_pytorch_model.fp16.safetensors"
-    args.convert_target_path = "F:/models/unet/realisticKolors/realisticKolor-docci-120258.safetensors"
-    args.save_path = "F:/models/unet/realisticKolors/diffusion_pytorch_model.fp16.safetensors"
+    args.convert_target_path = "F:/models/Stable-diffusion/sdxl/comfy_output_checkpoint/NijiKolorsAlphav01.safetensors"
+    args.save_path = "F:/models/unet/NijiKolors/"
     main(args)
