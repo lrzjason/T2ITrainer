@@ -92,6 +92,10 @@ python ui_for_merge.py
 ### 3. Testing:
 As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
+
 ## Change Logs:
 - **2024-06-17:** Initial UI release.
 - **2024-06-25:** Updated hunyuandit lora training script and UI for multiple training scripts.
