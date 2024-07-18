@@ -2,16 +2,17 @@
 setlocal EnableDelayedExpansion
 
 echo Step 1. Setup venv
-set /p setup_venv=Do you want to setup venv? [Y/n]:
-if "!setup_venv!" == "y" (
-   python -m venv venv
+
+if exist venv\ (
    rem Activate the virtual environment
    call venv\Scripts\activate
+   setup_venv = "y"
 ) else (
-   if exist venv\ (
+   set /p setup_venv=Do you want to setup venv? [Y/n]:
+   if "!setup_venv!" == "y" (
+      python -m venv venv
       rem Activate the virtual environment
       call venv\Scripts\activate
-      setup_venv = "y"
    )
 )
 
@@ -36,13 +37,13 @@ pip install -r requirements.txt
 echo Step 5. Download the Model Files
 set /p install_model=Do you want to download the model files? (y/n):
 if "!install_model!" == "y" (
-   REM Try running huggingface-cli with --version
+   REM Try running huggingface-cli with --version 
    huggingface-cli --version >nul 2>&1
    IF ERRORLEVEL 1 (
       echo huggingface-cli is not installed. Installing now...
       pip install --upgrade huggingface_hub
    )
-   huggingface-cli download Kwai-Kolors/Kolors --local-dir Kolors_models/
+   huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
 )
 
 

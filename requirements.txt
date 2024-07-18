@@ -12,3 +12,4 @@ sentencepiece
 opencv-python
 bitsandbytes
 urllib3==1.26.19
+adamw_bf16

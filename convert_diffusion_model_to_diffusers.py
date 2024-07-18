@@ -23,10 +23,10 @@ def main(args):
     model_ori = {key:kolors_model.get_tensor(key) for key in ori_keys}
 
 
-    convert_model = safetensors.safe_open(convert_target_path, 'pt')
-    keys = convert_model.keys()
-    # print(keys)
-    model_a = {key:convert_model.get_tensor(key) for key in keys}
+    # convert_model = safetensors.safe_open(convert_target_path, 'pt')
+    # keys = convert_model.keys()
+    # # print(keys)
+    # model_a = {key:convert_model.get_tensor(key) for key in keys}
     # model_b = safetensors.torch.load_file(sdxl_model_path)
     # from ComfyUI-Kolors-MZ plugin
     Kolors = {'use_checkpoint': False, 'image_size': 32, 'out_channels': 4, 'use_spatial_transformer': True, 'legacy': False,
@@ -37,27 +37,31 @@ def main(args):
 
     mapping = utils.unet_to_diffusers(Kolors)
     # new_sd = copy.deepcopy(model_a)
-    new_diffusers_weight = copy.deepcopy(model_ori)
+    # new_diffusers_weight = copy.deepcopy(model_ori)
     prefix = "model.diffusion_model."
     
     print("convert begin")
+    missing_dict = {
+        "encoder_hid_proj.bias": model_ori["encoder_hid_proj.bias"],
+        "encoder_hid_proj.weight": model_ori["encoder_hid_proj.weight"]
+    }
     err_k = ""
     err_v = ""
-    for k, v in mapping.items():
-        if k not in ori_keys:
-            print(k,"not in ori_keys")
-            continue
-        try:
-            err_k = k
-            err_v = v
-            diffusion_model_key = f"{prefix}{v}"
-            model_value = model_a[diffusion_model_key]
-            new_diffusers_weight[k] = model_value
-        except:
-            print("convert error")
-            print(err_k,err_v)
+    # for k, v in mapping.items():
+    #     if k not in ori_keys:
+    #         print(k)
+            # continue
+    #     try:
+    #         err_k = k
+    #         err_v = v
+    #         diffusion_model_key = f"{prefix}{v}"
+    #         model_value = model_a[diffusion_model_key]
+    #         new_diffusers_weight[k] = model_value
+    #     except:
+    #         print("convert error")
+    #         print(err_k,err_v)
     
-    save_file(new_diffusers_weight, f"{save_path}/diffusion_pytorch_model.fp16.safetensors", kolors_model.metadata())
+    save_file(missing_dict, f"F:/Comfyui-Kolors-Utils/missing_tensors.safetensors", kolors_model.metadata())
     print("convert End")
 
 

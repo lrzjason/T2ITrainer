@@ -28,8 +28,10 @@
 #          added whole repeats to dataset
 # 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
 from diffusers.models.attention_processor import AttnProcessor2_0
+from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # import jsonlines
 
+import safetensors
 import argparse
 # import functools
 import gc
@@ -120,8 +122,6 @@ from safetensors.torch import save_file
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
-
-
 
 logger = get_logger(__name__)
 def memory_stats():
@@ -502,8 +502,12 @@ def main(args):
     
 
     # Load scheduler and models
-    noise_scheduler = DDPMScheduler.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="scheduler"
+    # noise_scheduler = DDPMScheduler.from_pretrained(
+    #     args.pretrained_model_name_or_path, subfolder="scheduler"
+    # )
+    noise_scheduler = DDPMScheduler(
+        beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
+        dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
     )
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
@@ -512,12 +516,44 @@ def main(args):
     if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
         offload_device = torch.device("cpu")
     
-    if args.model_path is None or args.model_path == "":
+    # load from repo
+    if args.pretrained_model_name_or_path == "Kwai-Kolors/Kolors":
         unet = UNet2DConditionModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="unet", revision=revision, variant=variant
-        ).to(offload_device, dtype=weight_dtype)
+                unet_folder, variant="fp16"
+            ).to(offload_device, dtype=weight_dtype)
     else:
-        unet = UNet2DConditionModel.from_single_file(args.model_path)
+        # load from repo
+        unet_folder = os.path.join(args.pretrained_model_name_or_path, "unet")
+        weight_file = "diffusion_pytorch_model"
+        unet_variant = None
+        ext = ".safetensors"
+        # diffusion_pytorch_model.fp16.safetensors
+        fp16_weight = os.path.join(unet_folder, f"{weight_file}.fp16{ext}")
+        fp32_weight = os.path.join(unet_folder, f"{weight_file}{ext}")
+        if os.path.exists(fp16_weight):
+            unet_variant = "fp16"
+        elif os.path.exists(fp32_weight):
+            unet_variant = None
+        else:
+            raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+            
+        unet = UNet2DConditionModel.from_pretrained(
+                    unet_folder, variant=unet_variant
+                ).to(offload_device, dtype=weight_dtype)
+    
+    if not (args.model_path is None or args.model_path == ""):
+        # load from file
+        state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
+        unexpected_keys = load_model_dict_into_meta(
+            unet,
+            state_dict,
+            device=offload_device,
+            dtype=torch.float32,
+            model_name_or_path=args.model_path,
+        )
+        # updated_state_dict = unet.state_dict()
+        if len(unexpected_keys) > 0:
+            print(f"Unexpected keys in state_dict: {unexpected_keys}")
 
     unet.requires_grad_(False)
 
@@ -637,7 +673,16 @@ def main(args):
         )
 
     if args.optimizer.lower() == "adamw":
-        if use_8bit_adam:
+        if args.mixed_precision == "bf16":
+            try:
+                from adamw_bf16 import AdamWBF16
+            except ImportError:
+                raise ImportError(
+                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
+                )
+            optimizer_class = AdamWBF16
+            unet.to(dtype=torch.bfloat16)
+        elif use_8bit_adam:
             try:
                 import bitsandbytes as bnb
             except ImportError:
@@ -646,14 +691,6 @@ def main(args):
                 )
 
             optimizer_class = bnb.optim.AdamW8bit
-        # elif args.mixed_precision == "bf16":
-        #     try:
-        #         from adamw_bf16 import AdamWBF16
-        #     except ImportError:
-        #         raise ImportError(
-        #             "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
-        #         )
-        #     optimizer_class = AdamWBF16
         else:
             optimizer_class = torch.optim.AdamW
 
