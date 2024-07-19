@@ -3,16 +3,18 @@ setlocal EnableDelayedExpansion
 
 echo Step 1. Setup venv
 
+set /a setup_venv="n"
 if exist venv\ (
    rem Activate the virtual environment
    call venv\Scripts\activate
-   setup_venv = "y"
+   set /a setup_venv="y"
 ) else (
    set /p setup_venv=Do you want to setup venv? [Y/n]:
    if "!setup_venv!" == "y" (
       python -m venv venv
       rem Activate the virtual environment
       call venv\Scripts\activate
+      set /a setup_venv="y"
    )
 )
 
