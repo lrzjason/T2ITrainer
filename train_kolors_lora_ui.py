@@ -1082,10 +1082,11 @@ def main(args):
                     if len(validation_datarows)>0:
                         validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                         
-                        batch_size = args.train_batch_size
+                        batch_size  = 1
+                        # batch_size = args.train_batch_size
                         # handle batch size > validation dataset size
-                        if batch_size > len(validation_datarows):
-                            batch_size = 1
+                        # if batch_size > len(validation_datarows):
+                        #     batch_size = 1
                         
                         val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
 
