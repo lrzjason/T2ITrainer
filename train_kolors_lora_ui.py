@@ -120,6 +120,8 @@ if is_wandb_available():
     
 from safetensors.torch import save_file
 
+from utils.dist_utils import flush
+
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
 
@@ -554,6 +556,8 @@ def main(args):
         # updated_state_dict = unet.state_dict()
         if len(unexpected_keys) > 0:
             print(f"Unexpected keys in state_dict: {unexpected_keys}")
+        del state_dict,unexpected_keys
+        flush()
 
     unet.requires_grad_(False)
 
