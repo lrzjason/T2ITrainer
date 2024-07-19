@@ -556,6 +556,7 @@ def main(args):
         # updated_state_dict = unet.state_dict()
         if len(unexpected_keys) > 0:
             print(f"Unexpected keys in state_dict: {unexpected_keys}")
+        unet.to(offload_device, dtype=weight_dtype)
         del state_dict,unexpected_keys
         flush()
 
