@@ -111,6 +111,8 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-16:** Added save and load config.json
 - **2024-07-19:** Fix model_path couldn't load the weight
 - **2024-07-20:** Adjust cache logic and fix caching bug. Please recreate cache after this update.
+- **2024-07-20:(2)** Add 2048 resolution, it could choose 1024, 2048 training based resolution now.
+
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
