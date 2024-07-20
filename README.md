@@ -110,6 +110,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-15:** Added setup.bat for windows users
 - **2024-07-16:** Added save and load config.json
 - **2024-07-19:** Fix model_path couldn't load the weight
+- **2024-07-20:** Adjust cache logic and fix caching bug. Please recreate cache after this update.
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
