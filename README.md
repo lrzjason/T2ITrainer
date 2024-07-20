@@ -49,6 +49,9 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run the script:
+- PS: Kolors' original vae in fp16 would cause training error and produce black image when inference.
+- Please download the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
+- sdxl.vae.safetensors or sdxl_vae.safetensors and use one of them in vae_path option
 ```
 python ui.py
 ```

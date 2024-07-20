@@ -760,9 +760,27 @@ def main(args):
                     args.vae_path
                 )
             else:
+                # vae = AutoencoderKL.from_pretrained(
+                #     args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
+                # )
+                # load from repo
+                vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
+                weight_file = "diffusion_pytorch_model"
+                vae_variant = None
+                ext = ".safetensors"
+                # diffusion_pytorch_model.fp16.safetensors
+                fp16_weight = os.path.join(vae_folder, f"{weight_file}.fp16{ext}")
+                fp32_weight = os.path.join(vae_folder, f"{weight_file}{ext}")
+                if os.path.exists(fp16_weight):
+                    vae_variant = "fp16"
+                elif os.path.exists(fp32_weight):
+                    vae_variant = None
+                else:
+                    raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+                    
                 vae = AutoencoderKL.from_pretrained(
-                    args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
-                )
+                        vae_folder, variant=vae_variant
+                    )
             
             vae.requires_grad_(False)
             text_encoder_one.requires_grad_(False)
