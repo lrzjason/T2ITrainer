@@ -7,10 +7,10 @@ import pickle
 import shutil
 
 import gc
-import mmcv
+# import mmcv
 import torch
 import torch.distributed as dist
-from mmcv.runner import get_dist_info
+# from mmcv.runner import get_dist_info
 
 
 def is_distributed():
@@ -165,41 +165,41 @@ def broadcast(data, **kwargs):
     return data[0]
 
 
-def all_gather_cpu(result_part, tmpdir=None, collect_by_master=True):
-    rank, world_size = get_dist_info()
-    if tmpdir is None:
-        tmpdir = './tmp'
-    if rank == 0:
-        mmcv.mkdir_or_exist(tmpdir)
-    synchronize()
-    # dump the part result to the dir
-    mmcv.dump(result_part, os.path.join(tmpdir, f'part_{rank}.pkl'))
-    synchronize()
-    # collect all parts
-    if collect_by_master and rank != 0:
-        return None
-    else:
-        # load results of all parts from tmp dir
-        results = []
-        for i in range(world_size):
-            part_file = os.path.join(tmpdir, f'part_{i}.pkl')
-            results.append(mmcv.load(part_file))
-    if not collect_by_master:
-        synchronize()
-    # remove tmp dir
-    if rank == 0:
-        shutil.rmtree(tmpdir)
-    return results
+# def all_gather_cpu(result_part, tmpdir=None, collect_by_master=True):
+#     rank, world_size = get_dist_info()
+#     if tmpdir is None:
+#         tmpdir = './tmp'
+#     if rank == 0:
+#         mmcv.mkdir_or_exist(tmpdir)
+#     synchronize()
+#     # dump the part result to the dir
+#     mmcv.dump(result_part, os.path.join(tmpdir, f'part_{rank}.pkl'))
+#     synchronize()
+#     # collect all parts
+#     if collect_by_master and rank != 0:
+#         return None
+#     else:
+#         # load results of all parts from tmp dir
+#         results = []
+#         for i in range(world_size):
+#             part_file = os.path.join(tmpdir, f'part_{i}.pkl')
+#             results.append(mmcv.load(part_file))
+#     if not collect_by_master:
+#         synchronize()
+#     # remove tmp dir
+#     if rank == 0:
+#         shutil.rmtree(tmpdir)
+#     return results
 
-def all_gather_tensor(tensor, group_size=None, group=None):
-    if group_size is None:
-        group_size = get_world_size()
-    if group_size == 1:
-        output = [tensor]
-    else:
-        output = [torch.zeros_like(tensor) for _ in range(group_size)]
-        dist.all_gather(output, tensor, group=group)
-    return output
+# def all_gather_tensor(tensor, group_size=None, group=None):
+#     if group_size is None:
+#         group_size = get_world_size()
+#     if group_size == 1:
+#         output = [tensor]
+#     else:
+#         output = [torch.zeros_like(tensor) for _ in range(group_size)]
+#         dist.all_gather(output, tensor, group=group)
+#     return output
 
 
 def gather_difflen_tensor(feat, num_samples_list, concat=True, group=None, group_size=None):
