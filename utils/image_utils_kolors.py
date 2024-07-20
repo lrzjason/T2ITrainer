@@ -9,20 +9,40 @@ from tqdm import tqdm
 import cv2
 import numpy
 from utils.utils import replace_non_utf8_characters
+import glob
+from utils.dist_utils import flush
 
-BASE_RESOLUTION = 1024
+# BASE_RESOLUTION = 1024
 
-RESOLUTION_SET = [
-    (1024, 1024),
-    (1152, 896),
-    (1216, 832),
-    (1344, 768),
-    (1536, 640),
-]
+# RESOLUTION_SET = [
+#     (1024, 1024),
+#     (1152, 896),
+#     (1216, 832),
+#     (1344, 768),
+#     (1536, 640),
+# ]
 
-def get_buckets():
-    horizontal_resolution_set = RESOLUTION_SET
-    vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
+RESOLUTION_CONFIG = {
+    1024: [
+        (1024, 1024),
+        (1152, 896), # 1.2857
+        (1216, 832), # 1.46
+        (1344, 768), # 1.75
+        (1536, 640), # 2.4
+    ],
+    2048: [
+        (2048, 2048),
+        (2304, 1792), # 1.2857
+        (2432, 1664), # 1.46
+        (2688, 1536), # 1.75
+        (3072, 1280), # 2.4
+    ]
+}
+
+def get_buckets(resolution=1024):
+    resolution_set = RESOLUTION_CONFIG[resolution]
+    horizontal_resolution_set = resolution_set
+    vertical_resolution_set = [(height,width) for width,height in resolution_set]
     all_resolution_set = horizontal_resolution_set + vertical_resolution_set[1:]
     buckets = {}
     for resolution in all_resolution_set:
@@ -30,16 +50,18 @@ def get_buckets():
     return buckets
 
 # return closest_ratio and width,height closest_resolution
-def get_nearest_resolution(image):
+def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
+    
+    resolution_set = RESOLUTION_CONFIG[resolution]
     
     # get ratio
     image_ratio = width / height
 
-    horizontal_resolution_set = RESOLUTION_SET
-    horizontal_ratio = [round(width/height, 2) for width,height in RESOLUTION_SET]
+    horizontal_resolution_set = resolution_set
+    horizontal_ratio = [round(width/height, 2) for width,height in resolution_set]
 
-    vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
+    vertical_resolution_set = [(height,width) for width,height in resolution_set]
     vertical_ratio = [round(height/width, 2) for height,width in vertical_resolution_set]
 
     target_ratio = horizontal_ratio
@@ -147,11 +169,12 @@ class CachedImageDataset(Dataset):
         metadata = self.datarows[actual_index] 
 
         #cached files
-        cached_latent = torch.load(metadata['npz_path'])
+        cached_npz = torch.load(metadata['npz_path'])
+        cached_latent = torch.load(metadata['latent_path'])
         latent = cached_latent['latent']
-        prompt_embed = cached_latent['prompt_embed']
-        pooled_prompt_embed = cached_latent['pooled_prompt_embed']
-        time_id = cached_latent['time_id']
+        prompt_embed = cached_npz['prompt_embed']
+        pooled_prompt_embed = cached_npz['pooled_prompt_embed']
+        time_id = cached_npz['time_id']
 
         return {
             "latent": latent,
@@ -162,11 +185,12 @@ class CachedImageDataset(Dataset):
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
-def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.txt,.wd14_cap',recreate=False,recreate_cache=False,  metadata_name="metadata_kolors.json"):
+@torch.no_grad()
+def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=False, metadata_name="metadata_kolors.json", resolution_config="1024"):
     create_empty_embedding(tokenizers,text_encoders)
-    supported_image_types = ['.jpg','.jpeg','.png','.webp']
+    create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors_2048.npkolors",resolution=2048)
     metadata_path = os.path.join(input_dir, metadata_name)
-    if recreate or recreate_cache:
+    if recreate_cache:
         # remove metadata.json
         if os.path.exists(metadata_path):
             os.remove(metadata_path)
@@ -176,28 +200,34 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.
         with open(metadata_path, "r", encoding='utf-8') as readfile:
             datarows = json.loads(readfile.read())
     else:
+        supported_image_types = ['.jpg','.jpeg','.png','.webp']
+        files = glob.glob(f"{input_dir}/**", recursive=True)
+        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+        embedding_objects = []
         # create empty file
-        # open(metadata_path, 'w', encoding='utf-8').close()
-        for item in tqdm(os.listdir(input_dir),position=0):
-            # check item is dir or file
-            item_path = os.path.join(input_dir, item)
-            # handle subfolders
-            if tqdm(os.path.isdir(item_path),position=1):
-                folder_path = item_path
-                for file in os.listdir(folder_path):
-                    for image_type in supported_image_types:
-                        if file.endswith(image_type):
-                            json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
-                            datarows.append(json_obj)
-            # handle single files
-            else:
-                folder_path = input_dir
-                file = item
-                for image_type in supported_image_types:
-                    if file.endswith(image_type):
-                        json_obj = iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts=caption_exts,recreate_cache=recreate_cache)
-                        datarows.append(json_obj)
+        print("Cache embedding")
         
+        resolutions = resolution_config.split(",")
+        resolutions = [int(resolution) for resolution in resolutions]
+        for image_file in tqdm(image_files):
+            file_name = os.path.basename(image_file)
+            folder_path = os.path.dirname(image_file)
+            # for resolution in resolutions:
+            json_obj = create_embedding(
+                tokenizers,text_encoders,folder_path,file_name,
+                resolutions=resolutions,recreate_cache=recreate_cache)
+            embedding_objects.append(json_obj)
+        
+        # move glm to cpu to reduce vram memory
+        text_encoders[0].to("cpu")
+        del text_encoders
+        flush()
+        # cache latent
+        print("Cache latent")
+        for json_obj in embedding_objects:
+            for resolution in resolutions:
+                full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
+                datarows.append(full_obj)
         # Serializing json
         json_object = json.dumps(datarows, indent=4)
         
@@ -207,52 +237,97 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,caption_exts='.
     
     return datarows
 
-def iterate_image(tokenizers,text_encoders,vae,folder_path,file,caption_exts='.txt,.wd14_cap',recreate_cache=False):
+
+@torch.no_grad()
+def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkolors",resolutions=None,recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
+    if resolutions is None:
+        resolutions = [1024]
     json_obj = {
-        'image_path':image_path
+        'image_path':image_path,
+        'folder_path':folder_path,
+        'file':file,
+        'resolutions':resolutions
     }
+    # fix init prompt
+    json_obj['prompt'] = ''
     # read caption
-    for ext in caption_exts.split(','):
-        text_path = os.path.join(folder_path, f'{filename}{ext}')
-        json_obj['prompt'] = ''
-        if os.path.exists(text_path):
-            json_obj["text_path"] = text_path
-            try:
-                json_obj['prompt'] = open(text_path, encoding='utf-8').read()
-            except:
-                content = open(text_path, encoding='utf-8').read()
-                # try to remove non utf8 character
-                content = replace_non_utf8_characters(content)
-                json_obj['prompt'] = content
+    caption_ext = '.txt'
+    text_path = os.path.join(folder_path, f'{filename}{caption_ext}')
+    if os.path.exists(text_path):
+        json_obj["text_path"] = text_path
+        try:
+            content = open(text_path, encoding='utf-8').read()
+            json_obj['prompt'] = content
+        except:
+            content = open(text_path, encoding='utf-8').read()
+            # try to remove non utf8 character
+            content = replace_non_utf8_characters(content)
+            json_obj['prompt'] = content
 
-    json_obj = cache_file(tokenizers,text_encoders,vae,json_obj,recreate=recreate_cache)
+    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,json_obj['prompt'],device=text_encoders[0].device)
+    prompt_embed = prompt_embeds.squeeze(0)
+    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
+    
+    npz_dict = {
+        "prompt_embed": prompt_embed.cpu(), 
+        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+    }
+    file_path = os.path.join(folder_path, filename)
+    npz_path = f'{file_path}{cache_ext}'
+    
+    json_obj["npz_path"] = npz_path
+    # save latent to cache file
+    torch.save(npz_dict, npz_path)
     return json_obj
 
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
-def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npkolors",recreate=False):
-
+@torch.no_grad()
+def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".nplatent",recreate_cache=False):
+    npz_path = json_obj["npz_path"]
+    
+    
+    latent_cache_path = npz_path.replace(cache_ext,latent_ext)
+    if resolution > 1024:
+        latent_cache_path = npz_path.replace(cache_ext,f"_{resolution}{latent_ext}")
+    json_obj["latent_path"] = latent_cache_path
+    
+    
+    npz_dict = {}
+    # load npz_path if exists
+    if os.path.exists(npz_path):
+        npz_dict = torch.load(npz_path)
+    else:
+        raise FileNotFoundError("npz_path not found")
+    
     image_path = json_obj["image_path"]
-    prompt = json_obj["prompt"]
+    # resolution = json_obj["resolution"]
     
     try:
-        image = Image.open(image_path)
-        image = ImageOps.exif_transpose(image).convert("RGB")
+        image = cv2.imread(image_path)
+        if image is not None:
+            # Convert to RGB format (assuming the original image is in BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            print(f"Failed to open {image_path}.")
     except Exception as e:
-        print(f"Failed to open {image_path}: {e}")
-        # continue
+        print(f"An error occurred while processing {image_path}: {e}")
 
     ##############################################################################
     # Simple center crop for others
     ##############################################################################
-    width, height = image.size
+    # width, height = image.size
+    # original_size = (height, width)
+    # image = numpy.array(image)
+    
+    height, width, _ = image.shape
     original_size = (height, width)
-    image = numpy.array(image)
+    
     # get nearest resolution
-    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
     # we need to expand the closest resolution to target resolution before cropping
     scale_ratio = closest_resolution[0] / closest_resolution[1]
     image_ratio = width / height
@@ -278,31 +353,14 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npkolors",recre
     
     json_obj['bucket'] = f"{image_width}x{image_height}"
     
-
-    file_path,_ = os.path.splitext(image_path)
-    npz_path = f'{file_path}{cache_ext}'
-
-    json_obj["npz_path"] = npz_path
-    # check if file exists
-    if os.path.exists(npz_path):
-        # load file via torch
-        try:
-            if recreate:
-                # remove the cache
-                os.remove(npz_path)
-            else:
-                # not need to load embedding. it would load while training
-                # embedding = torch.load(npz_path)
-                return json_obj
-        except Exception as e:
-            print(e)
-            print(f"{npz_path} is corrupted, regenerating...")
+    # skip if already cached
+    if os.path.exists(latent_cache_path) and not recreate_cache:
+        return json_obj
     
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent
-    # pixel_values = image.to(memory_format=torch.contiguous_format).to(vae.device, dtype=vae.dtype).unsqueeze(0)
     pixel_values = []
     pixel_values.append(image)
     pixel_values = torch.stack(pixel_values).to(vae.device)
@@ -316,33 +374,22 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npkolors",recre
         del pixel_values
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    # time_id = torch.tensor([
-    #     # original size
-    #     height,width,
-    #     # crop_y,crop_x,
-    #     crop_y,crop_x,
-    #     # target size
-    #     image_height,image_width
-    # ]).to(vae.device, dtype=vae.dtype)
     time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
 
-    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,prompt,device=vae.device)
-    prompt_embed = prompt_embeds.squeeze(0)
-    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
-    
     latent_dict = {
-        "latent": latent.cpu(),
-        "prompt_embed": prompt_embed.cpu(), 
-        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
-        "time_id": time_id.cpu()
+        'latent': latent.cpu()
     }
-
+    torch.save(latent_dict, latent_cache_path)
     
+    # latent_dict['latent'] = latent.cpu()
+    npz_dict['time_id'] = time_id.cpu()
+    npz_dict['latent_path'] = latent_cache_path
     # save latent to cache file
-    torch.save(latent_dict, npz_path)
-    del latent_dict
+    torch.save(npz_dict, npz_path)
+    del npz_dict
+    
+    flush()
     return json_obj
-
 
 def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
     with torch.no_grad():
@@ -355,7 +402,7 @@ def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
 def get_empty_embedding(cache_path="cache/empty_embedding_kolors.npkolors"):
     if os.path.exists(cache_path):
         return torch.load(cache_path)
-def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors.npkolors",recreate=False):
+def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors.npkolors",recreate=False, resolution=1024):
     if recreate:
         os.remove(cache_path)
 
@@ -367,10 +414,10 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
     pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
     time_id = torch.tensor([
         # original size
-        1024,1024,
+        resolution,resolution,
         0,0,
         # target size
-        1024,1024
+        resolution,resolution
     ])
     latent = {
         "prompt_embed": prompt_embeds.cpu(), 
@@ -491,7 +538,7 @@ if __name__ == "__main__":
     image = open_cv_image[:, :, ::-1].copy()
     
     # get nearest resolution
-    closest_ratio,closest_resolution = get_nearest_resolution(image)
+    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=1024)
     # print('init closest_resolution',closest_resolution)
 
     # we need to expand the closest resolution to target resolution before cropping

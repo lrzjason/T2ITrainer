@@ -380,9 +380,12 @@ def parse_args(input_args=None):
         default=None,
         help=("seperate vae path"),
     )
-    
-    
-    
+    parser.add_argument(
+        "--resolution_config",
+        type=str,
+        default=None,
+        help=("default: '1024', accept str: '1024', '2048'"),
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -772,14 +775,16 @@ def main(args):
             text_encoders = [text_encoder_one]
             
             # create metadata and latent cache
-            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache)
+            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache,resolution_config=args.resolution_config)
             validation_datarows = []
             # prepare validation_slipt
             if args.validation_ratio > 0:
                 # buckets = image_utils.get_buckets()
                 train_ratio = 1 - args.validation_ratio
                 validation_ratio = args.validation_ratio
-                if len(datarows) == 1:
+                resolutions = args.resolution_config.split(",")
+                # handle multiple resolution training            or single image training
+                if (len(resolutions) > 1 and len(datarows) == 2) or len(datarows) == 1:
                     datarows = datarows + datarows.copy()
                     validation_ratio = 0.5
                     train_ratio = 0.5
@@ -800,7 +805,7 @@ def main(args):
                     outfile.write(val_json_object)
                 
             # clear memory
-            del validation_datarows, vae,tokenizer_one, text_encoder_one
+            del validation_datarows, vae, tokenizer_one, text_encoder_one
             gc.collect()
             torch.cuda.empty_cache()
         else:

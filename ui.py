@@ -36,7 +36,8 @@ config_keys = [
     'use_dora',
     'recreate_cache',
     'vae_path',
-    'config_path'
+    'config_path',
+    'resolution'
 ]
 
 default_config = {
@@ -72,12 +73,15 @@ default_config = {
     "use_dora":False,
     "recreate_cache":False,
     "caption_dropout":0.1,
-    "config_path":"config.json"
+    "config_path":"config.json",
+    "resolution":"1024",
+    "resolution_choices":["1024","2048"]
 }
 
 
 # Function to save configuration to a specified directory
 def save_config( 
+        config_path,
         script,
         seed,
         logging_dir,
@@ -108,7 +112,7 @@ def save_config(
         use_dora,
         recreate_cache,
         vae_path,
-        config_path
+        resolution
     ):
     config = {
         "script":script,
@@ -142,6 +146,7 @@ def save_config(
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
         "config_path":config_path,
+        "resolution":resolution,
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -177,11 +182,12 @@ def load_config(config_path):
         if key in config_keys:
             default_config[key] = config[key]
             
-    return config['script'],config['seed'],config['logging_dir'],config['mixed_precision'],config['report_to'],config['lr_warmup_steps'],config['output_dir'],config['save_name'],config['train_data_dir'],config['optimizer'],config['lr_scheduler'],config['learning_rate'],config['train_batch_size'],config['repeats'],config['gradient_accumulation_steps'],config['num_train_epochs'],config['save_model_epochs'],config['validation_epochs'],config['rank'],config['skip_epoch'],config['break_epoch'],config['skip_step'],config['gradient_checkpointing'],config['validation_ratio'],config['pretrained_model_name_or_path'],config['model_path'],config['resume_from_checkpoint'],config['use_dora'],config['recreate_cache'],config['vae_path'],config_path
+    return config_path,default_config['script'],default_config['seed'],default_config['logging_dir'],default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'],default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'],default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'],default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'],default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'],default_config['rank'],default_config['skip_epoch'],default_config['break_epoch'],default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'],default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'],default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution']
 
 # load config.json by default
 load_config("config.json")
 def run(
+        config_path,
         script,
         seed,
         logging_dir,
@@ -211,7 +217,8 @@ def run(
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path
+        vae_path,
+        resolution
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -248,7 +255,8 @@ def run(
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
-        "vae_path":vae_path
+        "vae_path":vae_path,
+        "resolution":resolution
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -264,8 +272,41 @@ def run(
                 args.append(str(value))
                 
     # Call the script with the arguments
-    # subprocess.run(args)
     subprocess.call(args)
+    save_config(
+        config_path,
+        script,
+        seed,
+        logging_dir,
+        mixed_precision,
+        report_to,
+        lr_warmup_steps,
+        output_dir,
+        save_name,
+        train_data_dir,
+        optimizer,
+        lr_scheduler,
+        learning_rate,
+        train_batch_size,
+        repeats,
+        gradient_accumulation_steps,
+        num_train_epochs,
+        save_model_epochs,
+        validation_epochs,
+        rank,
+        skip_epoch,
+        break_epoch,
+        skip_step,
+        gradient_checkpointing,
+        validation_ratio,
+        pretrained_model_name_or_path,
+        model_path,
+        resume_from_checkpoint,
+        use_dora,
+        recreate_cache,
+        vae_path,
+        resolution
+    )
     # print(args)
     return " ".join(args)
     
@@ -329,9 +370,19 @@ with gr.Blocks() as demo:
             skip_epoch = gr.Number(label="skip_epoch", value=default_config["skip_epoch"], info="Skip x epoches for validation and save checkpoint")
             break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
             skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
+        with gr.Row():
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
+        gr.Markdown(
+"""
+## Experiment Option: resolution
+- Based target resolution (default:1024). 
+- 2048 resolution requires more vram for encoding image and training. Please make sure you have enough vram.
+""")
+        with gr.Row():
+            resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
     inputs = [
+        config_path,
         script,
         seed,
         logging_dir,
@@ -361,12 +412,13 @@ with gr.Blocks() as demo:
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path
-        ]
+        vae_path,
+        resolution
+    ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
+    # inputs.append(config_path)
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
-    inputs.append(config_path)
     save_config_btn.click(fn=save_config, inputs=inputs)
     load_config_btn.click(fn=load_config, inputs=[config_path], outputs=inputs)
 demo.launch()
