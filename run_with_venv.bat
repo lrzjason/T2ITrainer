@@ -1,2 +1,2 @@
-venv\Scripts\activate
+call venv\Scripts\activate
 python ui.py
