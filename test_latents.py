@@ -18,7 +18,7 @@ vae = AutoencoderKL.from_single_file(
 
 
 vae.to("cuda").to(torch.float16)
-npz_path = "F:/ImageSet/kolors_test/chi/zhaojinmai_4.npkolors"
+npz_path = "F:/ImageSet/pixart_test_one/blue-jay-8075346_2048.nplatent"
 # image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
 
 latents = torch.load(npz_path)
@@ -27,4 +27,4 @@ image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
 with torch.no_grad():
     image = vae.decode(latent / vae.config.scaling_factor, return_dict=False)[0]
 image = image_processor.postprocess(image, output_type="pil")[0]
-image.save("cat.png")
+image.save("bird.png")

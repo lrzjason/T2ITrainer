@@ -115,6 +115,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-19:** Fix model_path couldn't load the weight
 - **2024-07-20:** Adjust cache logic and fix caching bug. Please recreate cache after this update.
 - **2024-07-20:(2)** Add 2048 resolution, it could choose 1024, 2048 training based resolution now. It only recommanded to train 2048 resolution when you have >= 24GB vram.
+- **2024-07-21:** Update debiased estimation loss and change cache resize from default to area
 
 
 ## Acknowledgements:

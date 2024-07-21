@@ -524,7 +524,7 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
 
 def resize(img,resolution):
     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    return cv2.resize(img,resolution)
+    return cv2.resize(img,resolution, interpolation=cv2.INTER_AREA)
 
 if __name__ == "__main__":
     image = Image.open("F:/ImageSet/handpick_high_quality/animal/blue-jay-8075346.jpg")

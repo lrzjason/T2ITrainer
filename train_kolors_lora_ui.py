@@ -38,7 +38,7 @@ import gc
 # import logging
 import math
 import os
-# import random
+import random
 # import shutil
 # from pathlib import Path
 
@@ -126,6 +126,29 @@ from utils.dist_utils import flush
 # check_min_version("0.30.0.dev0")
 
 logger = get_logger(__name__)
+# =========Debias implementation from: https://github.com/kohya-ss/sd-scripts/blob/main/library/custom_train_functions.py#L99
+def prepare_scheduler_for_custom_training(noise_scheduler, device):
+    if hasattr(noise_scheduler, "all_snr"):
+        return
+
+    alphas_cumprod = noise_scheduler.alphas_cumprod
+    sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
+    sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
+    alpha = sqrt_alphas_cumprod
+    sigma = sqrt_one_minus_alphas_cumprod
+    all_snr = (alpha / sigma) ** 2
+
+    noise_scheduler.all_snr = all_snr.to(device)
+
+def apply_debiased_estimation(loss, timesteps, noise_scheduler):
+    snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
+    snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
+    weight = 1 / torch.sqrt(snr_t)
+    loss = weight * loss
+    return loss
+# =========Debias implementation from: https://github.com/kohya-ss/sd-scripts/blob/main/library/custom_train_functions.py#L99
+
+
 def memory_stats():
     print("\nmemory_stats:\n")
     print(torch.cuda.memory_allocated()/1024**2)
@@ -440,8 +463,8 @@ def main(args):
     lr_num_cycles = 1
     lr_power = 1
     
-    # args.validation_prompt = ""
-    
+    # this is for consistence validation. all validation would use this seed to generate the same validation set
+    val_seed = random.randint(1, 100)
     # args.seed = 4321
     # args.logging_dir = 'logs'
     # args.mixed_precision = "bf16"
@@ -510,10 +533,14 @@ def main(args):
     # noise_scheduler = DDPMScheduler.from_pretrained(
     #     args.pretrained_model_name_or_path, subfolder="scheduler"
     # )
+    
+    # prepare noise scheduler
     noise_scheduler = DDPMScheduler(
         beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
         dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
     )
+    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+    
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
     offload_device = accelerator.device
@@ -524,7 +551,7 @@ def main(args):
     # load from repo
     if args.pretrained_model_name_or_path == "Kwai-Kolors/Kolors":
         unet = UNet2DConditionModel.from_pretrained(
-                unet_folder, variant="fp16"
+                args.pretrained_model_name_or_path, subfolder="unet", variant="fp16"
             ).to(offload_device, dtype=weight_dtype)
     else:
         # load from repo
@@ -755,16 +782,17 @@ def main(args):
             text_encoder_one = ChatGLMModel.from_pretrained(
                 args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
             )
+            vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
             if args.vae_path:
                 vae = AutoencoderKL.from_single_file(
-                    args.vae_path
+                    args.vae_path,
+                    config=vae_folder,
                 )
             else:
                 # vae = AutoencoderKL.from_pretrained(
                 #     args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
                 # )
                 # load from repo
-                vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
                 weight_file = "diffusion_pytorch_model"
                 vae_variant = None
                 ext = ".safetensors"
@@ -1029,6 +1057,8 @@ def main(args):
                     
                     target = noise
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
+                    loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
                     
                     # Backpropagate
                     accelerator.backward(loss)
@@ -1092,10 +1122,10 @@ def main(args):
                 with torch.no_grad():
                     unet = unwrap_model(unet)
                     # freeze rng
-                    np.random.seed(0)
-                    torch.manual_seed(0)
+                    np.random.seed(val_seed)
+                    torch.manual_seed(val_seed)
                     dataloader_generator = torch.Generator()
-                    dataloader_generator.manual_seed(0)
+                    dataloader_generator.manual_seed(val_seed)
                     torch.backends.cudnn.deterministic = True
                     
                     validation_datarows = []
@@ -1159,6 +1189,9 @@ def main(args):
                                 
                                 target = noise
                                 loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                                
+                                loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                                
                                 total_loss+=loss.detach()
                                 del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
                                 gc.collect()
