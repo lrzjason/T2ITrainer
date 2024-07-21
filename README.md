@@ -63,12 +63,12 @@ python ui.py
   - [ComfyUI-Kolors-MZ](https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ)
   
   Then use the normal lora loader in ComfyUI.
-
+<!-- 
 - For hunyuandit 1.1:
   Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
   ```
   python test.py
-  ```
+  ``` -->
 
 ## Kolors Merging SDXL Checkpoint
 

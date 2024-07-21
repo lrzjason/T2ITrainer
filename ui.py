@@ -37,12 +37,15 @@ config_keys = [
     'recreate_cache',
     'vae_path',
     'config_path',
-    'resolution'
+    'resolution',
+    'use_debias'
 ]
 
 default_config = {
     "script": "train_kolors_lora_ui.py",
-    "script_choices": ["train_kolors_lora_ui.py","train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"],
+    "script_choices": ["train_kolors_lora_ui.py",
+                    #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
+                       ],
     "output_dir":"F:/models/kolors",
     "save_name":"kolors-lora",
     "pretrained_model_name_or_path":"Kwai-Kolors/Kolors", # or local folder F:\Kolors
@@ -75,7 +78,8 @@ default_config = {
     "caption_dropout":0.1,
     "config_path":"config.json",
     "resolution":"1024",
-    "resolution_choices":["1024","2048"]
+    "resolution_choices":["1024","2048"],
+    'use_debias':True,
 }
 
 
@@ -112,7 +116,8 @@ def save_config(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution
+        resolution,
+        use_debias
     ):
     config = {
         "script":script,
@@ -147,6 +152,7 @@ def save_config(
         "vae_path":vae_path,
         "config_path":config_path,
         "resolution":resolution,
+        "use_debias":use_debias
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -218,7 +224,8 @@ def run(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution
+        resolution,
+        use_debias
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -256,7 +263,8 @@ def run(
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
-        "resolution":resolution
+        "resolution":resolution,
+        "use_debias":use_debias
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -305,7 +313,8 @@ def run(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution
+        resolution,
+        use_debias
     )
     # print(args)
     return " ".join(args)
@@ -373,6 +382,7 @@ with gr.Blocks() as demo:
         with gr.Row():
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
+            use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
         gr.Markdown(
 """
 ## Experiment Option: resolution
@@ -413,7 +423,8 @@ with gr.Blocks() as demo:
         use_dora,
         recreate_cache,
         vae_path,
-        resolution
+        resolution,
+        use_debias
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")

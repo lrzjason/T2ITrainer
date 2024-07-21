@@ -409,6 +409,11 @@ def parse_args(input_args=None):
         default=None,
         help=("default: '1024', accept str: '1024', '2048'"),
     )
+    parser.add_argument(
+        "--use_debias",
+        action="store_true",
+        help="Use debiased estimation loss",
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -539,7 +544,8 @@ def main(args):
         beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
         dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
     )
-    prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+    if args.use_debias:
+        prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
@@ -1058,7 +1064,8 @@ def main(args):
                     target = noise
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                     # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
-                    loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                    if args.use_debias:
+                        loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
                     
                     # Backpropagate
                     accelerator.backward(loss)
@@ -1190,7 +1197,9 @@ def main(args):
                                 target = noise
                                 loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                                 
-                                loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                                # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
+                                if args.use_debias:
+                                    loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
                                 
                                 total_loss+=loss.detach()
                                 del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
