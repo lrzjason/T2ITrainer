@@ -515,8 +515,8 @@ def mask_feature(emb, mask):
 def replace_non_utf8_characters(filepath):
     content = ""
     # Helper function to filter out non-UTF-8 characters
-    def clean_text(text):
-        return ''.join([char if ord(char) < 128 else '' for char in text])
+    # def clean_text(text):
+    #     return ''.join([char if ord(char) < 128 else '' for char in text])
 
     try:
         # Read file content
@@ -524,7 +524,7 @@ def replace_non_utf8_characters(filepath):
             content = f.read()
 
         # Clean content by removing non-UTF-8 characters
-        cleaned_content = clean_text(content)
+        cleaned_content = content.decode('utf-8')
 
         # Write cleaned content back to the file
         with open(filepath, 'w', encoding='utf-8') as f:

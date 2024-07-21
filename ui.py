@@ -79,7 +79,8 @@ default_config = {
     "config_path":"config.json",
     "resolution":"1024",
     "resolution_choices":["1024","2048"],
-    'use_debias':True,
+    'use_debias':False,
+    'snr_gamma':0
 }
 
 
@@ -117,7 +118,8 @@ def save_config(
         recreate_cache,
         vae_path,
         resolution,
-        use_debias
+        use_debias,
+        snr_gamma
     ):
     config = {
         "script":script,
@@ -152,7 +154,8 @@ def save_config(
         "vae_path":vae_path,
         "config_path":config_path,
         "resolution":resolution,
-        "use_debias":use_debias
+        "use_debias":use_debias,
+        'snr_gamma':snr_gamma
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -188,7 +191,17 @@ def load_config(config_path):
         if key in config_keys:
             default_config[key] = config[key]
             
-    return config_path,default_config['script'],default_config['seed'],default_config['logging_dir'],default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'],default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'],default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'],default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'],default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'],default_config['rank'],default_config['skip_epoch'],default_config['break_epoch'],default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'],default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'],default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution']
+    return config_path,default_config['script'],default_config['seed'],default_config['logging_dir'], \
+            default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
+            default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
+            default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
+            default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'], \
+            default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
+            default_config['rank'],default_config['skip_epoch'],default_config['break_epoch'], \
+            default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
+            default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
+            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
+            default_config['snr_gamma']
 
 # load config.json by default
 load_config("config.json")
@@ -225,7 +238,8 @@ def run(
         recreate_cache,
         vae_path,
         resolution,
-        use_debias
+        use_debias,
+        snr_gamma
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -264,7 +278,8 @@ def run(
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
         "resolution":resolution,
-        "use_debias":use_debias
+        "use_debias":use_debias,
+        "snr_gamma":snr_gamma
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -314,7 +329,8 @@ def run(
         recreate_cache,
         vae_path,
         resolution,
-        use_debias
+        use_debias,
+        snr_gamma
     )
     # print(args)
     return " ".join(args)
@@ -383,6 +399,7 @@ with gr.Blocks() as demo:
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
             use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
+            snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
         gr.Markdown(
 """
 ## Experiment Option: resolution
@@ -424,7 +441,8 @@ with gr.Blocks() as demo:
         recreate_cache,
         vae_path,
         resolution,
-        use_debias
+        use_debias,
+        snr_gamma
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")

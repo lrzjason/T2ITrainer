@@ -212,10 +212,12 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=
         for image_file in tqdm(image_files):
             file_name = os.path.basename(image_file)
             folder_path = os.path.dirname(image_file)
+            
             # for resolution in resolutions:
             json_obj = create_embedding(
                 tokenizers,text_encoders,folder_path,file_name,
                 resolutions=resolutions,recreate_cache=recreate_cache)
+            
             embedding_objects.append(json_obj)
         
         # move glm to cpu to reduce vram memory
@@ -224,7 +226,7 @@ def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=
         flush()
         # cache latent
         print("Cache latent")
-        for json_obj in embedding_objects:
+        for json_obj in tqdm(embedding_objects):
             for resolution in resolutions:
                 full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
                 datarows.append(full_obj)
@@ -267,6 +269,13 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkol
             content = replace_non_utf8_characters(content)
             json_obj['prompt'] = content
 
+    file_path = os.path.join(folder_path, filename)
+    npz_path = f'{file_path}{cache_ext}'
+    json_obj["npz_path"] = npz_path
+    
+    if not recreate_cache and os.path.exists(npz_path):
+        return json_obj
+    
     prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,json_obj['prompt'],device=text_encoders[0].device)
     prompt_embed = prompt_embeds.squeeze(0)
     pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
@@ -275,10 +284,7 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkol
         "prompt_embed": prompt_embed.cpu(), 
         "pooled_prompt_embed": pooled_prompt_embed.cpu(),
     }
-    file_path = os.path.join(folder_path, filename)
-    npz_path = f'{file_path}{cache_ext}'
     
-    json_obj["npz_path"] = npz_path
     # save latent to cache file
     torch.save(npz_dict, npz_path)
     return json_obj
@@ -513,10 +519,10 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
         # 1:1 ratio
         cropped_image = image
 
-    print(f"ori ratio:{width/height}")
+    # print(f"ori ratio:{width/height}")
     height, width, _ = cropped_image.shape  
-    print(f"cropped ratio:{width/height}")
-    print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
+    # print(f"cropped ratio:{width/height}")
+    # print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
     # resize image to target resolution
     # return cv2.resize(cropped_image, closest_resolution)
     return resize(cropped_image,closest_resolution),crop_x,crop_y

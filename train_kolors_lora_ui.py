@@ -73,7 +73,10 @@ from diffusers import (
 from pathlib import Path
 from diffusers.optimization import get_scheduler
 # from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params, compute_snr
-from diffusers.training_utils import cast_training_params
+from diffusers.training_utils import (
+    cast_training_params,
+    compute_snr
+)
 from diffusers.utils import (
     # check_min_version,
     convert_all_state_dict_to_peft,
@@ -413,6 +416,14 @@ def parse_args(input_args=None):
         "--use_debias",
         action="store_true",
         help="Use debiased estimation loss",
+    )
+    
+    parser.add_argument(
+        "--snr_gamma",
+        type=float,
+        default=5,
+        help="SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
+        "More details here: https://arxiv.org/abs/2303.09556.",
     )
     
     if input_args is not None:
@@ -1062,8 +1073,30 @@ def main(args):
                     
                     
                     target = noise
-                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                    loss = loss.mean()
+                    
+                    # code reference: https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py
+                    if args.snr_gamma is None or args.snr_gamma == 0:
+                        loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    else:
+                        # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
+                        # Since we predict the noise instead of x_0, the original formulation is slightly changed.
+                        # This is discussed in Section 4.2 of the same paper.
+                        snr = compute_snr(noise_scheduler, timesteps)
+                        mse_loss_weights = torch.stack([snr, args.snr_gamma * torch.ones_like(timesteps)], dim=1).min(
+                            dim=1
+                        )[0]
+                        if noise_scheduler.config.prediction_type == "epsilon":
+                            mse_loss_weights = mse_loss_weights / snr
+                        elif noise_scheduler.config.prediction_type == "v_prediction":
+                            mse_loss_weights = mse_loss_weights / (snr + 1)
+
+                        loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                        loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
+                        loss = loss.mean()
+                        del mse_loss_weights
+                    
+                    # loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    # loss = loss.mean()
                     # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
                     if args.use_debias:
                         loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
