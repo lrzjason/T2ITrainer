@@ -535,15 +535,15 @@ def main(args):
     
 
     # Load scheduler and models
-    # noise_scheduler = DDPMScheduler.from_pretrained(
-    #     args.pretrained_model_name_or_path, subfolder="scheduler"
-    # )
+    noise_scheduler = DDPMScheduler.from_pretrained(
+        args.pretrained_model_name_or_path, subfolder="scheduler"
+    )
     
     # prepare noise scheduler
-    noise_scheduler = DDPMScheduler(
-        beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
-        dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
-    )
+    # noise_scheduler = DDPMScheduler(
+    #     beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
+    #     dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
+    # )
     if args.use_debias:
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     
@@ -1063,6 +1063,7 @@ def main(args):
                     
                     target = noise
                     loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                    loss = loss.mean()
                     # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
                     if args.use_debias:
                         loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
