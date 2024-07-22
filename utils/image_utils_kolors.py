@@ -11,6 +11,7 @@ import numpy
 from utils.utils import replace_non_utf8_characters
 import glob
 from utils.dist_utils import flush
+import numpy as np
 
 # BASE_RESOLUTION = 1024
 
@@ -313,7 +314,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     # resolution = json_obj["resolution"]
     
     try:
-        image = cv2.imread(image_path)
+        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
         if image is not None:
             # Convert to RGB format (assuming the original image is in BGR)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -321,6 +322,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
             print(f"Failed to open {image_path}.")
     except Exception as e:
         print(f"An error occurred while processing {image_path}: {e}")
+
 
     ##############################################################################
     # Simple center crop for others
