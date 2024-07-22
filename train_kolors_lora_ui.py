@@ -1095,11 +1095,10 @@ def main(args):
                         loss = loss.mean()
                         del mse_loss_weights
                     
-                    # loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                    # loss = loss.mean()
                     # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
                     if args.use_debias:
                         loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                        loss = loss.mean()
                     
                     # Backpropagate
                     accelerator.backward(loss)
