@@ -12,7 +12,7 @@ from itertools import repeat
 from torchvision import transforms as T
 import random
 from PIL import Image
-
+from hashlib import md5
 
 def _ntuple(n):
     def parse(x):
@@ -533,3 +533,11 @@ def replace_non_utf8_characters(filepath):
         print(f"Error processing {filepath}: {e}")
     
     return cleaned_content
+
+def get_md5_by_path(file_path):
+    try:
+        with open(file_path, 'rb') as f:
+            return md5(f.read()).hexdigest()
+    except:
+        print(f"Error getting md5 for {file_path}")
+        return ''

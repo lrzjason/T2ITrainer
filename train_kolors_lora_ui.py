@@ -125,6 +125,9 @@ from safetensors.torch import save_file
 
 from utils.dist_utils import flush
 
+from hashlib import md5
+import glob
+
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
 
@@ -786,8 +789,128 @@ def main(args):
     # this part need more work afterward, you need to prepare 
     # the train files and val files split first before the training
     if args.train_data_dir is not None:
+        input_dir = args.train_data_dir
         datarows = []
-        if (not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path)) or args.recreate_cache:
+        cache_list = []
+        recreate_cache = args.recreate_cache
+        resolutions = args.resolution_config.split(",")
+        
+        supported_image_types = ['.jpg','.jpeg','.png','.webp']
+        files = glob.glob(f"{input_dir}/**", recursive=True)
+        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+        
+        # function to remove metadata datarows which in not exist in directory
+        def align_metadata(datarows,image_files,metadata_path):
+            new_metadatarows = []
+            for metadata_datarow in datarows:
+                # if some row not in current image_files, ignore it
+                if metadata_datarow['image_path'] in image_files:
+                    new_metadatarows.append(metadata_datarow)
+            # save new_metadatarows at metadata_path
+            with open(metadata_path, "w", encoding='utf-8') as writefile:
+                writefile.write(json.dumps(new_metadatarows))
+            return new_metadatarows
+        
+        metadata_datarows = []
+        single_image_training = False
+        if os.path.exists(metadata_path):
+            with open(metadata_path, "r", encoding='utf-8') as readfile:
+                metadata_datarows = json.loads(readfile.read())
+                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
+                metadata_datarows = align_metadata(metadata_datarows,image_files,metadata_path)
+        else:
+            single_image_training = len(image_files) == 1
+        
+        val_metadata_datarows = []
+        if os.path.exists(val_metadata_path):
+            with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                val_metadata_datarows = json.loads(readfile.read())
+                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
+                val_metadata_datarows = align_metadata(val_metadata_datarows,image_files,val_metadata_path)
+        
+        # full datarows is aligned, all datarows conatins exists image
+        if len(metadata_datarows) == 1:
+            full_datarows = metadata_datarows
+            single_image_training = True
+        else:
+            full_datarows = metadata_datarows + val_metadata_datarows
+        # if not single_image_training:
+        #     single_image_training = (len(resolutions) > 1 and len(full_datarows) == len(resolutions)) or len(full_datarows) == len(resolutions)
+        # no metadata file, all files should be cached
+        if (len(full_datarows) == 0) or recreate_cache:
+            cache_list = image_files
+        else:
+            md5_pairs = [
+                {
+                    "path":"image_path",
+                    "md5": "image_path_md5"
+                },
+                {
+                    "path":"text_path",
+                    "md5": "text_path_md5"
+                },
+                {
+                    "path":"npz_path",
+                    "md5": "npz_path_md5"
+                },
+                {
+                    "path":"latent_path",
+                    "md5": "latent_path_md5"
+                },
+            ]
+            def check_md5(datarows,md5_pairs):
+                cache_list = []
+                new_datarows = []
+                for datarow in tqdm(datarows):
+                    corrupted = False
+                    # loop all the md5 pairs
+                    for pair in md5_pairs:
+                        path_name = pair['path']
+                        md5_name = pair['md5']
+                        # if md5 not in datarow, then recache
+                        if not md5_name in datarow.keys():
+                            if datarow['image_path'] not in cache_list:
+                                cache_list.append(datarow['image_path'])
+                                corrupted = True
+                            break
+                        
+                        file_path = datarow[path_name]
+                        file_path_md5 = ''
+                        if os.path.exists(file_path):
+                            with open(file_path, 'rb') as f:
+                                file_path_md5 = md5(f.read()).hexdigest()
+                        
+                        if file_path_md5 != datarow[md5_name]:
+                            if datarow['image_path'] not in cache_list:
+                                cache_list.append(datarow['image_path'])
+                                corrupted = True
+                            break
+                    if not corrupted:
+                        new_datarows.append(datarow)
+                return cache_list, new_datarows
+                                
+            # for metadata_file in metadata_files:
+            # Validate two datasets 
+            # loop all the datarow and check file md5 for integrity
+            print(f"Checking integrity: ")
+            # fine images not in full_datarows, handle added images
+            current_images = [d['image_path'] for d in full_datarows]
+            missing_images = [f for f in image_files if f not in current_images]
+            if len(missing_images) > 0:
+                print(f"Images exists but not in metadata: {len(missing_images)}")
+                # add missing images to cache list
+                cache_list += missing_images
+            
+            # check full_datarows md5
+            corrupted_files, new_datarows = check_md5(full_datarows,md5_pairs)
+            # skip corrupted datarows, update full datarows
+            full_datarows = new_datarows
+            if len(corrupted_files) > 0:
+                print(f"corrupted files: {len(corrupted_files)}")
+                # add corrupted files to cache list
+                cache_list += corrupted_files
+                    
+        if len(cache_list)>0:
             # Load the tokenizers
             tokenizer_one = ChatGLMTokenizer.from_pretrained(
                 args.pretrained_model_name_or_path,
@@ -806,9 +929,6 @@ def main(args):
                     config=vae_folder,
                 )
             else:
-                # vae = AutoencoderKL.from_pretrained(
-                #     args.pretrained_model_name_or_path, subfolder="vae", revision=revision, variant=variant
-                # )
                 # load from repo
                 weight_file = "diffusion_pytorch_model"
                 vae_variant = None
@@ -836,45 +956,46 @@ def main(args):
             
             tokenizers = [tokenizer_one]
             text_encoders = [text_encoder_one]
-            
             # create metadata and latent cache
-            datarows = create_metadata_cache(tokenizers,text_encoders,vae,args.train_data_dir,recreate_cache=args.recreate_cache,resolution_config=args.resolution_config)
+            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache,resolution_config=args.resolution_config)
+            
+            # merge newly cached datarows to full_datarows
+            full_datarows += cached_datarows
+            
+            # reset validation_datarows
             validation_datarows = []
             # prepare validation_slipt
             if args.validation_ratio > 0:
                 # buckets = image_utils.get_buckets()
                 train_ratio = 1 - args.validation_ratio
                 validation_ratio = args.validation_ratio
-                resolutions = args.resolution_config.split(",")
-                # handle multiple resolution training            or single image training
-                if (len(resolutions) > 1 and len(datarows) == 2) or len(datarows) == 1:
-                    datarows = datarows + datarows.copy()
+                if len(full_datarows) == 1:
+                    full_datarows = full_datarows + full_datarows.copy()
                     validation_ratio = 0.5
                     train_ratio = 0.5
-                training_datarows, validation_datarows = train_test_split(datarows, train_size=train_ratio, test_size=validation_ratio)
+                training_datarows, validation_datarows = train_test_split(full_datarows, train_size=train_ratio, test_size=validation_ratio)
                 datarows = training_datarows
+            else:
+                datarows = full_datarows
             
             # Serializing json
             json_object = json.dumps(datarows, indent=4)
-            # Writing to sample.json
+            # update metadata file
             with open(metadata_path, "w", encoding='utf-8') as outfile:
                 outfile.write(json_object)
             
             if len(validation_datarows) > 0:
                 # Serializing json
                 val_json_object = json.dumps(validation_datarows, indent=4)
-                # Writing to sample.json
+                # update val metadata file
                 with open(val_metadata_path, "w", encoding='utf-8') as outfile:
                     outfile.write(val_json_object)
                 
             # clear memory
-            del validation_datarows, vae, tokenizer_one, text_encoder_one
+            del validation_datarows
+            del vae, tokenizer_one, text_encoder_one
             gc.collect()
             torch.cuda.empty_cache()
-        else:
-            with open(metadata_path, "r", encoding='utf-8') as readfile:
-                datarows = json.loads(readfile.read())
-
     
     repeat_datarows = []
     for datarow in datarows:
@@ -884,10 +1005,6 @@ def main(args):
     # resume from cpu after cache files
     unet.to(accelerator.device)
 
-    # ================================================================
-    # End create embedding 
-    # ================================================================
-    
     # ================================================================
     # End create embedding 
     # ================================================================

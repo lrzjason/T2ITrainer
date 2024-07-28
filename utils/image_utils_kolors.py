@@ -8,7 +8,10 @@ from PIL import Image, ImageOps
 from tqdm import tqdm 
 import cv2
 import numpy
-from utils.utils import replace_non_utf8_characters
+from utils.utils import (
+    replace_non_utf8_characters,
+    get_md5_by_path
+)
 import glob
 from utils.dist_utils import flush
 import numpy as np
@@ -186,98 +189,143 @@ class CachedImageDataset(Dataset):
     
 # main idea is store all tensor related in .npz file
 # other information stored in .json
+# @torch.no_grad()
+# def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=False, metadata_name="metadata_kolors.json", resolution_config="1024"):
+#     create_empty_embedding(tokenizers,text_encoders)
+#     create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors_2048.npkolors",resolution=2048)
+#     metadata_path = os.path.join(input_dir, metadata_name)
+#     if recreate_cache:
+#         # remove metadata.json
+#         if os.path.exists(metadata_path):
+#             os.remove(metadata_path)
+#     datarows = []
+#     # create metadata.jsonl if not exist
+#     if os.path.exists(metadata_path):
+#         with open(metadata_path, "r", encoding='utf-8') as readfile:
+#             datarows = json.loads(readfile.read())
+#     else:
+#         supported_image_types = ['.jpg','.jpeg','.png','.webp']
+#         files = glob.glob(f"{input_dir}/**", recursive=True)
+#         image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+#         embedding_objects = []
+#         # create empty file
+#         print("Cache embedding")
+        
+#         resolutions = resolution_config.split(",")
+#         resolutions = [int(resolution) for resolution in resolutions]
+#         for image_file in tqdm(image_files):
+#             file_name = os.path.basename(image_file)
+#             folder_path = os.path.dirname(image_file)
+            
+#             # for resolution in resolutions:
+#             json_obj = create_embedding(
+#                 tokenizers,text_encoders,folder_path,file_name,
+#                 resolutions=resolutions,recreate_cache=recreate_cache)
+            
+#             embedding_objects.append(json_obj)
+        
+#         # move glm to cpu to reduce vram memory
+#         text_encoders[0].to("cpu")
+#         del text_encoders
+#         flush()
+#         # cache latent
+#         print("Cache latent")
+#         for json_obj in tqdm(embedding_objects):
+#             for resolution in resolutions:
+#                 full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
+#                 datarows.append(full_obj)
+#         # Serializing json
+#         json_object = json.dumps(datarows, indent=4)
+        
+#         # Writing to metadata.json
+#         with open(metadata_path, "w", encoding='utf-8') as outfile:
+#             outfile.write(json_object)
+    
+#     return datarows
+
+# main idea is store all tensor related in .npz file
+# other information stored in .json
 @torch.no_grad()
-def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=False, metadata_name="metadata_kolors.json", resolution_config="1024"):
-    create_empty_embedding(tokenizers,text_encoders)
-    create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors_2048.npkolors",resolution=2048)
-    metadata_path = os.path.join(input_dir, metadata_name)
-    if recreate_cache:
-        # remove metadata.json
-        if os.path.exists(metadata_path):
-            os.remove(metadata_path)
+def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cache=False, metadata_path="metadata_kolors.json", resolution_config="1024"):
     datarows = []
-    # create metadata.jsonl if not exist
-    if os.path.exists(metadata_path):
-        with open(metadata_path, "r", encoding='utf-8') as readfile:
-            datarows = json.loads(readfile.read())
-    else:
-        supported_image_types = ['.jpg','.jpeg','.png','.webp']
-        files = glob.glob(f"{input_dir}/**", recursive=True)
-        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
-        embedding_objects = []
-        # create empty file
-        print("Cache embedding")
+    embedding_objects = []
+    resolutions = resolution_config.split(",")
+    resolutions = [int(resolution) for resolution in resolutions]
+    for image_file in tqdm(image_files):
+        file_name = os.path.basename(image_file)
+        folder_path = os.path.dirname(image_file)
         
-        resolutions = resolution_config.split(",")
-        resolutions = [int(resolution) for resolution in resolutions]
-        for image_file in tqdm(image_files):
-            file_name = os.path.basename(image_file)
-            folder_path = os.path.dirname(image_file)
-            
-            # for resolution in resolutions:
-            json_obj = create_embedding(
-                tokenizers,text_encoders,folder_path,file_name,
-                resolutions=resolutions,recreate_cache=recreate_cache)
-            
-            embedding_objects.append(json_obj)
+        # for resolution in resolutions:
+        json_obj = create_embedding(
+            tokenizers,text_encoders,folder_path,file_name,
+            resolutions=resolutions,recreate_cache=recreate_cache)
         
-        # move glm to cpu to reduce vram memory
-        text_encoders[0].to("cpu")
-        del text_encoders
-        flush()
-        # cache latent
-        print("Cache latent")
-        for json_obj in tqdm(embedding_objects):
-            for resolution in resolutions:
-                full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
-                datarows.append(full_obj)
-        # Serializing json
-        json_object = json.dumps(datarows, indent=4)
-        
-        # Writing to metadata.json
-        with open(metadata_path, "w", encoding='utf-8') as outfile:
-            outfile.write(json_object)
+        embedding_objects.append(json_obj)
+    
+    # move glm to cpu to reduce vram memory
+    text_encoders[0].to("cpu")
+    del text_encoders
+    flush()
+    # cache latent
+    print("Cache latent")
+    for json_obj in tqdm(embedding_objects):
+        for resolution in resolutions:
+            full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
+            datarows.append(full_obj)
+    # Serializing json
+    json_object = json.dumps(datarows, indent=4)
+    
+    # Writing to metadata.json
+    with open(metadata_path, "w", encoding='utf-8') as outfile:
+        outfile.write(json_object)
     
     return datarows
-
 
 @torch.no_grad()
 def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkolors",resolutions=None,recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
+    image_path_md5 = get_md5_by_path(image_path)
     if resolutions is None:
         resolutions = [1024]
     json_obj = {
         'image_path':image_path,
+        'image_path_md5':image_path_md5,
         'folder_path':folder_path,
         'file':file,
         'resolutions':resolutions
     }
     # fix init prompt
-    json_obj['prompt'] = ''
+    # json_obj['prompt'] = ''
     # read caption
     caption_ext = '.txt'
     text_path = os.path.join(folder_path, f'{filename}{caption_ext}')
+    content = ''
     if os.path.exists(text_path):
         json_obj["text_path"] = text_path
         try:
             content = open(text_path, encoding='utf-8').read()
-            json_obj['prompt'] = content
+            # json_obj['prompt'] = content
+            json_obj["text_path_md5"] = get_md5_by_path(text_path)
         except:
             content = open(text_path, encoding='utf-8').read()
             # try to remove non utf8 character
             content = replace_non_utf8_characters(content)
-            json_obj['prompt'] = content
+            # json_obj['prompt'] = content
+            json_obj["text_path_md5"] = ""
+            
 
     file_path = os.path.join(folder_path, filename)
     npz_path = f'{file_path}{cache_ext}'
     json_obj["npz_path"] = npz_path
     
     if not recreate_cache and os.path.exists(npz_path):
+        if 'npz_path_md5' not in json_obj:
+            json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
         return json_obj
     
-    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,json_obj['prompt'],device=text_encoders[0].device)
+    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
     prompt_embed = prompt_embeds.squeeze(0)
     pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
     
@@ -304,12 +352,8 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     
     
     npz_dict = {}
-    # load npz_path if exists
     if os.path.exists(npz_path):
         npz_dict = torch.load(npz_path)
-    else:
-        raise FileNotFoundError("npz_path not found")
-    
     image_path = json_obj["image_path"]
     # resolution = json_obj["resolution"]
     
@@ -322,7 +366,6 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
             print(f"Failed to open {image_path}.")
     except Exception as e:
         print(f"An error occurred while processing {image_path}: {e}")
-
 
     ##############################################################################
     # Simple center crop for others
@@ -361,8 +404,13 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     
     json_obj['bucket'] = f"{image_width}x{image_height}"
     
+    time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
+
     # skip if already cached
     if os.path.exists(latent_cache_path) and not recreate_cache:
+        if 'latent_path_md5' not in json_obj:
+            json_obj['latent_path_md5'] = get_md5_by_path(latent_cache_path)
+            json_obj['npz_path_md5'] = get_md5_by_path(npz_path)
         return json_obj
     
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
@@ -382,20 +430,18 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
         del pixel_values
         # print(latent.shape) torch.Size([4, 144, 112])
 
-    time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
-
     latent_dict = {
         'latent': latent.cpu()
     }
     torch.save(latent_dict, latent_cache_path)
-    
     # latent_dict['latent'] = latent.cpu()
     npz_dict['time_id'] = time_id.cpu()
     npz_dict['latent_path'] = latent_cache_path
+    json_obj['latent_path_md5'] = get_md5_by_path(latent_cache_path)
     # save latent to cache file
     torch.save(npz_dict, npz_path)
+    json_obj['npz_path_md5'] = get_md5_by_path(npz_path)
     del npz_dict
-    
     flush()
     return json_obj
 

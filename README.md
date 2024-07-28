@@ -118,6 +118,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-21:** Update debiased estimation loss and change cache resize from default to area
 - **2024-07-22:** Fix when batch_size > 1, debiased estimation loss would cause error.
 - **2024-07-22:(2)**  Thanks emojiiii for linux setup.sh script and related updates.
+- **2024-07-28:**  Update caching logic, automatically update cache when added or deleted files.
 
 
 ## Acknowledgements:
