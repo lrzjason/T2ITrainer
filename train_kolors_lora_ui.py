@@ -793,7 +793,7 @@ def main(args):
         datarows = []
         cache_list = []
         recreate_cache = args.recreate_cache
-        resolutions = args.resolution_config.split(",")
+        # resolutions = args.resolution_config.split(",")
         
         supported_image_types = ['.jpg','.jpeg','.png','.webp']
         files = glob.glob(f"{input_dir}/**", recursive=True)
@@ -812,14 +812,14 @@ def main(args):
             return new_metadatarows
         
         metadata_datarows = []
-        single_image_training = False
+        # single_image_training = False
         if os.path.exists(metadata_path):
             with open(metadata_path, "r", encoding='utf-8') as readfile:
                 metadata_datarows = json.loads(readfile.read())
                 # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
                 metadata_datarows = align_metadata(metadata_datarows,image_files,metadata_path)
-        else:
-            single_image_training = len(image_files) == 1
+        # else:
+        #     single_image_training = len(image_files) == 1
         
         val_metadata_datarows = []
         if os.path.exists(val_metadata_path):
@@ -831,7 +831,7 @@ def main(args):
         # full datarows is aligned, all datarows conatins exists image
         if len(metadata_datarows) == 1:
             full_datarows = metadata_datarows
-            single_image_training = True
+            # single_image_training = True
         else:
             full_datarows = metadata_datarows + val_metadata_datarows
         # if not single_image_training:
