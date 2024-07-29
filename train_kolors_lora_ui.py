@@ -834,6 +834,8 @@ def main(args):
             # single_image_training = True
         else:
             full_datarows = metadata_datarows + val_metadata_datarows
+            
+        datarows = full_datarows
         # if not single_image_training:
         #     single_image_training = (len(resolutions) > 1 and len(full_datarows) == len(resolutions)) or len(full_datarows) == len(resolutions)
         # no metadata file, all files should be cached

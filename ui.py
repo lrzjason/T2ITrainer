@@ -119,7 +119,8 @@ def save_config(
         vae_path,
         resolution,
         use_debias,
-        snr_gamma
+        snr_gamma,
+        caption_dropout
     ):
     config = {
         "script":script,
@@ -155,7 +156,8 @@ def save_config(
         "config_path":config_path,
         "resolution":resolution,
         "use_debias":use_debias,
-        'snr_gamma':snr_gamma
+        'snr_gamma':snr_gamma,
+        "caption_dropout":caption_dropout
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -201,7 +203,7 @@ def load_config(config_path):
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
-            default_config['snr_gamma']
+            default_config['snr_gamma'],default_config['caption_dropout']
 
 # load config.json by default
 load_config("config.json")
@@ -239,7 +241,8 @@ def run(
         vae_path,
         resolution,
         use_debias,
-        snr_gamma
+        snr_gamma,
+        caption_dropout
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -279,7 +282,8 @@ def run(
         "vae_path":vae_path,
         "resolution":resolution,
         "use_debias":use_debias,
-        "snr_gamma":snr_gamma
+        "snr_gamma":snr_gamma,
+        "caption_dropout":caption_dropout
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -330,7 +334,8 @@ def run(
         vae_path,
         resolution,
         use_debias,
-        snr_gamma
+        snr_gamma,
+        caption_dropout
     )
     # print(args)
     return " ".join(args)
@@ -400,6 +405,7 @@ with gr.Blocks() as demo:
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
             use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
             snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
+            caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=0.5, minimum=0)
         gr.Markdown(
 """
 ## Experiment Option: resolution
@@ -442,7 +448,8 @@ with gr.Blocks() as demo:
         vae_path,
         resolution,
         use_debias,
-        snr_gamma
+        snr_gamma,
+        caption_dropout
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
