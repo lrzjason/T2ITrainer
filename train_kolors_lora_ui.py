@@ -944,7 +944,7 @@ def main(args):
                     raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
                     
                 vae = AutoencoderKL.from_pretrained(
-                        vae_folder, variant=vae_variant
+                        args.pretrained_model_name_or_path, variant=vae_variant
                     )
             
             vae.requires_grad_(False)
