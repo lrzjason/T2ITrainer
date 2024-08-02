@@ -18,7 +18,7 @@ vae = AutoencoderKL.from_single_file(
 
 
 vae.to("cuda").to(torch.float16)
-npz_path = "F:/ImageSet/pixart_test_one/blue-jay-8075346_2048.nplatent"
+npz_path = "F:/ImageSet/kolors_slider_anime/positive/1.nplatent"
 # image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
 
 latents = torch.load(npz_path)

@@ -14,19 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# this is a practice codebase, mainly inspired from diffusers train_text_to_image_sdxl.py
-# this codebase mainly to get the training working rather than many option to set
-# therefore, it would assume something like fp16 vae fixed and baked in model, etc
-# some option, me doesn't used in training wouldn't implemented like ema, etc
-
-# before 20240401, initial codebase
-# 20240401, added caption ext support
-#           need to handle multi batch size and gas for dataset stack images.
-#           need to implement validation loss
-#           need to add te training
-# 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
-#          added whole repeats to dataset
-# 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
+# this code inspired from https://github.com/rohitgandikota/sliders codebase
 from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # import jsonlines
@@ -179,14 +167,14 @@ def parse_args(input_args=None):
             "the main prompt for both positive images and negative images"
         ),
     )
-    parser.add_argument(
-        "--uncondition_prompt",
-        type=str,
-        default="abstruct",
-        help=(
-            "the main uncondition prompt for both positive images and negative images"
-        ),
-    )
+    # parser.add_argument(
+    #     "--uncondition_prompt",
+    #     type=str,
+    #     default="abstruct",
+    #     help=(
+    #         "the main uncondition prompt for both positive images and negative images"
+    #     ),
+    # )
     parser.add_argument(
         "--pos_prompt",
         type=str,
@@ -227,6 +215,12 @@ def parse_args(input_args=None):
             "Total batch of generation"
         ),
     )
+    parser.add_argument(
+        "--vae_path",
+        type=str,
+        default=None,
+        help=("seperate vae path"),
+    )
     # parser.add_argument(
     #     "--batch_size",
     #     type=int,
@@ -250,7 +244,7 @@ def main(args):
     args.train_data_dir = "F:/ImageSet/kolors_slider"
     args.image_prefix = "sky"
     args.main_prompt = "photo of sky"
-    args.uncondition_prompt = "star, starry, oil painting"
+    # args.uncondition_prompt = "star, starry, oil painting"
     args.pos_prompt = "clean blue sky, day light"
     args.neg_prompt = "chaotic dark sky, dark night"
     # args.batch_size = 2
@@ -258,10 +252,11 @@ def main(args):
     args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
     args.steps = 30
     args.cfg = 3.5
-    args.seed = 1
+    args.seed = -1
+    args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
     
     main_prompt = args.main_prompt
-    uncondition_prompt = args.uncondition_prompt
+    # uncondition_prompt = args.uncondition_prompt
     pos_prompt = f'{main_prompt}, {args.pos_prompt}'
     neg_prompt = f'{main_prompt}, {args.neg_prompt}'
     # batch_size = args.batch_size
@@ -270,15 +265,19 @@ def main(args):
     steps = args.steps
     cfg = args.cfg
     
-    # fix seed
-    seed = args.seed
+    # random seed
+    if args.seed == -1:
+        seed = random.randint(0, 1000)
+        print(f"set random seed: {seed}")
+    else:
+        seed = args.seed
     
     
     metadata_file = "metadata_kolors_slider.json"
     metadata_path = os.path.join(args.train_data_dir, metadata_file)
     metadata = {
         'main_prompt':main_prompt,
-        'uncondition_prompt':uncondition_prompt,
+        # 'uncondition_prompt':uncondition_prompt,
         'pos_prompt':pos_prompt,
         'neg_prompt':neg_prompt,
         'generation_batch':generation_batch,
@@ -293,13 +292,46 @@ def main(args):
     torch.manual_seed(seed)
     resolution = 1024
     
+    device = torch.device("cuda")
+    weight_dtype = torch.float16
     text_encoder = ChatGLMModel.from_pretrained(
         f'{ckpt_dir}/text_encoder',
-        torch_dtype=torch.float16).half()
+        torch_dtype=torch.float16).half().to(device)
+    text_encoder.requires_grad_(False)
+    text_encoder.to(device, dtype=weight_dtype)
     tokenizer = ChatGLMTokenizer.from_pretrained(f'{ckpt_dir}/text_encoder')
-    vae = AutoencoderKL.from_pretrained(f"{ckpt_dir}/vae").half()
+    # vae = AutoencoderKL.from_pretrained(f"{ckpt_dir}/vae").half()
+    vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
+    if args.vae_path:
+        vae = AutoencoderKL.from_single_file(
+            args.vae_path,
+            config=vae_folder,
+        )
+    else:
+        # load from repo
+        weight_file = "diffusion_pytorch_model"
+        vae_variant = None
+        ext = ".safetensors"
+        # diffusion_pytorch_model.fp16.safetensors
+        fp16_weight = os.path.join(vae_folder, f"{weight_file}.fp16{ext}")
+        fp32_weight = os.path.join(vae_folder, f"{weight_file}{ext}")
+        if os.path.exists(fp16_weight):
+            vae_variant = "fp16"
+        elif os.path.exists(fp32_weight):
+            vae_variant = None
+        else:
+            raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+            
+        vae = AutoencoderKL.from_pretrained(
+                args.pretrained_model_name_or_path, variant=vae_variant
+            )
+
+    vae.to(device, dtype=weight_dtype)
+    vae.requires_grad_(False)
     scheduler = EulerDiscreteScheduler.from_pretrained(f"{ckpt_dir}/scheduler")
-    unet = UNet2DConditionModel.from_pretrained(f"{ckpt_dir}/unet").half()
+    unet = UNet2DConditionModel.from_pretrained(f"{ckpt_dir}/unet")
+    unet.to(device, dtype=weight_dtype)
+    unet.requires_grad_(False)
     # pipe = OriStableDiffusionXLPipeline.from_pretrained(
     #     "stabilityai/stable-diffusion-xl-base-1.0", 
     #     torch_dtype=torch.float16
@@ -325,11 +357,10 @@ def main(args):
             'set_name':"negative",
             'prompt': neg_prompt,
         },
-        {
-            
-            'set_name':"uncondition",
-            'prompt': uncondition_prompt,
-        },
+        # {
+        #     'set_name':"uncondition",
+        #     'prompt': uncondition_prompt,
+        # },
     ]
     for generation_config in metadata['generation_configs']:
         prompt = generation_config['prompt']
@@ -351,56 +382,70 @@ def main(args):
         generation_config['npz_path_md5'] = npz_path_md5
         prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
     
-    _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
+    # _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
     
     del text_encoder, tokenizer
     flush()
-    for j in range(len(prompt_embeds_list)):
-        # align seed with positive and negative
-        sample_seed = seed
-        set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[j]
-        save_dir = f"{args.train_data_dir}/{set_name}"
-        metadata['generation_configs'][j]['item_list'] = []
-        os.makedirs(save_dir, exist_ok=True)
-        for i in range(generation_batch):
-            output,latent = pipe(
-                prompt_embeds=prompt_embeds, 
-                pooled_prompt_embeds=pooled_prompt_embeds, 
-                negative_prompt_embeds=uncondition_prompt_embeds,
-                negative_pooled_prompt_embeds=uncondition_pooled_prompt_embeds,
-                height=resolution,
-                width=resolution,
-                num_inference_steps=steps,
-                guidance_scale=cfg,
-                num_images_per_prompt=1,
-                generator= torch.Generator(pipe.device).manual_seed(sample_seed),
-                )
-            # save latent
-            latent_path = f"{save_dir}/{args.image_prefix}_{sample_seed}.nplatent"
-            time_id = torch.tensor(list((1024, 1024) + 
-                                        (0,0) + 
-                                        (1024, 1024))).to(vae.device, dtype=vae.dtype)
-            latent_dict = {
-                'latent': latent[0].cpu(),
-                'time_id': time_id.cpu(),
-            }
-            torch.save(latent_dict, latent_path)
-            
-            # save image
-            image = output.images[0]
-            image_path = f"{save_dir}/{args.image_prefix}_{sample_seed}.webp"
-            image.save(image_path)
-            
-            training_item = {
-                'bucket': "1024x1024",
-                'latent_path':latent_path,
-                'latent_path_md5':get_md5_by_path(latent_path),
-                'image_path':image_path,
-                'image_path_md5':get_md5_by_path(image_path),
-            }
-            metadata['generation_configs'][j]['item_list'].append(training_item)
-            sample_seed += 1
-            
+    # align seed with positive and negative
+    sample_seed = seed
+    pos_set_name, pos_prompt_embeds, pos_pooled_prompt_embeds = prompt_embeds_list[0]
+    neg_set_name, neg_prompt_embeds, neg_pooled_prompt_embeds = prompt_embeds_list[1]
+    with torch.no_grad():
+        for j in range(len(prompt_embeds_list)):
+            set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[j]
+            save_dir = f"{args.train_data_dir}/{set_name}"
+            metadata['generation_configs'][j]['item_list'] = []
+            os.makedirs(save_dir, exist_ok=True)
+            for i in range(generation_batch):
+                # use opposite prompt as negative prompt 
+                if set_name == pos_set_name:
+                    uncondition_prompt_embeds = neg_prompt_embeds
+                    uncondition_pooled_prompt_embeds = neg_pooled_prompt_embeds
+                else:
+                    uncondition_prompt_embeds = pos_prompt_embeds
+                    uncondition_pooled_prompt_embeds = pos_pooled_prompt_embeds
+                
+                output,latent = pipe(
+                    prompt_embeds=prompt_embeds.to(device), 
+                    pooled_prompt_embeds=pooled_prompt_embeds.to(device), 
+                    negative_prompt_embeds=uncondition_prompt_embeds.to(device),
+                    negative_pooled_prompt_embeds=uncondition_pooled_prompt_embeds.to(device),
+                    height=resolution,
+                    width=resolution,
+                    num_inference_steps=steps,
+                    guidance_scale=cfg,
+                    num_images_per_prompt=1,
+                    generator= torch.Generator(pipe.device).manual_seed(sample_seed),
+                    )
+                # save latent
+                latent_path = f"{save_dir}/{args.image_prefix}_{sample_seed}.nplatent"
+                time_id = torch.tensor(list((1024, 1024) + 
+                                            (0,0) + 
+                                            (1024, 1024))).to(vae.device, dtype=vae.dtype)
+                latent_dict = {
+                    'latent': latent[0].cpu(),
+                    'time_id': time_id.cpu(),
+                }
+                torch.save(latent_dict, latent_path)
+                
+                # save image
+                image = output.images[0]
+                image_path = f"{save_dir}/{args.image_prefix}_{sample_seed}.webp"
+                image.save(image_path)
+                
+                training_item = {
+                    'bucket': "1024x1024",
+                    'latent_path':latent_path,
+                    'latent_path_md5':get_md5_by_path(latent_path),
+                    'image_path':image_path,
+                    'image_path_md5':get_md5_by_path(image_path),
+                }
+                metadata['generation_configs'][j]['item_list'].append(training_item)
+                sample_seed += 1
+                
+                del output,latent
+                flush()
+                    
     # save metadata
     with open(metadata_path, "w", encoding='utf-8') as writefile:
         writefile.write(json.dumps(metadata, indent=4))

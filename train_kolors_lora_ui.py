@@ -955,7 +955,6 @@ def main(args):
             vae.to(accelerator.device, dtype=torch.float32)
             text_encoder_one.to(accelerator.device, dtype=weight_dtype)
 
-            
             tokenizers = [tokenizer_one]
             text_encoders = [text_encoder_one]
             # create metadata and latent cache

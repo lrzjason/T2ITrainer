@@ -14,19 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# this is a practice codebase, mainly inspired from diffusers train_text_to_image_sdxl.py
-# this codebase mainly to get the training working rather than many option to set
-# therefore, it would assume something like fp16 vae fixed and baked in model, etc
-# some option, me doesn't used in training wouldn't implemented like ema, etc
-
-# before 20240401, initial codebase
-# 20240401, added caption ext support
-#           need to handle multi batch size and gas for dataset stack images.
-#           need to implement validation loss
-#           need to add te training
-# 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
-#          added whole repeats to dataset
-# 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
+# this code inspired from https://github.com/rohitgandikota/sliders codebase
+# make a few changes
+# changed the training target to kolors
+# changed the uncondition embedding from uncondition prompt to opposite prompt
+# use accelerator, peft library
 from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # import jsonlines
@@ -145,7 +137,6 @@ from torchvision import transforms
 import cv2
 
 from utils.image_utils_kolors import crop_image
-
 # from slider.lora import LoRANetwork
 
 # import slider.debug_util as debug_util
@@ -449,14 +440,14 @@ def parse_args(input_args=None):
             "the main prompt for both positive images and negative images"
         ),
     )
-    parser.add_argument(
-        "--uncondition_prompt",
-        type=str,
-        default="abstruct",
-        help=(
-            "the main uncondition prompt for both positive images and negative images"
-        ),
-    )
+    # parser.add_argument(
+    #     "--uncondition_prompt",
+    #     type=str,
+    #     default="abstruct",
+    #     help=(
+    #         "the main uncondition prompt for both positive images and negative images"
+    #     ),
+    # )
     parser.add_argument(
         "--pos_prompt",
         type=str,
@@ -644,14 +635,16 @@ def main(args):
     # args.num_train_epochs = 5
     # args.use_dora = False
     # args.caption_dropout = 0.2
-    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
-
+    
+    args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
     args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
-    args.train_data_dir = "F:/ImageSet/kolors_slider"
-    args.main_prompt = "photo of sky"
-    args.uncondition_prompt = "oil painting"
-    args.pos_prompt = "clean blue sky, day light"
-    args.neg_prompt = "chaotic dark sky, dark night"
+    # args.train_data_dir = "F:/ImageSet/kolors_slider"
+    args.train_data_dir = "F:/ImageSet/kolors_slider_anime"
+    args.main_prompt = "anime artwork of a beautiful girl, "
+    # not use uncondition prompt
+    # args.uncondition_prompt = "photo, realistic"
+    args.pos_prompt = "highly detailed, well drawing, digital artwork, detailed background"
+    args.neg_prompt = "sketch, unfinised drawing, monochrome, simple background"
     args.steps = 30
     args.cfg = 3.5
     args.seed = 1
@@ -659,8 +652,9 @@ def main(args):
     args.mixed_precision = "fp16"
     args.train_batch_size = 1
     args.output_dir = "F:/models/kolors"
-    args.save_name = "kolors-sky-slider"
-    args.repeats = 50
+    args.save_name = "kolors-anime-slider"
+    args.repeats = 1000
+    args.recreate_cache = True
     
     default_positive_scale = 2
     default_negative_scale = -2
@@ -700,7 +694,13 @@ def main(args):
     
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
+    device = accelerator.device
     offload_device = accelerator.device
+    
+    # create metadata.jsonl if not exist
+    metadata_path = os.path.join(args.train_data_dir, f'metadata_kolors_slider.json')
+    if not os.path.exists(metadata_path):
+        offload_device = torch.device("cpu")
     
     # load from repo
     if args.pretrained_model_name_or_path == "Kwai-Kolors/Kolors":
@@ -935,8 +935,6 @@ def main(args):
     datarows = []
     
     with torch.no_grad():
-        # create metadata.jsonl if not exist
-        metadata_path = os.path.join(args.train_data_dir, f'metadata_kolors_slider.json')
         if args.train_data_dir is not None:
             if not os.path.exists(args.train_data_dir):
                 raise FileNotFoundError(f"{args.train_data_dir} does not exist")
@@ -971,7 +969,7 @@ def main(args):
             
             metadata = {}
             # single_image_training = False
-            if os.path.exists(metadata_path):
+            if os.path.exists(metadata_path) or not recreate_cache:
                 with open(metadata_path, "r", encoding='utf-8') as readfile:
                     metadata = json.loads(readfile.read())
                     # check md5
@@ -994,7 +992,7 @@ def main(args):
             else:
                 metadata = {
                     'main_prompt': args.main_prompt,
-                    'uncondition_prompt': args.uncondition_prompt,
+                    # 'uncondition_prompt': args.uncondition_prompt,
                     'pos_prompt': args.pos_prompt,
                     'neg_prompt': args.neg_prompt,
                     'generation_batch': args.generation_batch,
@@ -1011,145 +1009,191 @@ def main(args):
                             "set_name":"negative",
                             "prompt":f"{args.main_prompt}, {args.neg_prompt}",
                         },
-                        {
-                            "set_name":"uncondition",
-                            "prompt":f"{args.uncondition_prompt}",
-                        },
+                        # {
+                        #     "set_name":"uncondition",
+                        #     "prompt":f"{args.uncondition_prompt}",
+                        # },
                     ],
                 }
-                text_encoder = ChatGLMModel.from_pretrained(
+            
+            text_encoder = None
+            tokenizer = None
+            vae = None
+            
+            prompt_embeds_list = []
+            for generation_config in metadata['generation_configs']:
+                set_name = generation_config['set_name']
+                npz_path = f"{args.train_data_dir}/{set_name}.npkolors"
+                # recreate_cache = False
+                if os.path.exists(npz_path):
+                    if 'npz_path_md5' in generation_config:
+                        if generation_config['npz_path_md5'] != get_md5_by_path(npz_path):
+                            recreate_cache = True
+                            print("npz_path_md5 changed, recreating cache")
+                    if not recreate_cache:
+                        npz_path_md5 = get_md5_by_path(npz_path)
+                        generation_config['npz_path'] = npz_path
+                        generation_config['npz_path_md5'] = npz_path_md5
+                        cached_npz = torch.load(npz_path)
+                        prompt_embeds = cached_npz['prompt_embed']
+                        pooled_prompt_embeds = cached_npz['pooled_prompt_embed']
+                        prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
+                        continue
+                
+                if text_encoder is None:
+                    text_encoder = ChatGLMModel.from_pretrained(
                     f'{args.pretrained_model_name_or_path}/text_encoder',
-                    torch_dtype=torch.float16).half()
-                tokenizer = ChatGLMTokenizer.from_pretrained(f'{args.pretrained_model_name_or_path}/text_encoder')
-                vae = AutoencoderKL.from_pretrained(f"{args.pretrained_model_name_or_path}/vae").half()
+                    torch_dtype=torch.float16).half().to(device)
+                    text_encoder.requires_grad_(False)
+                    text_encoder.to(accelerator.device, dtype=weight_dtype)
                 
-                prompt_embeds_list = []
-                for generation_config in metadata['generation_configs']:
-                    set_name = generation_config['set_name']
-                    npz_path = f"{args.train_data_dir}/{set_name}.npkolors"
+                if tokenizer is None:
+                    tokenizer = ChatGLMTokenizer.from_pretrained(f'{args.pretrained_model_name_or_path}/text_encoder')
+                
+                if vae is None:
+                    vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
+                    if args.vae_path:
+                        vae = AutoencoderKL.from_single_file(
+                            args.vae_path,
+                            config=vae_folder,
+                        )
+                    else:
+                        # load from repo
+                        weight_file = "diffusion_pytorch_model"
+                        vae_variant = None
+                        ext = ".safetensors"
+                        # diffusion_pytorch_model.fp16.safetensors
+                        fp16_weight = os.path.join(vae_folder, f"{weight_file}.fp16{ext}")
+                        fp32_weight = os.path.join(vae_folder, f"{weight_file}{ext}")
+                        if os.path.exists(fp16_weight):
+                            vae_variant = "fp16"
+                        elif os.path.exists(fp32_weight):
+                            vae_variant = None
+                        else:
+                            raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+                            
+                        vae = AutoencoderKL.from_pretrained(
+                                args.pretrained_model_name_or_path, variant=vae_variant
+                            )
+                
+                    vae.to(accelerator.device, dtype=weight_dtype)
+                    vae.requires_grad_(False)
+                
+                prompt = generation_config['prompt']
+                set_name = generation_config['set_name']
+                # for positive images generation
+                prompt_embeds, pooled_prompt_embeds = compute_text_embeddings([text_encoder],[tokenizer],prompt,device=text_encoder.device)
+                prompt_embed = prompt_embeds.squeeze(0)
+                pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
+                # save embeddings
+                npz_dict = {
+                    "prompt_embed": prompt_embed.cpu(), 
+                    "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+                }
+                # save latent to cache file
+                torch.save(npz_dict, npz_path)
+                generation_config['npz_path'] = npz_path
+                npz_path_md5 = get_md5_by_path(npz_path)
+                generation_config['npz_path_md5'] = npz_path_md5
+                prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
+            
+            # not use uncondition
+            # _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
+            
+            del text_encoder, tokenizer
+            flush()
+            for i in range(len(prompt_embeds_list)):
+                metadata['generation_configs'][i]['item_list'] = []
+                set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[i]
+                image_files = file_list[i]
+                save_dir = f"{args.train_data_dir}/{set_name}"
+                for image_path in image_files:
+                    filename, ext = os.path.splitext(os.path.basename(image_path))
+                    latent_path = f"{save_dir}/{filename}.nplatent"
+                    
                     # recreate_cache = False
-                    if os.path.exists(npz_path):
-                        if 'npz_path_md5' in generation_config:
-                            if generation_config['npz_path_md5'] != get_md5_by_path(npz_path):
+                    # check md5 on exists latent
+                    if os.path.exists(latent_path):
+                        generation_config = metadata['generation_configs'][i]
+                        if 'latent_path_md5' in generation_config:
+                            if generation_config['latent_path_md5'] != get_md5_by_path(latent_path):
                                 recreate_cache = True
-                                print("npz_path_md5 changed, recreating cache")
                         if not recreate_cache:
-                            npz_path_md5 = get_md5_by_path(npz_path)
-                            generation_config['npz_path'] = npz_path
-                            generation_config['npz_path_md5'] = npz_path_md5
-                            cached_npz = torch.load(npz_path)
-                            prompt_embeds = cached_npz['prompt_embed']
-                            pooled_prompt_embeds = cached_npz['pooled_prompt_embed']
-                            prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
+                            # metadata['generation_configs'][i]['latent_path_md5'] = get_md5_by_path(latent_path)
+                            training_item = {
+                                'bucket':f"1024x1024",
+                                'latent_path':latent_path,
+                                'latent_path_md5':get_md5_by_path(latent_path),
+                                'image_path':image_path,
+                                'image_path_md5':get_md5_by_path(image_path),
+                            }
+                            metadata['generation_configs'][i]['item_list'].append(training_item)
                             continue
-                            
-                        
-                    prompt = generation_config['prompt']
-                    set_name = generation_config['set_name']
-                    # for positive images generation
-                    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings([text_encoder],[tokenizer],prompt,device=text_encoder.device)
-                    prompt_embed = prompt_embeds.squeeze(0)
-                    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
-                    # save embeddings
-                    npz_dict = {
-                        "prompt_embed": prompt_embed.cpu(), 
-                        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
-                    }
-                    # save latent to cache file
-                    torch.save(npz_dict, npz_path)
-                    generation_config['npz_path'] = npz_path
-                    npz_path_md5 = get_md5_by_path(npz_path)
-                    generation_config['npz_path_md5'] = npz_path_md5
-                    prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
-                
-                _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
-                
-                del text_encoder, tokenizer
-                flush()
-                for i in range(len(prompt_embeds_list)):
-                    metadata['generation_configs'][i]['item_list'] = []
-                    set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[i]
-                    image_files = file_list[i]
-                    save_dir = f"{args.train_data_dir}/{set_name}"
-                    for image_path in image_files:
-                        filename, ext = os.path.splitext(os.path.basename(image_path))
-                        latent_path = f"{save_dir}/{filename}.nplatent"
-                        try:
-                            image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-                            if image is not None:
-                                # Convert to RGB format (assuming the original image is in BGR)
-                                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            else:
-                                print(f"Failed to open {image_path}.")
-                        except Exception as e:
-                            print(f"An error occurred while processing {image_path}: {e}")
-                            
-                        height, width, _ = image.shape
-                        original_size = (height, width)
-                        
-                        cropped_image,crop_x,crop_y = crop_image(image)
-                        crops_coords_top_left = (crop_y,crop_x)
-                        
-                        
-                        image_height, image_width, _ = image.shape
-                        target_size = (image_height,image_width)
-                        
-                        # recreate_cache = False
-                        # check md5 on exists latent
-                        if os.path.exists(latent_path):
-                            generation_config = metadata['generation_configs'][i]
-                            if 'latent_path_md5' in generation_config:
-                                if generation_config['latent_path_md5'] != get_md5_by_path(latent_path):
-                                    recreate_cache = True
-                            if not recreate_cache:
-                                # metadata['generation_configs'][i]['latent_path_md5'] = get_md5_by_path(latent_path)
-                                training_item = {
-                                    'bucket':f"{image_width}x{image_height}",
-                                    'latent_path':latent_path,
-                                    'latent_path_md5':get_md5_by_path(latent_path),
-                                    'image_path':image_path,
-                                    'image_path_md5':get_md5_by_path(image_path),
-                                }
-                                metadata['generation_configs'][i]['item_list'].append(training_item)
-                                continue
                     
-                        # save latent
-                        latent_path = f"{save_dir}/{filename}.nplatent"
+                    # save latent
+                    latent_path = f"{save_dir}/{filename}.nplatent"
+                
+                    try:
+                        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+                        if image is not None:
+                            # Convert to RGB format (assuming the original image is in BGR)
+                            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                        else:
+                            print(f"Failed to open {image_path}.")
+                    except Exception as e:
+                        print(f"An error occurred while processing {image_path}: {e}")
+                        
+                    height, width, _ = image.shape
+                    original_size = (height, width)
                     
-                        # vae encode file
-                        train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-                        image = train_transforms(cropped_image)
+                    cropped_image,crop_x,crop_y = crop_image(image)
+                    crops_coords_top_left = (crop_y,crop_x)
+                    
+                    
+                    image_height, image_width, _ = cropped_image.shape
+                    target_size = (image_height,image_width)
+                    
+                    # vae encode file
+                    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+                    image = train_transforms(cropped_image)
+                    
+                    # create tensor latent
+                    pixel_values = []
+                    pixel_values.append(image)
+                    pixel_values = torch.stack(pixel_values).to(vae.device, dtype=vae.dtype)
+                    with torch.no_grad():
+                        #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
+                        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+                        latent = latent * vae.config.scaling_factor
+                        del pixel_values
                         
-                        # create tensor latent
-                        pixel_values = []
-                        pixel_values.append(image)
-                        pixel_values = torch.stack(pixel_values).to(vae.device)
-                        with torch.no_grad():
-                            #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
-                            latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
-                            latent = latent * vae.config.scaling_factor
-                            del pixel_values
-                        
-                        
-                        time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size))
+                    # check latent
+                    # latent = latent.unsqueeze(0).to(torch.float16)
+                    # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+                    # with torch.no_grad():
+                    #     image = vae.decode(latent / vae.config.scaling_factor, return_dict=False)[0]
+                    # image = image_processor.postprocess(image, output_type="pil")[0]
+                    # image.save("test.png")
+                    
+                    time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size))
 
-                        latent_dict = {
-                            'time_id': time_id.cpu(),
-                            'latent': latent[0].cpu()
-                        }
-                        torch.save(latent_dict, latent_path)
+                    latent_dict = {
+                        'time_id': time_id.cpu(),
+                        'latent': latent.cpu()
+                    }
+                    torch.save(latent_dict, latent_path)
+                
                     
-                        
-                        training_item = {
-                            'bucket':f"{image_width}x{image_height}",
-                            'latent_path':latent_path,
-                            'latent_path_md5':get_md5_by_path(latent_path),
-                            'image_path':image_path,
-                            'image_path_md5':get_md5_by_path(image_path),
-                        }
-                        metadata['generation_configs'][i]['item_list'].append(training_item)
-                        
-                del vae
+                    training_item = {
+                        'bucket':f"{image_width}x{image_height}",
+                        'latent_path':latent_path,
+                        'latent_path_md5':get_md5_by_path(latent_path),
+                        'image_path':image_path,
+                        'image_path_md5':get_md5_by_path(image_path),
+                    }
+                    metadata['generation_configs'][i]['item_list'].append(training_item)
+                    
+            del vae
             flush()
             # save metadata
             with open(metadata_path, "w", encoding='utf-8') as writefile:
@@ -1160,6 +1204,8 @@ def main(args):
             pos_config = generation_configs[0]
             neg_config = generation_configs[1]
             uncondition_config = generation_configs[2]
+            if len(pos_config['item_list']) == 0 and len(neg_config['item_list']) == 0:
+                raise ValueError("No item in metadata.")
             if len(pos_config['item_list']) != len(neg_config['item_list']):
                 raise ValueError("Positive and Negative images must have same number of images")
             for pos_item, neg_item in zip(pos_config['item_list'], neg_config['item_list']):
@@ -1173,8 +1219,10 @@ def main(args):
                         "neg_latent_path": neg_item['latent_path'],
                     }
                 )
-            training_datarows, validation_datarows = train_test_split(datarows, train_size=0.9, test_size=0.1)
-            datarows = training_datarows
+            
+            # no validation in this training
+            # training_datarows, validation_datarows = train_test_split(datarows, train_size=1, test_size=0)
+            # datarows = training_datarows
         
         
     # repeat_datarows = []
@@ -1196,8 +1244,8 @@ def main(args):
         neg_prompt_embeds = torch.stack([example["neg_prompt_embed"] for example in examples])
         neg_pooled_prompt_embeds = torch.stack([example["neg_pooled_prompt_embed"] for example in examples])
         neg_time_ids = torch.stack([example["neg_time_id"] for example in examples])
-        uncondition_prompt_embeds = torch.stack([example["uncondition_prompt_embed"] for example in examples])
-        uncondition_pooled_prompt_embeds = torch.stack([example["uncondition_pooled_prompt_embed"] for example in examples])
+        # uncondition_prompt_embeds = torch.stack([example["uncondition_prompt_embed"] for example in examples])
+        # uncondition_pooled_prompt_embeds = torch.stack([example["uncondition_pooled_prompt_embed"] for example in examples])
 
         return {
             "pos_latents":pos_latents,
@@ -1208,8 +1256,8 @@ def main(args):
             "neg_prompt_embeds":neg_prompt_embeds,
             "neg_pooled_prompt_embeds":neg_pooled_prompt_embeds,
             "neg_time_ids":neg_time_ids,
-            "uncondition_prompt_embeds":uncondition_prompt_embeds,
-            "uncondition_pooled_prompt_embeds":uncondition_pooled_prompt_embeds,
+            # "uncondition_prompt_embeds":uncondition_prompt_embeds,
+            # "uncondition_pooled_prompt_embeds":uncondition_pooled_prompt_embeds,
         }
         
     # create dataset based on input_dir
@@ -1354,8 +1402,8 @@ def main(args):
                     neg_prompt_embeds = batch["neg_prompt_embeds"].to(accelerator.device)
                     neg_pooled_prompt_embeds = batch["neg_pooled_prompt_embeds"].to(accelerator.device)
                     neg_time_ids = batch["neg_time_ids"].to(accelerator.device)
-                    uncondition_prompt_embeds = batch["uncondition_prompt_embeds"].to(accelerator.device)
-                    uncondition_pooled_prompt_embeds = batch["uncondition_pooled_prompt_embeds"].to(accelerator.device)
+                    # uncondition_prompt_embeds = batch["uncondition_prompt_embeds"].to(accelerator.device)
+                    # uncondition_pooled_prompt_embeds = batch["uncondition_pooled_prompt_embeds"].to(accelerator.device)
                     
                     # prepare predicted noise image
                     # 
@@ -1406,19 +1454,19 @@ def main(args):
                         current_timestep,
                         pos_noised_latents,
                         text_embeddings=concat_embeddings(
-                            uncondition_prompt_embeds,
+                            neg_prompt_embeds,
                             pos_prompt_embeds,
                             1,
                         ),
                         add_text_embeddings=concat_embeddings(
-                            uncondition_pooled_prompt_embeds,
+                            neg_pooled_prompt_embeds,
                             pos_pooled_prompt_embeds,
                             1,
                         ),
                         add_time_ids=concat_embeddings(
                             pos_time_ids, pos_time_ids, 1
                         ),
-                        guidance_scale=3.5,
+                        guidance_scale=1,
                     )
 
                     loss_pos = F.mse_loss(pos_target_latents.float(), noise.float())
@@ -1449,19 +1497,19 @@ def main(args):
                         current_timestep,
                         neg_noised_latents,
                         text_embeddings=concat_embeddings(
-                            uncondition_prompt_embeds,
+                            pos_prompt_embeds,
                             neg_prompt_embeds,
                             1,
                         ),
                         add_text_embeddings=concat_embeddings(
-                            uncondition_pooled_prompt_embeds,
+                            pos_pooled_prompt_embeds,
                             neg_pooled_prompt_embeds,
                             1,
                         ),
                         add_time_ids=concat_embeddings(
                             neg_time_ids, neg_time_ids, 1
                         ),
-                        guidance_scale=3.5,
+                        guidance_scale=1,
                     )
 
                     loss_neg = F.mse_loss(neg_target_latents.float(), noise.float())

@@ -181,6 +181,11 @@ class CachedImageDataset(Dataset):
         pooled_prompt_embed = cached_npz['pooled_prompt_embed']
         time_id = cached_npz['time_id']
 
+        # conditional_dropout
+        if random.random() < self.conditional_dropout_percent:
+            prompt_embed = self.empty_prompt_embed
+            pooled_prompt_embed = self.empty_pooled_prompt_embed
+
         return {
             "latent": latent,
             "prompt_embed": prompt_embed,
@@ -226,6 +231,11 @@ class CachedPairsDataset(Dataset):
         pos_latent = pos_latent_dict['latent']
         pos_time_id = pos_latent_dict['time_id']
         
+        # conditional_dropout
+        if random.random() < self.conditional_dropout_percent:
+            pos_prompt_embed = self.empty_prompt_embed
+            pos_pooled_prompt_embed = self.empty_pooled_prompt_embed
+
         
         neg_prompt_embed = neg_npz['prompt_embed']
         neg_pooled_prompt_embed = neg_npz['pooled_prompt_embed']
@@ -233,9 +243,14 @@ class CachedPairsDataset(Dataset):
         neg_time_id = neg_latent_dict['time_id']
         
         
-        uncondition_npz = torch.load(metadata['uncondition_npz_path'])
-        uncondition_prompt_embed = uncondition_npz['prompt_embed']
-        uncondition_pooled_prompt_embed = uncondition_npz['pooled_prompt_embed']
+        # conditional_dropout
+        if random.random() < self.conditional_dropout_percent:
+            neg_prompt_embed = self.empty_prompt_embed
+            neg_pooled_prompt_embed = self.empty_pooled_prompt_embed
+        
+        # uncondition_npz = torch.load(metadata['uncondition_npz_path'])
+        # uncondition_prompt_embed = uncondition_npz['prompt_embed']
+        # uncondition_pooled_prompt_embed = uncondition_npz['pooled_prompt_embed']
 
         return {
             # positive latent
@@ -251,65 +266,9 @@ class CachedPairsDataset(Dataset):
             "neg_time_id":neg_time_id,
             
             # uncondition embedding
-            "uncondition_prompt_embed": uncondition_prompt_embed,
-            "uncondition_pooled_prompt_embed": uncondition_pooled_prompt_embed,
+            # "uncondition_prompt_embed": uncondition_prompt_embed,
+            # "uncondition_pooled_prompt_embed": uncondition_pooled_prompt_embed,
         }
-
-# main idea is store all tensor related in .npz file
-# other information stored in .json
-# @torch.no_grad()
-# def create_metadata_cache(tokenizers,text_encoders,vae,input_dir,recreate_cache=False, metadata_name="metadata_kolors.json", resolution_config="1024"):
-#     create_empty_embedding(tokenizers,text_encoders)
-#     create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors_2048.npkolors",resolution=2048)
-#     metadata_path = os.path.join(input_dir, metadata_name)
-#     if recreate_cache:
-#         # remove metadata.json
-#         if os.path.exists(metadata_path):
-#             os.remove(metadata_path)
-#     datarows = []
-#     # create metadata.jsonl if not exist
-#     if os.path.exists(metadata_path):
-#         with open(metadata_path, "r", encoding='utf-8') as readfile:
-#             datarows = json.loads(readfile.read())
-#     else:
-#         supported_image_types = ['.jpg','.jpeg','.png','.webp']
-#         files = glob.glob(f"{input_dir}/**", recursive=True)
-#         image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
-#         embedding_objects = []
-#         # create empty file
-#         print("Cache embedding")
-        
-#         resolutions = resolution_config.split(",")
-#         resolutions = [int(resolution) for resolution in resolutions]
-#         for image_file in tqdm(image_files):
-#             file_name = os.path.basename(image_file)
-#             folder_path = os.path.dirname(image_file)
-            
-#             # for resolution in resolutions:
-#             json_obj = create_embedding(
-#                 tokenizers,text_encoders,folder_path,file_name,
-#                 resolutions=resolutions,recreate_cache=recreate_cache)
-            
-#             embedding_objects.append(json_obj)
-        
-#         # move glm to cpu to reduce vram memory
-#         text_encoders[0].to("cpu")
-#         del text_encoders
-#         flush()
-#         # cache latent
-#         print("Cache latent")
-#         for json_obj in tqdm(embedding_objects):
-#             for resolution in resolutions:
-#                 full_obj = cache_file(vae,json_obj,resolution=resolution,recreate_cache=recreate_cache)
-#                 datarows.append(full_obj)
-#         # Serializing json
-#         json_object = json.dumps(datarows, indent=4)
-        
-#         # Writing to metadata.json
-#         with open(metadata_path, "w", encoding='utf-8') as outfile:
-#             outfile.write(json_object)
-    
-#     return datarows
 
 # main idea is store all tensor related in .npz file
 # other information stored in .json
