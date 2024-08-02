@@ -16,6 +16,7 @@ import glob
 from utils.dist_utils import flush
 import numpy as np
 
+
 # BASE_RESOLUTION = 1024
 
 # RESOLUTION_SET = [
@@ -186,7 +187,74 @@ class CachedImageDataset(Dataset):
             "pooled_prompt_embed": pooled_prompt_embed,
             "time_id": time_id,
         }
-    
+
+
+
+##input: datarows -> output: metadata
+#looks like leftover code from leftover_idx, check, then delete
+class CachedPairsDataset(Dataset):
+    def __init__(self, datarows,conditional_dropout_percent=0.1): 
+        self.datarows = datarows
+        self.leftover_indices = []  #initialize an empty list to store indices of leftover items
+        #for conditional_dropout
+        self.conditional_dropout_percent = conditional_dropout_percent
+        embedding = get_empty_embedding()
+        self.empty_prompt_embed = embedding['prompt_embed']  # Tuple of (empty_prompt_embed, empty_pooled_prompt_embed)
+        self.empty_pooled_prompt_embed = embedding['pooled_prompt_embed']
+
+    #returns dataset length
+    def __len__(self):
+        return len(self.datarows)
+
+    #returns dataset item, using index
+    def __getitem__(self, index):
+        if self.leftover_indices:
+            # Fetch from leftovers first
+            actual_index = self.leftover_indices.pop(0)
+        else:
+            actual_index = index
+        metadata = self.datarows[actual_index] 
+
+        #cached files
+        pos_npz = torch.load(metadata['pos_npz_path'])
+        pos_latent_dict = torch.load(metadata['pos_latent_path'])
+        neg_npz = torch.load(metadata['neg_npz_path'])
+        neg_latent_dict = torch.load(metadata['neg_latent_path'])
+        
+        pos_prompt_embed = pos_npz['prompt_embed']
+        pos_pooled_prompt_embed = pos_npz['pooled_prompt_embed']
+        pos_latent = pos_latent_dict['latent']
+        pos_time_id = pos_latent_dict['time_id']
+        
+        
+        neg_prompt_embed = neg_npz['prompt_embed']
+        neg_pooled_prompt_embed = neg_npz['pooled_prompt_embed']
+        neg_latent = neg_latent_dict['latent']
+        neg_time_id = neg_latent_dict['time_id']
+        
+        
+        uncondition_npz = torch.load(metadata['uncondition_npz_path'])
+        uncondition_prompt_embed = uncondition_npz['prompt_embed']
+        uncondition_pooled_prompt_embed = uncondition_npz['pooled_prompt_embed']
+
+        return {
+            # positive latent
+            "pos_latent": pos_latent,
+            "pos_prompt_embed": pos_prompt_embed,
+            "pos_pooled_prompt_embed": pos_pooled_prompt_embed,
+            "pos_time_id":pos_time_id,
+            
+            # negative latent
+            "neg_latent": neg_latent,
+            "neg_prompt_embed": neg_prompt_embed,
+            "neg_pooled_prompt_embed": neg_pooled_prompt_embed,
+            "neg_time_id":neg_time_id,
+            
+            # uncondition embedding
+            "uncondition_prompt_embed": uncondition_prompt_embed,
+            "uncondition_pooled_prompt_embed": uncondition_pooled_prompt_embed,
+        }
+
 # main idea is store all tensor related in .npz file
 # other information stored in .json
 # @torch.no_grad()
@@ -509,12 +577,12 @@ def encode_prompt_with_glm(
     # text_input_ids = text_inputs.input_ids
     # prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
     prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
-    text_proj = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
+    pooled_prompt_embeds = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
     bs_embed, seq_len, _ = prompt_embeds.shape
     prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
     prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
     
-    pooled_prompt_embeds = text_proj.repeat(1, num_images_per_prompt).view(
+    pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, num_images_per_prompt).view(
         bs_embed * num_images_per_prompt, -1
     )
     
@@ -575,6 +643,25 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     # return cv2.resize(cropped_image, closest_resolution)
     return resize(cropped_image,closest_resolution),crop_x,crop_y
 
+
+def crop_image(image,resolution=1024):
+    height, width, _ = image.shape
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+    scale_with_height = True
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+    except Exception as e:
+        print(e)
+        raise e
+    
+    return image,crop_x,crop_y
 
 def resize(img,resolution):
     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)

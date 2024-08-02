@@ -69,6 +69,7 @@ from diffusers import (
     # EulerDiscreteScheduler,
     # DiffusionPipeline,
     UNet2DConditionModel,
+    SchedulerMixin
 )
 from pathlib import Path
 from diffusers.optimization import get_scheduler
@@ -100,7 +101,7 @@ import json
 
 
 # import sys
-from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
+from utils.image_utils_kolors import BucketBatchSampler, CachedPairsDataset
 
 # from prodigyopt import Prodigy
 
@@ -125,13 +126,30 @@ from safetensors.torch import save_file
 
 from utils.dist_utils import flush
 
-from hashlib import md5
 import glob
+
+from diffusers.utils.torch_utils import randn_tensor
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
 
 logger = get_logger(__name__)
+
+
+from utils.image_utils_kolors import compute_text_embeddings
+from utils.dist_utils import flush
+
+from utils.utils import get_md5_by_path
+from torchvision import transforms
+
+import cv2
+
+from utils.image_utils_kolors import crop_image
+
+# from slider.lora import LoRANetwork
+
+# import slider.debug_util as debug_util
+
 # =========Debias implementation from: https://github.com/kohya-ss/sd-scripts/blob/main/library/custom_train_functions.py#L99
 def prepare_scheduler_for_custom_training(noise_scheduler, device):
     if hasattr(noise_scheduler, "all_snr"):
@@ -153,12 +171,6 @@ def apply_debiased_estimation(loss, timesteps, noise_scheduler):
     loss = weight * loss
     return loss
 # =========Debias implementation from: https://github.com/kohya-ss/sd-scripts/blob/main/library/custom_train_functions.py#L99
-
-
-def memory_stats():
-    print("\nmemory_stats:\n")
-    print(torch.cuda.memory_allocated()/1024**2)
-    print(torch.cuda.memory_cached()/1024**2)
 
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
@@ -186,7 +198,7 @@ def parse_args(input_args=None):
     )
     parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
     parser.add_argument(
-        "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
+        "--train_batch_size", type=int, default=1, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument("--num_train_epochs", type=int, default=1)
     parser.add_argument(
@@ -429,28 +441,142 @@ def parse_args(input_args=None):
         "More details here: https://arxiv.org/abs/2303.09556.",
     )
     
+    parser.add_argument(
+        "--main_prompt",
+        type=str,
+        default="a girl",
+        help=(
+            "the main prompt for both positive images and negative images"
+        ),
+    )
+    parser.add_argument(
+        "--uncondition_prompt",
+        type=str,
+        default="abstruct",
+        help=(
+            "the main uncondition prompt for both positive images and negative images"
+        ),
+    )
+    parser.add_argument(
+        "--pos_prompt",
+        type=str,
+        default="beatiful",
+        help=(
+            "positive images generation prompt to describe the main subject"
+        ),
+    )
+    parser.add_argument(
+        "--neg_prompt",
+        type=str,
+        default="ugly",
+        help=(
+            "negative images generation prompt to describe the main subject"
+        ),
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=50,
+        help=(
+            "Image generation steps"
+        ),
+    )
+    parser.add_argument(
+        "--cfg",
+        type=int,
+        default=5,
+        help=(
+            "Image generation guidance_scale"
+        ),
+    )
+    parser.add_argument(
+        "--generation_batch",
+        type=int,
+        default=5,
+        help=(
+            "Image generation batch"
+        ),
+    )
+    
+    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
 
-    # env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    # if env_local_rank != -1 and env_local_rank != args.local_rank:
-    #     args.local_rank = env_local_rank
-
-    # if args.with_prior_preservation:
-    #     if args.class_data_dir is None:
-    #         raise ValueError("You must specify a data directory for class images.")
-    #     if args.class_prompt is None:
-    #         raise ValueError("You must specify prompt for class images.")
-    # else:
-    #     # logger is not available yet
-    #     if args.class_data_dir is not None:
-    #         warnings.warn("You need not use --class_data_dir without --with_prior_preservation.")
-    #     if args.class_prompt is not None:
-    #         warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
-
     return args
+
+
+def rescale_noise_cfg(
+    noise_cfg: torch.FloatTensor, noise_pred_text, guidance_rescale=0.0
+):
+    """
+    Rescale `noise_cfg` according to `guidance_rescale`. Based on findings of [Common Diffusion Noise Schedules and
+    Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf). See Section 3.4
+    """
+    std_text = noise_pred_text.std(
+        dim=list(range(1, noise_pred_text.ndim)), keepdim=True
+    )
+    std_cfg = noise_cfg.std(dim=list(range(1, noise_cfg.ndim)), keepdim=True)
+    # rescale the results from guidance (fixes overexposure)
+    noise_pred_rescaled = noise_cfg * (std_text / std_cfg)
+    # mix with the original results from guidance by factor guidance_rescale to avoid "plain looking" images
+    noise_cfg = (
+        guidance_rescale * noise_pred_rescaled + (1 - guidance_rescale) * noise_cfg
+    )
+    return noise_cfg
+
+
+def concat_embeddings(
+    unconditional: torch.FloatTensor,
+    conditional: torch.FloatTensor,
+    n_imgs: int,
+):
+    return torch.cat([unconditional, conditional]).repeat_interleave(n_imgs, dim=0)
+
+def predict_noise_xl(
+    unet: UNet2DConditionModel,
+    scheduler: SchedulerMixin,
+    timestep: int,  # 現在のタイムステップ
+    latents: torch.FloatTensor,
+    text_embeddings: torch.FloatTensor,  # uncond な text embed と cond な text embed を結合したもの
+    add_text_embeddings: torch.FloatTensor,  # pooled なやつ
+    add_time_ids: torch.FloatTensor,
+    guidance_scale=7.5,
+    # guidance_rescale=0.7,
+) -> torch.FloatTensor:
+    # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
+    latent_model_input = torch.cat([latents] * 2)
+
+    latent_model_input = scheduler.scale_model_input(latent_model_input, timestep).to(dtype=text_embeddings.dtype)
+
+    added_cond_kwargs = {
+        "text_embeds": add_text_embeddings,
+        "time_ids": add_time_ids,
+    }
+
+    # predict the noise residual
+    noise_pred = unet(
+        latent_model_input,
+        timestep,
+        encoder_hidden_states=text_embeddings,
+        added_cond_kwargs=added_cond_kwargs,
+    ).sample
+
+    # perform guidance
+    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+    guided_target = noise_pred_uncond + guidance_scale * (
+        noise_pred_text - noise_pred_uncond
+    )
+
+    # https://github.com/huggingface/diffusers/blob/7a91ea6c2b53f94da930a61ed571364022b21044/src/diffusers/pipelines/stable_diffusion_xl/pipeline_stable_diffusion_xl.py#L775
+    # noise_pred = rescale_noise_cfg(
+    #     noise_pred, noise_pred_text, guidance_rescale=guidance_rescale
+    # )
+
+    # try rescale_noise_cfg
+    return guided_target
+    # return noise_pred
 
 def main(args):
     
@@ -498,7 +624,6 @@ def main(args):
     # args.gradient_checkpointing = True
     # args.validation_ratio = 0.1
     # args.num_validation_images = 1
-    # args.pretrained_model_name_or_path = "F:/Kolors"
     # args.model_path = None # "F:/models/Stable-diffusion/sd3/opensd3.safetensors"
     # # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
     # args.resume_from_checkpoint = None
@@ -521,12 +646,24 @@ def main(args):
     # args.caption_dropout = 0.2
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
+    args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
+    args.train_data_dir = "F:/ImageSet/kolors_slider"
+    args.main_prompt = "photo of sky"
+    args.uncondition_prompt = "oil painting"
+    args.pos_prompt = "clean blue sky, day light"
+    args.neg_prompt = "chaotic dark sky, dark night"
+    args.steps = 30
+    args.cfg = 3.5
+    args.seed = 1
+    args.generation_batch = 5
+    args.mixed_precision = "fp16"
+    args.train_batch_size = 1
+    args.output_dir = "F:/models/kolors"
+    args.save_name = "kolors-sky-slider"
+    args.repeats = 50
     
-    
-    # create metadata.jsonl if not exist
-    metadata_suffix = "kolors"
-    metadata_path = os.path.join(args.train_data_dir, f'metadata_{metadata_suffix}.json')
-    val_metadata_path =  os.path.join(args.train_data_dir, f'val_metadata_{metadata_suffix}.json')
+    default_positive_scale = 2
+    default_negative_scale = -2
     
     logging_dir = "test"
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
@@ -564,9 +701,6 @@ def main(args):
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
     offload_device = accelerator.device
-    
-    if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
-        offload_device = torch.device("cpu")
     
     # load from repo
     if args.pretrained_model_name_or_path == "Kwai-Kolors/Kolors":
@@ -616,14 +750,14 @@ def main(args):
         unet.enable_gradient_checkpointing()
 
     # now we will add new LoRA weights to the attention layers
-    unet_lora_config = LoraConfig(
-        use_dora=args.use_dora,
-        r=args.rank,
-        lora_alpha=args.rank,
-        init_lora_weights="gaussian",
-        target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-    )
-    unet.add_adapter(unet_lora_config)
+    # unet_lora_config = LoraConfig(
+    #     use_dora=args.use_dora,
+    #     r=args.rank,
+    #     lora_alpha=args.rank,
+    #     init_lora_weights="gaussian",
+    #     target_modules=["to_k", "to_q", "to_v", "to_out.0"],
+    # )
+    # unet.add_adapter(unet_lora_config)
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
@@ -697,16 +831,28 @@ def main(args):
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
 
+    # now we will add new LoRA weights to the attention layers
+    unet_lora_config = LoraConfig(
+        use_dora=args.use_dora,
+        r=args.rank,
+        lora_alpha=args.rank,
+        init_lora_weights="gaussian",
+        target_modules=["to_k", "to_q", "to_v", "to_out.0"],
+    )
+    unet.add_adapter(unet_lora_config)
+    
+    # Make sure the trainable params are in float32.
+    if args.mixed_precision == "fp16":
+        models = [unet]
+        # # only upcast trainable parameters (LoRA) into fp32
+        cast_training_params(models, dtype=torch.float32)
+        # network.cast_training_params()
+
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
 
-    # Make sure the trainable params are in float32.
-    if args.mixed_precision == "fp16":
-        models = [unet]
-        # only upcast trainable parameters (LoRA) into fp32
-        cast_training_params(models, dtype=torch.float32)
 
     unet_lora_parameters = list(filter(lambda p: p.requires_grad, unet.parameters()))
     # Optimization parameters
@@ -785,249 +931,290 @@ def main(args):
     # ==========================================================
     # Create train dataset
     # ==========================================================
-    # data_files = {}
-    # this part need more work afterward, you need to prepare 
-    # the train files and val files split first before the training
-    if args.train_data_dir is not None:
-        input_dir = args.train_data_dir
-        datarows = []
-        cache_list = []
-        recreate_cache = args.recreate_cache
-        # resolutions = args.resolution_config.split(",")
-        
-        supported_image_types = ['.jpg','.jpeg','.png','.webp']
-        files = glob.glob(f"{input_dir}/**", recursive=True)
-        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
-        
-        # function to remove metadata datarows which in not exist in directory
-        def align_metadata(datarows,image_files,metadata_path):
-            new_metadatarows = []
-            for metadata_datarow in datarows:
-                # if some row not in current image_files, ignore it
-                if metadata_datarow['image_path'] in image_files:
-                    new_metadatarows.append(metadata_datarow)
-            # save new_metadatarows at metadata_path
-            with open(metadata_path, "w", encoding='utf-8') as writefile:
-                writefile.write(json.dumps(new_metadatarows))
-            return new_metadatarows
-        
-        metadata_datarows = []
-        # single_image_training = False
-        if os.path.exists(metadata_path):
-            with open(metadata_path, "r", encoding='utf-8') as readfile:
-                metadata_datarows = json.loads(readfile.read())
-                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
-                metadata_datarows = align_metadata(metadata_datarows,image_files,metadata_path)
-        # else:
-        #     single_image_training = len(image_files) == 1
-        
-        val_metadata_datarows = []
-        if os.path.exists(val_metadata_path):
-            with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                val_metadata_datarows = json.loads(readfile.read())
-                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
-                val_metadata_datarows = align_metadata(val_metadata_datarows,image_files,val_metadata_path)
-        
-        # full datarows is aligned, all datarows conatins exists image
-        if len(metadata_datarows) == 1:
-            full_datarows = metadata_datarows
-            # single_image_training = True
-        else:
-            full_datarows = metadata_datarows + val_metadata_datarows
-            
-        datarows = full_datarows
-        # if not single_image_training:
-        #     single_image_training = (len(resolutions) > 1 and len(full_datarows) == len(resolutions)) or len(full_datarows) == len(resolutions)
-        # no metadata file, all files should be cached
-        if (len(full_datarows) == 0) or recreate_cache:
-            cache_list = image_files
-        else:
-            md5_pairs = [
-                {
-                    "path":"image_path",
-                    "md5": "image_path_md5"
-                },
-                {
-                    "path":"text_path",
-                    "md5": "text_path_md5"
-                },
-                {
-                    "path":"npz_path",
-                    "md5": "npz_path_md5"
-                },
-                {
-                    "path":"latent_path",
-                    "md5": "latent_path_md5"
-                },
-            ]
-            def check_md5(datarows,md5_pairs):
-                cache_list = []
-                new_datarows = []
-                for datarow in tqdm(datarows):
-                    corrupted = False
-                    # loop all the md5 pairs
-                    for pair in md5_pairs:
-                        path_name = pair['path']
-                        md5_name = pair['md5']
-                        # if md5 not in datarow, then recache
-                        if not md5_name in datarow.keys():
-                            if datarow['image_path'] not in cache_list:
-                                cache_list.append(datarow['image_path'])
-                                corrupted = True
-                            break
-                        
-                        file_path = datarow[path_name]
-                        file_path_md5 = ''
-                        if os.path.exists(file_path):
-                            with open(file_path, 'rb') as f:
-                                file_path_md5 = md5(f.read()).hexdigest()
-                        
-                        if file_path_md5 != datarow[md5_name]:
-                            if datarow['image_path'] not in cache_list:
-                                cache_list.append(datarow['image_path'])
-                                corrupted = True
-                            break
-                    if not corrupted:
-                        new_datarows.append(datarow)
-                return cache_list, new_datarows
-                                
-            # for metadata_file in metadata_files:
-            # Validate two datasets 
-            # loop all the datarow and check file md5 for integrity
-            print(f"Checking integrity: ")
-            # fine images not in full_datarows, handle added images
-            current_images = [d['image_path'] for d in full_datarows]
-            missing_images = [f for f in image_files if f not in current_images]
-            if len(missing_images) > 0:
-                print(f"Images exists but not in metadata: {len(missing_images)}")
-                # add missing images to cache list
-                cache_list += missing_images
-            
-            # check full_datarows md5
-            corrupted_files, new_datarows = check_md5(full_datarows,md5_pairs)
-            # skip corrupted datarows, update full datarows
-            full_datarows = new_datarows
-            if len(corrupted_files) > 0:
-                print(f"corrupted files: {len(corrupted_files)}")
-                # add corrupted files to cache list
-                cache_list += corrupted_files
-                    
-        if len(cache_list)>0:
-            # Load the tokenizers
-            tokenizer_one = ChatGLMTokenizer.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="text_encoder",
-                revision=revision, 
-                variant=variant
-            )
-
-            text_encoder_one = ChatGLMModel.from_pretrained(
-                args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
-            )
-            vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
-            if args.vae_path:
-                vae = AutoencoderKL.from_single_file(
-                    args.vae_path,
-                    config=vae_folder,
-                )
-            else:
-                # load from repo
-                weight_file = "diffusion_pytorch_model"
-                vae_variant = None
-                ext = ".safetensors"
-                # diffusion_pytorch_model.fp16.safetensors
-                fp16_weight = os.path.join(vae_folder, f"{weight_file}.fp16{ext}")
-                fp32_weight = os.path.join(vae_folder, f"{weight_file}{ext}")
-                if os.path.exists(fp16_weight):
-                    vae_variant = "fp16"
-                elif os.path.exists(fp32_weight):
-                    vae_variant = None
-                else:
-                    raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
-                    
-                vae = AutoencoderKL.from_pretrained(
-                        args.pretrained_model_name_or_path, variant=vae_variant
-                    )
-            
-            vae.requires_grad_(False)
-            text_encoder_one.requires_grad_(False)
-            
-            vae.to(accelerator.device, dtype=torch.float32)
-            text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-
-            
-            tokenizers = [tokenizer_one]
-            text_encoders = [text_encoder_one]
-            # create metadata and latent cache
-            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache,resolution_config=args.resolution_config)
-            
-            # merge newly cached datarows to full_datarows
-            full_datarows += cached_datarows
-            
-            # reset validation_datarows
-            validation_datarows = []
-            # prepare validation_slipt
-            if args.validation_ratio > 0:
-                # buckets = image_utils.get_buckets()
-                train_ratio = 1 - args.validation_ratio
-                validation_ratio = args.validation_ratio
-                if len(full_datarows) == 1:
-                    full_datarows = full_datarows + full_datarows.copy()
-                    validation_ratio = 0.5
-                    train_ratio = 0.5
-                training_datarows, validation_datarows = train_test_split(full_datarows, train_size=train_ratio, test_size=validation_ratio)
-                datarows = training_datarows
-            else:
-                datarows = full_datarows
-            
-            # Serializing json
-            json_object = json.dumps(datarows, indent=4)
-            # update metadata file
-            with open(metadata_path, "w", encoding='utf-8') as outfile:
-                outfile.write(json_object)
-            
-            if len(validation_datarows) > 0:
-                # Serializing json
-                val_json_object = json.dumps(validation_datarows, indent=4)
-                # update val metadata file
-                with open(val_metadata_path, "w", encoding='utf-8') as outfile:
-                    outfile.write(val_json_object)
-                
-            # clear memory
-            del validation_datarows
-            del vae, tokenizer_one, text_encoder_one
-            gc.collect()
-            torch.cuda.empty_cache()
     
+    datarows = []
+    
+    with torch.no_grad():
+        # create metadata.jsonl if not exist
+        metadata_path = os.path.join(args.train_data_dir, f'metadata_kolors_slider.json')
+        if args.train_data_dir is not None:
+            if not os.path.exists(args.train_data_dir):
+                raise FileNotFoundError(f"{args.train_data_dir} does not exist")
+            input_dir = args.train_data_dir
+            recreate_cache = args.recreate_cache
+            
+            # ensure both dir exist in training dir
+            pos_dir = os.path.join(input_dir, "positive")
+            if not os.path.exists(pos_dir):
+                raise FileNotFoundError(f"{pos_dir} does not exist")
+            
+            neg_dir = os.path.join(input_dir, "negative")
+            if not os.path.exists(neg_dir):
+                raise FileNotFoundError(f"{neg_dir} does not exist")
+            
+            supported_image_types = ['.jpg','.jpeg','.png','.webp']
+            pos_files = glob.glob(f"{pos_dir}/**", recursive=True)
+            pos_image_files = [f for f in pos_files if os.path.splitext(f)[-1].lower() in supported_image_types]
+            neg_files = glob.glob(f"{neg_dir}/**", recursive=True)
+            neg_image_files = [f for f in neg_files if os.path.splitext(f)[-1].lower() in supported_image_types]
+            
+            file_list = [pos_image_files, neg_image_files]
+            pos_len = len(pos_image_files)
+            neg_len = len(neg_image_files)
+            
+            if pos_len == 0 or neg_len == 0:
+                raise ValueError("No images found in the specified directories.")
+            
+            if pos_len != neg_len:
+                print("Number of positive and negative images do not match. Using the minimum number of images.")
+            
+            
+            metadata = {}
+            # single_image_training = False
+            if os.path.exists(metadata_path):
+                with open(metadata_path, "r", encoding='utf-8') as readfile:
+                    metadata = json.loads(readfile.read())
+                    # check md5
+                    # function to remove metadata datarows which in not exist in directory
+                    def align_metadata(datarows,image_files):
+                        new_metadatarows = []
+                        for metadata_datarow in datarows:
+                            # if some row not in current image_files, ignore it
+                            if metadata_datarow['image_path'] in image_files:
+                                new_metadatarows.append(metadata_datarow)
+                        return new_metadatarows
+
+                    # filter out metadata rows that are not in current image_files
+                    for i,image_files in enumerate(file_list):
+                        generation_config = metadata['generation_configs'][i]
+                        if 'item_list' in generation_config:
+                            metadata['generation_configs'][i]['item_list'] = align_metadata(generation_config['item_list'],image_files)
+                    
+                    
+            else:
+                metadata = {
+                    'main_prompt': args.main_prompt,
+                    'uncondition_prompt': args.uncondition_prompt,
+                    'pos_prompt': args.pos_prompt,
+                    'neg_prompt': args.neg_prompt,
+                    'generation_batch': args.generation_batch,
+                    'pretrained_model_name_or_path': args.pretrained_model_name_or_path,
+                    'steps': args.steps,
+                    'cfg': args.cfg,
+                    'seed': args.seed,
+                    "generation_configs":[
+                        {
+                            "set_name":"positive",
+                            "prompt":f"{args.main_prompt}, {args.pos_prompt}",
+                        },
+                        {
+                            "set_name":"negative",
+                            "prompt":f"{args.main_prompt}, {args.neg_prompt}",
+                        },
+                        {
+                            "set_name":"uncondition",
+                            "prompt":f"{args.uncondition_prompt}",
+                        },
+                    ],
+                }
+                text_encoder = ChatGLMModel.from_pretrained(
+                    f'{args.pretrained_model_name_or_path}/text_encoder',
+                    torch_dtype=torch.float16).half()
+                tokenizer = ChatGLMTokenizer.from_pretrained(f'{args.pretrained_model_name_or_path}/text_encoder')
+                vae = AutoencoderKL.from_pretrained(f"{args.pretrained_model_name_or_path}/vae").half()
+                
+                prompt_embeds_list = []
+                for generation_config in metadata['generation_configs']:
+                    set_name = generation_config['set_name']
+                    npz_path = f"{args.train_data_dir}/{set_name}.npkolors"
+                    # recreate_cache = False
+                    if os.path.exists(npz_path):
+                        if 'npz_path_md5' in generation_config:
+                            if generation_config['npz_path_md5'] != get_md5_by_path(npz_path):
+                                recreate_cache = True
+                                print("npz_path_md5 changed, recreating cache")
+                        if not recreate_cache:
+                            npz_path_md5 = get_md5_by_path(npz_path)
+                            generation_config['npz_path'] = npz_path
+                            generation_config['npz_path_md5'] = npz_path_md5
+                            cached_npz = torch.load(npz_path)
+                            prompt_embeds = cached_npz['prompt_embed']
+                            pooled_prompt_embeds = cached_npz['pooled_prompt_embed']
+                            prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
+                            continue
+                            
+                        
+                    prompt = generation_config['prompt']
+                    set_name = generation_config['set_name']
+                    # for positive images generation
+                    prompt_embeds, pooled_prompt_embeds = compute_text_embeddings([text_encoder],[tokenizer],prompt,device=text_encoder.device)
+                    prompt_embed = prompt_embeds.squeeze(0)
+                    pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
+                    # save embeddings
+                    npz_dict = {
+                        "prompt_embed": prompt_embed.cpu(), 
+                        "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+                    }
+                    # save latent to cache file
+                    torch.save(npz_dict, npz_path)
+                    generation_config['npz_path'] = npz_path
+                    npz_path_md5 = get_md5_by_path(npz_path)
+                    generation_config['npz_path_md5'] = npz_path_md5
+                    prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
+                
+                _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
+                
+                del text_encoder, tokenizer
+                flush()
+                for i in range(len(prompt_embeds_list)):
+                    metadata['generation_configs'][i]['item_list'] = []
+                    set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[i]
+                    image_files = file_list[i]
+                    save_dir = f"{args.train_data_dir}/{set_name}"
+                    for image_path in image_files:
+                        filename, ext = os.path.splitext(os.path.basename(image_path))
+                        latent_path = f"{save_dir}/{filename}.nplatent"
+                        try:
+                            image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+                            if image is not None:
+                                # Convert to RGB format (assuming the original image is in BGR)
+                                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                            else:
+                                print(f"Failed to open {image_path}.")
+                        except Exception as e:
+                            print(f"An error occurred while processing {image_path}: {e}")
+                            
+                        height, width, _ = image.shape
+                        original_size = (height, width)
+                        
+                        cropped_image,crop_x,crop_y = crop_image(image)
+                        crops_coords_top_left = (crop_y,crop_x)
+                        
+                        
+                        image_height, image_width, _ = image.shape
+                        target_size = (image_height,image_width)
+                        
+                        # recreate_cache = False
+                        # check md5 on exists latent
+                        if os.path.exists(latent_path):
+                            generation_config = metadata['generation_configs'][i]
+                            if 'latent_path_md5' in generation_config:
+                                if generation_config['latent_path_md5'] != get_md5_by_path(latent_path):
+                                    recreate_cache = True
+                            if not recreate_cache:
+                                # metadata['generation_configs'][i]['latent_path_md5'] = get_md5_by_path(latent_path)
+                                training_item = {
+                                    'bucket':f"{image_width}x{image_height}",
+                                    'latent_path':latent_path,
+                                    'latent_path_md5':get_md5_by_path(latent_path),
+                                    'image_path':image_path,
+                                    'image_path_md5':get_md5_by_path(image_path),
+                                }
+                                metadata['generation_configs'][i]['item_list'].append(training_item)
+                                continue
+                    
+                        # save latent
+                        latent_path = f"{save_dir}/{filename}.nplatent"
+                    
+                        # vae encode file
+                        train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+                        image = train_transforms(cropped_image)
+                        
+                        # create tensor latent
+                        pixel_values = []
+                        pixel_values.append(image)
+                        pixel_values = torch.stack(pixel_values).to(vae.device)
+                        with torch.no_grad():
+                            #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
+                            latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+                            latent = latent * vae.config.scaling_factor
+                            del pixel_values
+                        
+                        
+                        time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size))
+
+                        latent_dict = {
+                            'time_id': time_id.cpu(),
+                            'latent': latent[0].cpu()
+                        }
+                        torch.save(latent_dict, latent_path)
+                    
+                        
+                        training_item = {
+                            'bucket':f"{image_width}x{image_height}",
+                            'latent_path':latent_path,
+                            'latent_path_md5':get_md5_by_path(latent_path),
+                            'image_path':image_path,
+                            'image_path_md5':get_md5_by_path(image_path),
+                        }
+                        metadata['generation_configs'][i]['item_list'].append(training_item)
+                        
+                del vae
+            flush()
+            # save metadata
+            with open(metadata_path, "w", encoding='utf-8') as writefile:
+                writefile.write(json.dumps(metadata, indent=4))
+                
+            # prepare datarows, map pos and neg in onw single row
+            generation_configs = metadata['generation_configs']
+            pos_config = generation_configs[0]
+            neg_config = generation_configs[1]
+            uncondition_config = generation_configs[2]
+            if len(pos_config['item_list']) != len(neg_config['item_list']):
+                raise ValueError("Positive and Negative images must have same number of images")
+            for pos_item, neg_item in zip(pos_config['item_list'], neg_config['item_list']):
+                datarows.append(
+                    {
+                        "bucket": pos_item['bucket'],
+                        "uncondition_npz_path": uncondition_config['npz_path'],
+                        "pos_npz_path": pos_config['npz_path'],
+                        "pos_latent_path": pos_item['latent_path'],
+                        "neg_npz_path": neg_config['npz_path'],
+                        "neg_latent_path": neg_item['latent_path'],
+                    }
+                )
+            training_datarows, validation_datarows = train_test_split(datarows, train_size=0.9, test_size=0.1)
+            datarows = training_datarows
+        
+        
     # repeat_datarows = []
     # for datarow in datarows:
     #     for i in range(args.repeats):
     #         repeat_datarows.append(datarow)
     # datarows = repeat_datarows
-    
     datarows = datarows * args.repeats
     # resume from cpu after cache files
     unet.to(accelerator.device)
 
-    # ================================================================
-    # End create embedding 
-    # ================================================================
-    
+
     def collate_fn(examples):
-        # not sure if this would have issue when using multiple aspect ratio
-        latents = torch.stack([example["latent"] for example in examples])
-        time_ids = torch.stack([example["time_id"] for example in examples])
-        prompt_embeds = torch.stack([example["prompt_embed"] for example in examples])
-        pooled_prompt_embeds = torch.stack([example["pooled_prompt_embed"] for example in examples])
+        pos_latents = torch.stack([example["pos_latent"] for example in examples])
+        pos_prompt_embeds = torch.stack([example["pos_prompt_embed"] for example in examples])
+        pos_pooled_prompt_embeds = torch.stack([example["pos_pooled_prompt_embed"] for example in examples])
+        pos_time_ids = torch.stack([example["pos_time_id"] for example in examples])
+        neg_latents = torch.stack([example["neg_latent"] for example in examples])
+        neg_prompt_embeds = torch.stack([example["neg_prompt_embed"] for example in examples])
+        neg_pooled_prompt_embeds = torch.stack([example["neg_pooled_prompt_embed"] for example in examples])
+        neg_time_ids = torch.stack([example["neg_time_id"] for example in examples])
+        uncondition_prompt_embeds = torch.stack([example["uncondition_prompt_embed"] for example in examples])
+        uncondition_pooled_prompt_embeds = torch.stack([example["uncondition_pooled_prompt_embed"] for example in examples])
 
         return {
-            "latents": latents,
-            "prompt_embeds": prompt_embeds,
-            "pooled_prompt_embeds": pooled_prompt_embeds,
-            "time_ids": time_ids,
+            "pos_latents":pos_latents,
+            "pos_prompt_embeds":pos_prompt_embeds,
+            "pos_pooled_prompt_embeds":pos_pooled_prompt_embeds,
+            "pos_time_ids":pos_time_ids,
+            "neg_latents":neg_latents,
+            "neg_prompt_embeds":neg_prompt_embeds,
+            "neg_pooled_prompt_embeds":neg_pooled_prompt_embeds,
+            "neg_time_ids":neg_time_ids,
+            "uncondition_prompt_embeds":uncondition_prompt_embeds,
+            "uncondition_pooled_prompt_embeds":uncondition_pooled_prompt_embeds,
         }
+        
     # create dataset based on input_dir
-    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=args.caption_dropout)
+    # no caption dropout for slider training, avoid affect the uncondition space
+    train_dataset = CachedPairsDataset(datarows,conditional_dropout_percent=0)
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
@@ -1041,8 +1228,10 @@ def main(args):
         num_workers=dataloader_num_workers,
     )
     
+    # ================================================================
+    # End Create train dataset
+    # ================================================================
     
-
     # Scheduler and math around the number of training steps.
     overrode_max_train_steps = False
     num_update_steps_per_epoch = math.ceil(len(train_dataloader) / args.gradient_accumulation_steps)
@@ -1073,12 +1262,12 @@ def main(args):
     unet, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         unet, optimizer, train_dataloader, lr_scheduler
     )
-
-
+    
+    
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "kolors-lora"
+        tracker_name = "kolors-slider-lora"
         try:
             accelerator.init_trackers(tracker_name, config=vars(args))
         except:
@@ -1147,88 +1336,157 @@ def main(args):
         disable=not accelerator.is_local_main_process,
     )
     
-
+    device = accelerator.device
+    max_denoising_steps = 50
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
+        # ================================================
+        # loop over dataloader
+        # ================================================
         for step, batch in enumerate(train_dataloader):
-            optimizer.zero_grad()
             with accelerator.accumulate(unet):
                 with accelerator.autocast():
-                    latents = batch["latents"].to(accelerator.device)
+                    pos_latents = batch["pos_latents"].to(accelerator.device)
+                    pos_prompt_embeds = batch["pos_prompt_embeds"].to(accelerator.device)
+                    pos_pooled_prompt_embeds = batch["pos_pooled_prompt_embeds"].to(accelerator.device)
+                    pos_time_ids = batch["pos_time_ids"].to(accelerator.device)
+                    neg_latents = batch["neg_latents"].to(accelerator.device)
+                    neg_prompt_embeds = batch["neg_prompt_embeds"].to(accelerator.device)
+                    neg_pooled_prompt_embeds = batch["neg_pooled_prompt_embeds"].to(accelerator.device)
+                    neg_time_ids = batch["neg_time_ids"].to(accelerator.device)
+                    uncondition_prompt_embeds = batch["uncondition_prompt_embeds"].to(accelerator.device)
+                    uncondition_pooled_prompt_embeds = batch["uncondition_pooled_prompt_embeds"].to(accelerator.device)
                     
-                    bsz, _, _, _ = latents.shape
+                    # prepare predicted noise image
+                    # 
+                    noise_scheduler.set_timesteps(
+                        max_denoising_steps, device=device
+                    )
+                    optimizer.zero_grad()
+                    # 1 ~ 49 からランダム
+                    timesteps_to = torch.randint(
+                        1, max_denoising_steps, (1,)
+                    ).item()
                     
-                    indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
-                    timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
-                    
-                    noise = torch.randn_like(latents)
-                    
-                    # Add noise to the model input according to the noise magnitude at each timestep
-                    # (this is the forward diffusion process)
-                    noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
-                    
-                    add_time_ids = batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
-                    unet_added_conditions = {"time_ids": add_time_ids}
-                    prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                    pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                    unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
-                    model_pred = unet(
-                        noisy_model_input,
-                        timesteps,
-                        encoder_hidden_states=prompt_embeds,
-                        added_cond_kwargs=unet_added_conditions,
-                        return_dict=False,
-                    )[0]
-                    
-                    # ====================Debug latent====================
-                    # vae = AutoencoderKL.from_single_file(
-                    #     vae_path
-                    # )
-                    # vae.to(device=accelerator.device)
-                    # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-                    # with torch.no_grad():
-                    #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-                    # image = image_processor.postprocess(image, output_type="pil")[0]
-                    # image.save("model_pred.png")
-                    # ====================Debug latent====================
-                    
-                    
-                    target = noise
-                    
-                    # code reference: https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py
-                    if args.snr_gamma is None or args.snr_gamma == 0:
-                        loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                    else:
-                        # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-                        # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-                        # This is discussed in Section 4.2 of the same paper.
-                        snr = compute_snr(noise_scheduler, timesteps)
-                        mse_loss_weights = torch.stack([snr, args.snr_gamma * torch.ones_like(timesteps)], dim=1).min(
-                            dim=1
-                        )[0]
-                        if noise_scheduler.config.prediction_type == "epsilon":
-                            mse_loss_weights = mse_loss_weights / snr
-                        elif noise_scheduler.config.prediction_type == "v_prediction":
-                            mse_loss_weights = mse_loss_weights / (snr + 1)
+                    shape = pos_latents.shape
 
-                        loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                        loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
-                        loss = loss.mean()
-                        del mse_loss_weights
+                    seed = random.randint(0,2*15)
                     
-                    # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
-                    if args.use_debias:
-                        loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
-                        loss = loss.mean()
+                    # get positive latents
+                    generator = torch.manual_seed(seed)
+                    noise = randn_tensor(shape, generator=generator, device=device)
+                    timestep = noise_scheduler.timesteps[timesteps_to:timesteps_to+1]
+                    # get latents
+                    pos_noised_latents = noise_scheduler.add_noise(pos_latents, noise, timestep)
+                    
+                    pos_noised_latents = pos_noised_latents.to(device, dtype=weight_dtype)
+                    noise = noise.to(device, dtype=weight_dtype)
+                    
+                    # get negative latents
+                    generator = torch.manual_seed(seed)
+                    # use the same noise and timestep as positive
+                    # noise = randn_tensor(shape, generator=generator, device=device)
+                    # timestep = noise_scheduler.timesteps[timesteps_to:timesteps_to+1]
+                    # get latents
+                    neg_noised_latents = noise_scheduler.add_noise(neg_latents, noise, timestep)
+                    neg_noised_latents = neg_noised_latents.to(device, dtype=weight_dtype)
+                    # noise = noise.to(device, dtype=weight_dtype)
+                    
+                    # reset noise_scheduler to 1000
+                    noise_scheduler.set_timesteps(noise_scheduler.config.num_train_timesteps)
+                    current_timestep = noise_scheduler.timesteps[
+                        int(timesteps_to * noise_scheduler.config.num_train_timesteps / max_denoising_steps)
+                    ]
+
+                    # # scale lora 
+                    unet.set_adapters('default', default_positive_scale)
+                    pos_target_latents = predict_noise_xl(
+                        unet,
+                        noise_scheduler,
+                        current_timestep,
+                        pos_noised_latents,
+                        text_embeddings=concat_embeddings(
+                            uncondition_prompt_embeds,
+                            pos_prompt_embeds,
+                            1,
+                        ),
+                        add_text_embeddings=concat_embeddings(
+                            uncondition_pooled_prompt_embeds,
+                            pos_pooled_prompt_embeds,
+                            1,
+                        ),
+                        add_time_ids=concat_embeddings(
+                            pos_time_ids, pos_time_ids, 1
+                        ),
+                        guidance_scale=3.5,
+                    )
+
+                    loss_pos = F.mse_loss(pos_target_latents.float(), noise.float())
+                    # progress_bar.set_description(f"pos_step_loss*1k: {loss_pos.item():.4f}")
                     
                     # Backpropagate
-                    accelerator.backward(loss)
-                    step_loss = loss.detach().item()
-                    del loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
+                    accelerator.backward(loss_pos)
+
+                    pos_step_loss = loss_pos.detach().item()
+                    lr = lr_scheduler.get_last_lr()[0]
+                    lr_name = "lr"
+                    if args.optimizer == "prodigy":
+                        if resume_step>0 and resume_step == global_step:
+                            lr = 0
+                        else:
+                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                        lr_name = "lr/d*lr"
+                    logs = {"pos_step_loss": pos_step_loss, lr_name: lr, "epoch": epoch}
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+                    
+                    
+                    unet.set_adapters('default', default_negative_scale)
+                    # scale lora 
+                    neg_target_latents = predict_noise_xl(
+                        unet,
+                        noise_scheduler,
+                        current_timestep,
+                        neg_noised_latents,
+                        text_embeddings=concat_embeddings(
+                            uncondition_prompt_embeds,
+                            neg_prompt_embeds,
+                            1,
+                        ),
+                        add_text_embeddings=concat_embeddings(
+                            uncondition_pooled_prompt_embeds,
+                            neg_pooled_prompt_embeds,
+                            1,
+                        ),
+                        add_time_ids=concat_embeddings(
+                            neg_time_ids, neg_time_ids, 1
+                        ),
+                        guidance_scale=3.5,
+                    )
+
+                    loss_neg = F.mse_loss(neg_target_latents.float(), noise.float())
+                    # progress_bar.set_description(f"neg_step_loss*1k: {loss_neg.item()*1000:.4f}")
+                    
+                    # Backpropagate
+                    accelerator.backward(loss_neg)
+
+                    neg_step_loss = loss_neg.detach().item()
+                    lr = lr_scheduler.get_last_lr()[0]
+                    lr_name = "lr"
+                    if args.optimizer == "prodigy":
+                        if resume_step>0 and resume_step == global_step:
+                            lr = 0
+                        else:
+                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                        lr_name = "lr/d*lr"
+                    logs = {"neg_step_loss": neg_step_loss, lr_name: lr, "epoch": epoch}
+                    accelerator.log(logs, step=global_step)
+                    progress_bar.set_postfix(**logs)
+                    
                     if accelerator.sync_gradients:
                         params_to_clip = unet_lora_parameters
                         accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
-
+                        
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad()
@@ -1240,28 +1498,11 @@ def main(args):
                         progress_bar.update(1)
                         global_step += 1
                     
-                    lr = lr_scheduler.get_last_lr()[0]
-                    lr_name = "lr"
-                    if args.optimizer == "prodigy":
-                        if resume_step>0 and resume_step == global_step:
-                            lr = 0
-                        else:
-                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                        lr_name = "lr/d*lr"
-                    logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
-                    accelerator.log(logs, step=global_step)
-                    progress_bar.set_postfix(**logs)
-                    
                     if global_step >= max_train_steps:
                         break
-                    del step_loss
-                    gc.collect()
-                    torch.cuda.empty_cache()
-            
-        # ==================================================
-        # validation part
-        # ==================================================
-        
+                    # del step_loss
+                    flush()
+    
         if global_step < args.skip_step:
             continue
         
@@ -1279,111 +1520,7 @@ def main(args):
                     accelerator.save_state(save_path)
                     logger.info(f"Saved state to {save_path}")
                     
-            if epoch % args.validation_epochs == 0:
-                with torch.no_grad():
-                    unet = unwrap_model(unet)
-                    # freeze rng
-                    np.random.seed(val_seed)
-                    torch.manual_seed(val_seed)
-                    dataloader_generator = torch.Generator()
-                    dataloader_generator.manual_seed(val_seed)
-                    torch.backends.cudnn.deterministic = True
-                    
-                    validation_datarows = []
-                    with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                        validation_datarows = json.loads(readfile.read())
-                    
-                    if len(validation_datarows)>0:
-                        validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
-                        
-                        batch_size  = 1
-                        # batch_size = args.train_batch_size
-                        # handle batch size > validation dataset size
-                        # if batch_size > len(validation_datarows):
-                        #     batch_size = 1
-                        
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
 
-                        #initialize the DataLoader with the bucket batch sampler
-                        val_dataloader = torch.utils.data.DataLoader(
-                            validation_dataset,
-                            batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-                            collate_fn=collate_fn,
-                            num_workers=dataloader_num_workers,
-                        )
-
-                        print("\nStart val_loss\n")
-                        
-                        total_loss = 0.0
-                        num_batches = len(val_dataloader)
-                        # if no val data, skip the following 
-                        if num_batches == 0:
-                            print("No validation data, skip validation.")
-                        else:
-                            # basically the as same as the training loop
-                            enumerate_val_dataloader = enumerate(val_dataloader)
-                            for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                                latents = batch["latents"].to(accelerator.device)
-                                bsz, _, _, _ = latents.shape
-                                
-                                indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
-                                timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
-                                
-                                noise = torch.randn_like(latents)
-                                
-                                # Add noise to the model input according to the noise magnitude at each timestep
-                                # (this is the forward diffusion process)
-                                noisy_model_input = noise_scheduler.add_noise(latents, noise, timesteps)
-                                
-                                add_time_ids = batch["time_ids"].to(accelerator.device, dtype=weight_dtype)
-                                unet_added_conditions = {"time_ids": add_time_ids}
-                                prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                                unet_added_conditions.update({"text_embeds": pooled_prompt_embeds})
-                                model_pred = unet(
-                                    noisy_model_input,
-                                    timesteps,
-                                    prompt_embeds,
-                                    added_cond_kwargs=unet_added_conditions,
-                                    return_dict=False,
-                                )[0]
-                                
-                                target = noise
-                                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-                                
-                                # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
-                                if args.use_debias:
-                                    loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
-                                
-                                total_loss+=loss.detach()
-                                del latents, target, loss, model_pred,  timesteps,  bsz, noise, noisy_model_input
-                                gc.collect()
-                                torch.cuda.empty_cache()
-                                
-                            avg_loss = total_loss / num_batches
-                            
-                            lr = lr_scheduler.get_last_lr()[0]
-                            lr_name = "val_lr"
-                            if args.optimizer == "prodigy":
-                                lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                                lr_name = "val_lr lr/d*lr"
-                            logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
-                            print(logs)
-                            progress_bar.set_postfix(**logs)
-                            accelerator.log(logs, step=global_step)
-                            del num_batches, avg_loss, total_loss
-                        del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        print("\nEnd val_loss\n")
-            
-        # restore rng before validation
-        np.random.seed(np_seed)
-        torch.random.set_rng_state(before_state)
-        torch.backends.cudnn.deterministic = False
-        version, state, gauss = py_state
-        python_set_rng_state((version, tuple(state), gauss))
-        
         # del before_state, np_seed, py_state
         gc.collect()
         torch.cuda.empty_cache()
@@ -1396,7 +1533,6 @@ def main(args):
     accelerator.end_training()
     print("Saved to ")
     print(args.output_dir)
-
 
 if __name__ == "__main__":
     args = parse_args()

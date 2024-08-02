@@ -13,20 +13,18 @@
 # limitations under the License.
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from kolors.models.modeling_chatglm import ChatGLMModel
 from kolors.models.tokenization_chatglm import ChatGLMTokenizer
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import torch
-from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
-from transformers import XLMRobertaModel, ChineseCLIPTextModel
+# from transformers import CLIPTextModel, CLIPTextModelWithProjection, CLIPTokenizer
+# from transformers import XLMRobertaModel, ChineseCLIPTextModel
 
 from diffusers.image_processor import VaeImageProcessor
 from diffusers.loaders import FromSingleFileMixin, LoraLoaderMixin, TextualInversionLoaderMixin
-from diffusers.models import AutoencoderKL
-from kolors.models.unet_2d_condition import UNet2DConditionModel
-# from diffusers.models import AutoencoderKL, UNet2DConditionModel
+from diffusers.models import AutoencoderKL, UNet2DConditionModel
 from diffusers.models.attention_processor import (
     AttnProcessor2_0,
     LoRAAttnProcessor2_0,
@@ -333,16 +331,12 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
                         position_ids=text_inputs['position_ids'],
                         output_hidden_states=True)
                 prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
-                pooled_prompt_embeds = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
+                text_proj = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
                 bs_embed, seq_len, _ = prompt_embeds.shape
                 prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
                 prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
 
                 prompt_embeds_list.append(prompt_embeds)
-                bs_embed = pooled_prompt_embeds.shape[0]
-                pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, num_images_per_prompt).view(
-                    bs_embed * num_images_per_prompt, -1
-                )
 
             # prompt_embeds = torch.concat(prompt_embeds_list, dim=-1)
             prompt_embeds = prompt_embeds_list[0]
@@ -393,7 +387,7 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
                         position_ids=uncond_input['position_ids'],
                         output_hidden_states=True)
                 negative_prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
-                negative_pooled_prompt_embeds = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
+                negative_text_proj = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
 
                 if do_classifier_free_guidance:
                     # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
@@ -414,12 +408,16 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
 
             # negative_prompt_embeds = torch.concat(negative_prompt_embeds_list, dim=-1)
             negative_prompt_embeds = negative_prompt_embeds_list[0]
-            bs_embed = negative_pooled_prompt_embeds.shape[0]
-            negative_pooled_prompt_embeds = negative_pooled_prompt_embeds.repeat(1, num_images_per_prompt).view(
-                bs_embed * num_images_per_prompt, -1
-            )
 
-        return prompt_embeds, negative_prompt_embeds, pooled_prompt_embeds, negative_pooled_prompt_embeds
+        bs_embed = text_proj.shape[0]
+        text_proj = text_proj.repeat(1, num_images_per_prompt).view(
+            bs_embed * num_images_per_prompt, -1
+        )
+        negative_text_proj = negative_text_proj.repeat(1, num_images_per_prompt).view(
+            bs_embed * num_images_per_prompt, -1
+        )
+
+        return prompt_embeds, negative_prompt_embeds, text_proj, negative_text_proj
 
     # Copied from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline.prepare_extra_step_kwargs
     def prepare_extra_step_kwargs(self, generator, eta):
@@ -752,15 +750,14 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
             original_size, crops_coords_top_left, target_size, dtype=prompt_embeds.dtype
         )
 
-        prompt_embeds = prompt_embeds.to(device)
-        add_text_embeds = add_text_embeds.to(device)
-        add_time_ids = add_time_ids.to(device)
         if do_classifier_free_guidance:
             prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
             add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
             add_time_ids = torch.cat([add_time_ids, add_time_ids], dim=0)
 
-        add_time_ids = add_time_ids.repeat(batch_size * num_images_per_prompt, 1)
+        prompt_embeds = prompt_embeds.to(device)
+        add_text_embeds = add_text_embeds.to(device)
+        add_time_ids = add_time_ids.to(device).repeat(batch_size * num_images_per_prompt, 1)
 
         # 8. Denoising loop
         num_warmup_steps = max(len(timesteps) - num_inference_steps * self.scheduler.order, 0)
@@ -824,7 +821,7 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False)[0]
         else:
             image = latents
-            return StableDiffusionXLPipelineOutput(images=image), latents
+            return StableDiffusionXLPipelineOutput(images=image)
 
         # image = self.watermark.apply_watermark(image)
         image = self.image_processor.postprocess(image, output_type=output_type)
@@ -836,7 +833,7 @@ class StableDiffusionXLPipeline(DiffusionPipeline, FromSingleFileMixin, LoraLoad
         if not return_dict:
             return (image,)
 
-        return StableDiffusionXLPipelineOutput(images=image), latents
+        return StableDiffusionXLPipelineOutput(images=image)
 
 
 if __name__ == "__main__":
