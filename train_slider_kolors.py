@@ -627,12 +627,10 @@ def main(args):
     # args.optimizer = "adamw"
     # args.lr_warmup_steps = 1
     # args.lr_scheduler = "cosine"
-    # args.save_model_epochs = 1
     # args.validation_epochs = 1
     # args.train_batch_size = 1
     # args.repeats = 1
     # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 5
     # args.use_dora = False
     # args.caption_dropout = 0.2
     
@@ -653,8 +651,10 @@ def main(args):
     args.train_batch_size = 1
     args.output_dir = "F:/models/kolors"
     args.save_name = "kolors-anime-slider"
-    args.repeats = 1000
+    args.num_train_epochs = 5
+    args.repeats = 100
     args.recreate_cache = True
+    args.save_model_epochs = 1
     
     default_positive_scale = 2
     default_negative_scale = -2
@@ -969,7 +969,7 @@ def main(args):
             
             metadata = {}
             # single_image_training = False
-            if os.path.exists(metadata_path) or not recreate_cache:
+            if os.path.exists(metadata_path) and not recreate_cache:
                 with open(metadata_path, "r", encoding='utf-8') as readfile:
                     metadata = json.loads(readfile.read())
                     # check md5
@@ -1203,7 +1203,7 @@ def main(args):
             generation_configs = metadata['generation_configs']
             pos_config = generation_configs[0]
             neg_config = generation_configs[1]
-            uncondition_config = generation_configs[2]
+            # uncondition_config = generation_configs[2]
             if len(pos_config['item_list']) == 0 and len(neg_config['item_list']) == 0:
                 raise ValueError("No item in metadata.")
             if len(pos_config['item_list']) != len(neg_config['item_list']):
@@ -1212,7 +1212,7 @@ def main(args):
                 datarows.append(
                     {
                         "bucket": pos_item['bucket'],
-                        "uncondition_npz_path": uncondition_config['npz_path'],
+                        # "uncondition_npz_path": uncondition_config['npz_path'],
                         "pos_npz_path": pos_config['npz_path'],
                         "pos_latent_path": pos_item['latent_path'],
                         "neg_npz_path": neg_config['npz_path'],
