@@ -223,8 +223,6 @@ class CachedPairsDataset(Dataset):
         #cached files
         pos_npz = torch.load(metadata['pos_npz_path'])
         pos_latent_dict = torch.load(metadata['pos_latent_path'])
-        neg_npz = torch.load(metadata['neg_npz_path'])
-        neg_latent_dict = torch.load(metadata['neg_latent_path'])
         
         pos_prompt_embed = pos_npz['prompt_embed']
         pos_pooled_prompt_embed = pos_npz['pooled_prompt_embed']
@@ -237,16 +235,22 @@ class CachedPairsDataset(Dataset):
             pos_pooled_prompt_embed = self.empty_pooled_prompt_embed
 
         
+        neg_npz = torch.load(metadata['neg_npz_path'])
+        neg_latent_dict = torch.load(metadata['neg_latent_path'])
+        
         neg_prompt_embed = neg_npz['prompt_embed']
         neg_pooled_prompt_embed = neg_npz['pooled_prompt_embed']
         neg_latent = neg_latent_dict['latent']
         neg_time_id = neg_latent_dict['time_id']
         
-        
         # conditional_dropout
         if random.random() < self.conditional_dropout_percent:
             neg_prompt_embed = self.empty_prompt_embed
             neg_pooled_prompt_embed = self.empty_pooled_prompt_embed
+        
+        main_npz = torch.load(metadata['main_npz_path'])
+        main_prompt_embed = main_npz['prompt_embed']
+        main_pooled_prompt_embed = main_npz['pooled_prompt_embed']
         
         # uncondition_npz = torch.load(metadata['uncondition_npz_path'])
         # uncondition_prompt_embed = uncondition_npz['prompt_embed']
@@ -266,8 +270,8 @@ class CachedPairsDataset(Dataset):
             "neg_time_id":neg_time_id,
             
             # uncondition embedding
-            # "uncondition_prompt_embed": uncondition_prompt_embed,
-            # "uncondition_pooled_prompt_embed": uncondition_pooled_prompt_embed,
+            "main_prompt_embed": main_prompt_embed,
+            "main_pooled_prompt_embed": main_pooled_prompt_embed,
         }
 
 # main idea is store all tensor related in .npz file

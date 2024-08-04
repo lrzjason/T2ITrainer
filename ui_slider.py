@@ -23,13 +23,13 @@ config_keys = [
     'gradient_accumulation_steps',
     'num_train_epochs',
     'save_model_epochs',
-    'validation_epochs',
+    # 'validation_epochs',
     'rank',
     'skip_epoch',
     'break_epoch',
-    'skip_step',
+    # 'skip_step',
     'gradient_checkpointing',
-    'validation_ratio',
+    # 'validation_ratio',
     'pretrained_model_name_or_path',
     'model_path',
     'resume_from_checkpoint',
@@ -37,13 +37,20 @@ config_keys = [
     'recreate_cache',
     'vae_path',
     'config_path',
-    'resolution',
-    'use_debias'
+    # 'resolution',
+    # 'use_debias',
+    'main_prompt',
+    'pos_prompt',
+    'neg_prompt',
+    'steps',
+    'cfg',
+    'generation_batch',
+    'image_prefix'
 ]
 
 default_config = {
-    "script": "train_kolors_lora_ui.py",
-    "script_choices": ["train_kolors_lora_ui.py",
+    "script": "train_slider_kolors.py",
+    "script_choices": ["train_slider_kolors.py",
                     #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
                        ],
     "output_dir":"F:/models/kolors",
@@ -55,7 +62,7 @@ default_config = {
     "model_path":None, 
     "logging_dir":"logs",
     "report_to":"wandb", 
-    "rank":32,
+    "rank":4,
     "train_batch_size":1,
     "repeats":10,
     "gradient_accumulation_steps":1,
@@ -68,19 +75,26 @@ default_config = {
     "seed":4321,
     "num_train_epochs":20,
     "save_model_epochs":1, 
-    "validation_epochs":1, 
+    # "validation_epochs":1, 
     "skip_epoch":0, 
     "break_epoch":0,
-    "skip_step":0, 
-    "validation_ratio":0.1, 
+    # "skip_step":0, 
+    # "validation_ratio":0.1, 
     "use_dora":False,
     "recreate_cache":False,
     "caption_dropout":0.1,
     "config_path":"config.json",
-    "resolution":"1024",
-    "resolution_choices":["1024","2048"],
-    'use_debias':False,
-    'snr_gamma':0
+    # "resolution":"1024",
+    # "resolution_choices":["1024","2048"],
+    # 'use_debias':False,
+    # 'snr_gamma':0,
+    "main_prompt": "anime artwork of a beautiful girl, ",
+    "pos_prompt": "highly detailed, well drawing, digital artwork, detailed background",
+    "neg_prompt": "sketch, unfinised drawing, monochrome, simple background",
+    "steps": 30,
+    "cfg": 3.5,
+    "generation_batch": 5,
+    "image_prefix": "image"
 }
 
 
@@ -104,23 +118,30 @@ def save_config(
         gradient_accumulation_steps,
         num_train_epochs,
         save_model_epochs,
-        validation_epochs,
+        # validation_epochs,
         rank,
         skip_epoch,
         break_epoch,
-        skip_step,
+        # skip_step,
         gradient_checkpointing,
-        validation_ratio,
+        # validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
-        use_debias,
-        snr_gamma,
-        caption_dropout
+        # resolution,
+        # use_debias,
+        # snr_gamma,
+        caption_dropout,
+        main_prompt,
+        pos_prompt,
+        neg_prompt,
+        steps,
+        cfg,
+        generation_batch,
+        image_prefix
     ):
     config = {
         "script":script,
@@ -140,13 +161,13 @@ def save_config(
         "gradient_accumulation_steps":gradient_accumulation_steps,
         "num_train_epochs":num_train_epochs,
         "save_model_epochs":save_model_epochs,
-        "validation_epochs":validation_epochs,
+        # "validation_epochs":validation_epochs,
         "rank":rank,
         "skip_epoch":skip_epoch,
         "break_epoch":break_epoch,
-        "skip_step":skip_step,
+        # "skip_step":skip_step,
         "gradient_checkpointing":gradient_checkpointing,
-        "validation_ratio":validation_ratio,
+        # "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
         "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
@@ -154,10 +175,17 @@ def save_config(
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
         "config_path":config_path,
-        "resolution":resolution,
-        "use_debias":use_debias,
-        'snr_gamma':snr_gamma,
-        "caption_dropout":caption_dropout
+        # "resolution":resolution,
+        # "use_debias":use_debias,
+        # 'snr_gamma':snr_gamma,
+        "caption_dropout":caption_dropout,
+        "main_prompt": main_prompt,
+        "pos_prompt": pos_prompt,
+        "neg_prompt": neg_prompt,
+        "steps": steps,
+        "cfg": cfg,
+        "generation_batch": generation_batch,
+        "image_prefix": image_prefix
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -198,15 +226,72 @@ def load_config(config_path):
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
             default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'], \
-            default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
+            default_config['num_train_epochs'],default_config['save_model_epochs'], \
             default_config['rank'],default_config['skip_epoch'],default_config['break_epoch'], \
-            default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
+            default_config['gradient_checkpointing'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
-            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
-            default_config['snr_gamma'],default_config['caption_dropout']
+            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'], \
+            default_config['caption_dropout'], \
+            default_config['main_prompt'], \
+            default_config['pos_prompt'], \
+            default_config['neg_prompt'], \
+            default_config['steps'], \
+            default_config['cfg'], \
+            default_config['generation_batch'], \
+            default_config['image_prefix']
+            # default_config['validation_epochs'],
+            # default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
+            # default_config['resolution'], default_config['snr_gamma'], \
 
 # load config.json by default
 load_config("config.json")
+
+def gen(
+    pretrained_model_name_or_path,
+    train_data_dir,
+    image_prefix,
+    main_prompt,
+    pos_prompt,
+    neg_prompt,
+    generation_batch,
+    steps,
+    cfg,
+    seed,
+    vae_path
+):
+    if vae_path is None or vae_path == "" or not vae_path.endswith('.safetensors'):
+        msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
+        gr.Warning(msg)
+        return msg
+    inputs = {
+        "train_data_dir":train_data_dir,
+        "image_prefix":image_prefix,
+        "main_prompt":main_prompt,
+        "pos_prompt":pos_prompt,
+        "neg_prompt":neg_prompt,
+        "generation_batch":generation_batch,
+        "pretrained_model_name_or_path":pretrained_model_name_or_path,
+        "steps":steps,
+        "cfg":cfg,
+        "seed":seed,
+        "vae_path":vae_path,
+    }
+    # Convert the inputs dictionary to a list of arguments
+    # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
+    # script = "test_.pyt"
+    args = [sys.executable, "prepare_slider_data.py"]
+    for key, value in inputs.items():
+        if value is not None:
+            if isinstance(value, bool):  # exclude boolean values
+                if value == True:
+                    args.append(f"--{key}")
+            else:
+                args.append(f"--{key}")
+                args.append(str(value))
+                
+    # Call the script with the arguments
+    subprocess.call(args)
+    return " ".join(args)
 def run(
         config_path,
         script,
@@ -226,29 +311,29 @@ def run(
         gradient_accumulation_steps,
         num_train_epochs,
         save_model_epochs,
-        validation_epochs,
         rank,
         skip_epoch,
         break_epoch,
-        skip_step,
         gradient_checkpointing,
-        validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
-        use_debias,
-        snr_gamma,
-        caption_dropout
+        caption_dropout,
+        main_prompt,
+        pos_prompt,
+        neg_prompt,
+        steps,
+        cfg,
+        generation_batch,
+        image_prefix
     ):
-    if vae_path is not None:
-        if not vae_path.endswith('.safetensors') and not vae_path == "":
-            msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
-            gr.Warning(msg)
-            return msg
+    if vae_path is None or vae_path == "" or not vae_path.endswith('.safetensors'):
+        msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
+        gr.Warning(msg)
+        return msg
     
     inputs = {
         "seed":seed,
@@ -267,23 +352,30 @@ def run(
         "gradient_accumulation_steps":gradient_accumulation_steps,
         "num_train_epochs":num_train_epochs,
         "save_model_epochs":save_model_epochs,
-        "validation_epochs":validation_epochs,
+        # "validation_epochs":validation_epochs,
         "rank":rank,
         "skip_epoch":skip_epoch,
         "break_epoch":break_epoch,
-        "skip_step":skip_step,
+        # "skip_step":skip_step,
         "gradient_checkpointing":gradient_checkpointing,
-        "validation_ratio":validation_ratio,
+        # "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
         "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
-        "resolution":resolution,
-        "use_debias":use_debias,
-        "snr_gamma":snr_gamma,
-        "caption_dropout":caption_dropout
+        # "resolution":resolution,
+        # "use_debias":use_debias,
+        # "snr_gamma":snr_gamma,
+        "caption_dropout":caption_dropout,
+        "main_prompt":main_prompt,
+        "pos_prompt":pos_prompt,
+        "neg_prompt":neg_prompt,
+        "steps":steps,
+        "cfg":cfg,
+        "generation_batch":generation_batch,
+        "image_prefix":image_prefix
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -319,36 +411,47 @@ def run(
         gradient_accumulation_steps,
         num_train_epochs,
         save_model_epochs,
-        validation_epochs,
+        # validation_epochs,
         rank,
         skip_epoch,
         break_epoch,
-        skip_step,
+        # skip_step,
         gradient_checkpointing,
-        validation_ratio,
+        # validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
-        use_debias,
-        snr_gamma,
-        caption_dropout
+        # resolution,
+        # use_debias,
+        # snr_gamma,
+        caption_dropout,
+        main_prompt,
+        pos_prompt,
+        neg_prompt,
+        steps,
+        cfg,
+        generation_batch,
+        image_prefix
     )
     # print(args)
     return " ".join(args)
     
 
 with gr.Blocks() as demo:
-    script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
+    gr.Markdown(
+    """
+    ## Kolors Slider Training
+    """)
     with gr.Row(equal_height=True):
             # Text input for user to specify another config save and load dir
         config_path = gr.Textbox(scale=3, label="Config Path (.json file)", value=default_config["config_path"], placeholder="Enter path to save/load config")
         save_config_btn = gr.Button("Save", scale=1)
         load_config_btn = gr.Button("load", scale=1)
 
+    script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
     with gr.Accordion("Directory section"):
         # dir section
         with gr.Row():
@@ -371,6 +474,20 @@ with gr.Blocks() as demo:
         with gr.Row():
             report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
 
+    with gr.Accordion("Prompt"): 
+        with gr.Row():
+            main_prompt = gr.Textbox(label="Main prompt", value=default_config["main_prompt"], placeholder="main prompt")
+            pos_prompt = gr.Textbox(label="Positive prompt", value=default_config["pos_prompt"], placeholder="pos prompt")
+            neg_prompt = gr.Textbox(label="Negative prompt", value=default_config["neg_prompt"], placeholder="neg prompt")
+        with gr.Row():
+            steps = gr.Number(label="Steps", value=default_config["steps"], info="Steps for generation", maximum=50, minimum=30)
+            cfg = gr.Number(label="CFG", value=default_config["cfg"], info="CFG for generation", maximum=5, minimum=1)
+            
+        with gr.Row():
+            image_prefix = gr.Textbox(label="Image Prefix", value=default_config["image_prefix"], placeholder="image_prefix")
+            generation_batch = gr.Number(label="Generation Batch", value=default_config["generation_batch"], info="Generation_batch", maximum=20, minimum=5)
+            gen_btn = gr.Button("Generate")
+    
     with gr.Accordion("Lora Config"):
         # train related section
         with gr.Row():
@@ -395,25 +512,39 @@ with gr.Blocks() as demo:
         with gr.Row():
             num_train_epochs = gr.Number(label="num_train_epochs", value=default_config["num_train_epochs"], info="Total epoches of the training")
             save_model_epochs = gr.Number(label="save_model_epochs", value=default_config["save_model_epochs"], info="Save checkpoint when x epoches")
-            validation_epochs = gr.Number(label="validation_epochs", value=default_config["validation_epochs"], info="perform validation when x epoches")
+            # validation_epochs = gr.Number(label="validation_epochs", value=default_config["validation_epochs"], info="perform validation when x epoches")
         with gr.Row():
             skip_epoch = gr.Number(label="skip_epoch", value=default_config["skip_epoch"], info="Skip x epoches for validation and save checkpoint")
             break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
-            skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
+            # skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
         with gr.Row():
-            validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
-            recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
-            use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
-            snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
+            # validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
             caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=0.5, minimum=0)
-        gr.Markdown(
-"""
-## Experiment Option: resolution
-- Based target resolution (default:1024). 
-- 2048 resolution requires more vram for encoding image and training. Please make sure you have enough vram.
-""")
-        with gr.Row():
-            resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
+            recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
+            # use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
+            # snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
+           
+#         gr.Markdown(
+# """
+# ## Experiment Option: resolution
+# - Based target resolution (default:1024). 
+# - 2048 resolution requires more vram for encoding image and training. Please make sure you have enough vram.
+# """)
+#         with gr.Row():
+#             resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
+    gen_inputs = [
+        pretrained_model_name_or_path,
+        train_data_dir,
+        image_prefix,
+        main_prompt,
+        pos_prompt,
+        neg_prompt,
+        generation_batch,
+        steps,
+        cfg,
+        seed,
+        vae_path,
+    ]
     inputs = [
         config_path,
         script,
@@ -433,23 +564,23 @@ with gr.Blocks() as demo:
         gradient_accumulation_steps,
         num_train_epochs,
         save_model_epochs,
-        validation_epochs,
         rank,
         skip_epoch,
         break_epoch,
-        skip_step,
         gradient_checkpointing,
-        validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
-        use_debias,
-        snr_gamma,
-        caption_dropout
+        caption_dropout,
+        main_prompt,
+        pos_prompt,
+        neg_prompt,
+        steps,
+        cfg,
+        generation_batch
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
@@ -457,4 +588,5 @@ with gr.Blocks() as demo:
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
     save_config_btn.click(fn=save_config, inputs=inputs)
     load_config_btn.click(fn=load_config, inputs=[config_path], outputs=inputs)
+    gen_btn.click(fn=gen, inputs=gen_inputs, outputs=output, api_name="gen")
 demo.launch()

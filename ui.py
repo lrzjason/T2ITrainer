@@ -342,6 +342,10 @@ def run(
     
 
 with gr.Blocks() as demo:
+    gr.Markdown(
+    """
+    ## Lora Training
+    """)
     script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
     with gr.Row(equal_height=True):
             # Text input for user to specify another config save and load dir

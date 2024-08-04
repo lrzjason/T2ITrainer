@@ -412,34 +412,26 @@ def parse_args(input_args=None):
         default=None,
         help=("seperate vae path"),
     )
-    parser.add_argument(
-        "--resolution_config",
-        type=str,
-        default=None,
-        help=("default: '1024', accept str: '1024', '2048'"),
-    )
-    parser.add_argument(
-        "--use_debias",
-        action="store_true",
-        help="Use debiased estimation loss",
-    )
+    # parser.add_argument(
+    #     "--resolution_config",
+    #     type=str,
+    #     default=None,
+    #     help=("default: '1024', accept str: '1024', '2048'"),
+    # )
+    # parser.add_argument(
+    #     "--use_debias",
+    #     action="store_true",
+    #     help="Use debiased estimation loss",
+    # )
     
-    parser.add_argument(
-        "--snr_gamma",
-        type=float,
-        default=5,
-        help="SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
-        "More details here: https://arxiv.org/abs/2303.09556.",
-    )
+    # parser.add_argument(
+    #     "--snr_gamma",
+    #     type=float,
+    #     default=5,
+    #     help="SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
+    #     "More details here: https://arxiv.org/abs/2303.09556.",
+    # )
     
-    parser.add_argument(
-        "--main_prompt",
-        type=str,
-        default="a girl",
-        help=(
-            "the main prompt for both positive images and negative images"
-        ),
-    )
     # parser.add_argument(
     #     "--uncondition_prompt",
     #     type=str,
@@ -448,6 +440,14 @@ def parse_args(input_args=None):
     #         "the main uncondition prompt for both positive images and negative images"
     #     ),
     # )
+    parser.add_argument(
+        "--main_prompt",
+        type=str,
+        default="a girl",
+        help=(
+            "the main prompt for both positive images and negative images"
+        ),
+    )
     parser.add_argument(
         "--pos_prompt",
         type=str,
@@ -474,8 +474,8 @@ def parse_args(input_args=None):
     )
     parser.add_argument(
         "--cfg",
-        type=int,
-        default=5,
+        type=float,
+        default=3.5,
         help=(
             "Image generation guidance_scale"
         ),
@@ -489,6 +489,14 @@ def parse_args(input_args=None):
         ),
     )
     
+    parser.add_argument(
+        "--image_prefix",
+        type=str,
+        default="image",
+        help=(
+            "image filename prefix"
+        ),
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -496,26 +504,6 @@ def parse_args(input_args=None):
         args = parser.parse_args()
 
     return args
-
-
-def rescale_noise_cfg(
-    noise_cfg: torch.FloatTensor, noise_pred_text, guidance_rescale=0.0
-):
-    """
-    Rescale `noise_cfg` according to `guidance_rescale`. Based on findings of [Common Diffusion Noise Schedules and
-    Sample Steps are Flawed](https://arxiv.org/pdf/2305.08891.pdf). See Section 3.4
-    """
-    std_text = noise_pred_text.std(
-        dim=list(range(1, noise_pred_text.ndim)), keepdim=True
-    )
-    std_cfg = noise_cfg.std(dim=list(range(1, noise_cfg.ndim)), keepdim=True)
-    # rescale the results from guidance (fixes overexposure)
-    noise_pred_rescaled = noise_cfg * (std_text / std_cfg)
-    # mix with the original results from guidance by factor guidance_rescale to avoid "plain looking" images
-    noise_cfg = (
-        guidance_rescale * noise_pred_rescaled + (1 - guidance_rescale) * noise_cfg
-    )
-    return noise_cfg
 
 
 def concat_embeddings(
@@ -560,14 +548,7 @@ def predict_noise_xl(
         noise_pred_text - noise_pred_uncond
     )
 
-    # https://github.com/huggingface/diffusers/blob/7a91ea6c2b53f94da930a61ed571364022b21044/src/diffusers/pipelines/stable_diffusion_xl/pipeline_stable_diffusion_xl.py#L775
-    # noise_pred = rescale_noise_cfg(
-    #     noise_pred, noise_pred_text, guidance_rescale=guidance_rescale
-    # )
-
-    # try rescale_noise_cfg
     return guided_target
-    # return noise_pred
 
 def main(args):
     
@@ -587,8 +568,8 @@ def main(args):
     max_train_steps = None
 
     max_grad_norm = 1.0
-    revision = None
-    variant = None
+    # revision = None
+    # variant = None
     prodigy_decouple = True
     prodigy_beta3 = None
     prodigy_use_bias_correction = True
@@ -600,7 +581,7 @@ def main(args):
     lr_power = 1
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
-    val_seed = random.randint(1, 100)
+    # val_seed = random.randint(1, 100)
     # args.seed = 4321
     # args.logging_dir = 'logs'
     # args.mixed_precision = "bf16"
@@ -634,27 +615,28 @@ def main(args):
     # args.use_dora = False
     # args.caption_dropout = 0.2
     
-    args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
-    args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
-    # args.train_data_dir = "F:/ImageSet/kolors_slider"
-    args.train_data_dir = "F:/ImageSet/kolors_slider_anime"
-    args.main_prompt = "anime artwork of a beautiful girl, "
+    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    # args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
+    # # args.train_data_dir = "F:/ImageSet/kolors_slider"
+    # args.train_data_dir = "F:/ImageSet/kolors_slider_anime"
     # not use uncondition prompt
     # args.uncondition_prompt = "photo, realistic"
-    args.pos_prompt = "highly detailed, well drawing, digital artwork, detailed background"
-    args.neg_prompt = "sketch, unfinised drawing, monochrome, simple background"
-    args.steps = 30
-    args.cfg = 3.5
-    args.seed = 1
-    args.generation_batch = 5
-    args.mixed_precision = "fp16"
-    args.train_batch_size = 1
-    args.output_dir = "F:/models/kolors"
-    args.save_name = "kolors-anime-slider"
-    args.num_train_epochs = 5
-    args.repeats = 100
-    args.recreate_cache = True
-    args.save_model_epochs = 1
+    # args.main_prompt = "anime artwork of a beautiful girl, "
+    # args.pos_prompt = "highly detailed, well drawing, digital artwork, detailed background"
+    # args.neg_prompt = "sketch, unfinised drawing, monochrome, simple background"
+    # args.steps = 30
+    # args.cfg = 3.5
+    # args.seed = 1
+    # args.generation_batch = 5
+    
+    # args.mixed_precision = "fp16"
+    # args.train_batch_size = 1
+    # args.output_dir = "F:/models/kolors"
+    # args.save_name = "kolors-anime-slider"
+    # args.num_train_epochs = 5
+    # args.repeats = 100
+    # args.recreate_cache = True
+    # args.save_model_epochs = 1
     
     default_positive_scale = 2
     default_negative_scale = -2
@@ -689,8 +671,8 @@ def main(args):
     #     beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
     #     dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
     # )
-    if args.use_debias:
-        prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
+    # if args.use_debias:
+    #     prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
@@ -1009,10 +991,10 @@ def main(args):
                             "set_name":"negative",
                             "prompt":f"{args.main_prompt}, {args.neg_prompt}",
                         },
-                        # {
-                        #     "set_name":"uncondition",
-                        #     "prompt":f"{args.uncondition_prompt}",
-                        # },
+                        {
+                            "set_name":"main",
+                            "prompt":f"{args.main_prompt}",
+                        },
                     ],
                 }
             
@@ -1098,7 +1080,7 @@ def main(args):
                 prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
             
             # not use uncondition
-            # _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
+            _, main_prompt_embeds, main_pooled_prompt_embeds = prompt_embeds_list.pop()
             
             del text_encoder, tokenizer
             flush()
@@ -1203,7 +1185,7 @@ def main(args):
             generation_configs = metadata['generation_configs']
             pos_config = generation_configs[0]
             neg_config = generation_configs[1]
-            # uncondition_config = generation_configs[2]
+            main_config = generation_configs[2]
             if len(pos_config['item_list']) == 0 and len(neg_config['item_list']) == 0:
                 raise ValueError("No item in metadata.")
             if len(pos_config['item_list']) != len(neg_config['item_list']):
@@ -1212,7 +1194,7 @@ def main(args):
                 datarows.append(
                     {
                         "bucket": pos_item['bucket'],
-                        # "uncondition_npz_path": uncondition_config['npz_path'],
+                        "main_npz_path": main_config['npz_path'],
                         "pos_npz_path": pos_config['npz_path'],
                         "pos_latent_path": pos_item['latent_path'],
                         "neg_npz_path": neg_config['npz_path'],
@@ -1244,8 +1226,8 @@ def main(args):
         neg_prompt_embeds = torch.stack([example["neg_prompt_embed"] for example in examples])
         neg_pooled_prompt_embeds = torch.stack([example["neg_pooled_prompt_embed"] for example in examples])
         neg_time_ids = torch.stack([example["neg_time_id"] for example in examples])
-        # uncondition_prompt_embeds = torch.stack([example["uncondition_prompt_embed"] for example in examples])
-        # uncondition_pooled_prompt_embeds = torch.stack([example["uncondition_pooled_prompt_embed"] for example in examples])
+        main_prompt_embeds = torch.stack([example["main_prompt_embed"] for example in examples])
+        main_pooled_prompt_embeds = torch.stack([example["main_pooled_prompt_embed"] for example in examples])
 
         return {
             "pos_latents":pos_latents,
@@ -1256,8 +1238,8 @@ def main(args):
             "neg_prompt_embeds":neg_prompt_embeds,
             "neg_pooled_prompt_embeds":neg_pooled_prompt_embeds,
             "neg_time_ids":neg_time_ids,
-            # "uncondition_prompt_embeds":uncondition_prompt_embeds,
-            # "uncondition_pooled_prompt_embeds":uncondition_pooled_prompt_embeds,
+            "main_prompt_embeds":main_prompt_embeds,
+            "main_pooled_prompt_embeds":main_pooled_prompt_embeds,
         }
         
     # create dataset based on input_dir
@@ -1402,8 +1384,8 @@ def main(args):
                     neg_prompt_embeds = batch["neg_prompt_embeds"].to(accelerator.device)
                     neg_pooled_prompt_embeds = batch["neg_pooled_prompt_embeds"].to(accelerator.device)
                     neg_time_ids = batch["neg_time_ids"].to(accelerator.device)
-                    # uncondition_prompt_embeds = batch["uncondition_prompt_embeds"].to(accelerator.device)
-                    # uncondition_pooled_prompt_embeds = batch["uncondition_pooled_prompt_embeds"].to(accelerator.device)
+                    main_prompt_embeds = batch["main_prompt_embeds"].to(accelerator.device)
+                    main_pooled_prompt_embeds = batch["main_pooled_prompt_embeds"].to(accelerator.device)
                     
                     # prepare predicted noise image
                     # 
@@ -1497,13 +1479,13 @@ def main(args):
                         current_timestep,
                         neg_noised_latents,
                         text_embeddings=concat_embeddings(
-                            pos_prompt_embeds,
                             neg_prompt_embeds,
+                            main_prompt_embeds,
                             1,
                         ),
                         add_text_embeddings=concat_embeddings(
-                            pos_pooled_prompt_embeds,
                             neg_pooled_prompt_embeds,
+                            main_pooled_prompt_embeds,
                             1,
                         ),
                         add_time_ids=concat_embeddings(

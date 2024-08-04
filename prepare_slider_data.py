@@ -201,8 +201,8 @@ def parse_args(input_args=None):
     )
     parser.add_argument(
         "--cfg",
-        type=int,
-        default=5,
+        type=float,
+        default=3.5,
         help=(
             "Image generation guidance_scale"
         ),
@@ -241,24 +241,24 @@ def parse_args(input_args=None):
 
 @torch.no_grad()
 def main(args):
-    args.train_data_dir = "F:/ImageSet/kolors_slider"
-    args.image_prefix = "sky"
-    args.main_prompt = "photo of sky"
-    # args.uncondition_prompt = "star, starry, oil painting"
-    args.pos_prompt = "clean blue sky, day light"
-    args.neg_prompt = "chaotic dark sky, dark night"
-    # args.batch_size = 2
-    args.generation_batch = 5
-    args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
-    args.steps = 30
-    args.cfg = 3.5
-    args.seed = -1
-    args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    # args.train_data_dir = "F:/ImageSet/kolors_slider"
+    # args.image_prefix = "sky"
+    # args.main_prompt = "photo of sky"
+    # # args.uncondition_prompt = "star, starry, oil painting"
+    # args.pos_prompt = "clean blue sky, day light"
+    # args.neg_prompt = "chaotic dark sky, dark night"
+    # # args.batch_size = 2
+    # args.generation_batch = 5
+    # args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
+    # args.steps = 30
+    # args.cfg = 3.5
+    # args.seed = 1
+    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
     
     main_prompt = args.main_prompt
     # uncondition_prompt = args.uncondition_prompt
-    pos_prompt = f'{main_prompt}, {args.pos_prompt}'
-    neg_prompt = f'{main_prompt}, {args.neg_prompt}'
+    pos_prompt = args.pos_prompt
+    neg_prompt = args.neg_prompt
     # batch_size = args.batch_size
     generation_batch = args.generation_batch
     ckpt_dir = args.pretrained_model_name_or_path
@@ -266,12 +266,13 @@ def main(args):
     cfg = args.cfg
     
     # random seed
-    if args.seed == -1:
-        seed = random.randint(0, 1000)
-        print(f"set random seed: {seed}")
-    else:
-        seed = args.seed
-    
+    # if args.seed == -1:
+    #     seed = random.randint(0, 1000)
+    #     print(f"set random seed: {seed}")
+    # else:
+    #     seed = args.seed
+    seed = args.seed
+    os.makedirs(args.train_data_dir,exist_ok=True)
     
     metadata_file = "metadata_kolors_slider.json"
     metadata_path = os.path.join(args.train_data_dir, metadata_file)
@@ -350,17 +351,17 @@ def main(args):
     metadata['generation_configs'] = [
         {
             'set_name':"positive",
-            'prompt': pos_prompt,
+            'prompt': f'{main_prompt}, {pos_prompt}',
         },
         {
             
             'set_name':"negative",
-            'prompt': neg_prompt,
+            'prompt': f'{main_prompt}, {neg_prompt}',
         },
-        # {
-        #     'set_name':"uncondition",
-        #     'prompt': uncondition_prompt,
-        # },
+        {
+            'set_name':"main",
+            'prompt': main_prompt,
+        },
     ]
     for generation_config in metadata['generation_configs']:
         prompt = generation_config['prompt']
@@ -382,7 +383,7 @@ def main(args):
         generation_config['npz_path_md5'] = npz_path_md5
         prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
     
-    # _, uncondition_prompt_embeds, uncondition_pooled_prompt_embeds = prompt_embeds_list.pop()
+    _, main_prompt_embeds, main_pooled_prompt_embeds = prompt_embeds_list.pop()
     
     del text_encoder, tokenizer
     flush()
