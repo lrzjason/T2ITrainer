@@ -129,3 +129,4 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - Thanks to Kolors for the open-source checkpoint.
 - Thanks to comfyui for the wonderful codebase.
 - Thanks to emojiiii for the setup.bat script and other updates.
+- Thanks to Rohit Gandikota and related authors of Concept Sliders https://github.com/rohitgandikota/sliders
