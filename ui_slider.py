@@ -8,7 +8,7 @@ import os
 config_keys = [
     'script',
     'seed',
-    'logging_dir',
+    # 'logging_dir',
     'mixed_precision',
     'report_to',
     'lr_warmup_steps',
@@ -54,17 +54,17 @@ default_config = {
                     #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
                        ],
     "output_dir":"F:/models/kolors",
-    "save_name":"kolors-lora",
-    "pretrained_model_name_or_path":"Kwai-Kolors/Kolors", # or local folder F:\Kolors
+    "save_name":"kolors-slider-lora",
+    "pretrained_model_name_or_path":"kolors_models", # or local folder F:\Kolors
     "train_data_dir":"F:/ImageSet/kolors_test", 
     "vae_path":None, # or local file
     "resume_from_checkpoint":None,
     "model_path":None, 
-    "logging_dir":"logs",
+    # "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":4,
     "train_batch_size":1,
-    "repeats":10,
+    "repeats":20,
     "gradient_accumulation_steps":1,
     "mixed_precision":"fp16",
     "gradient_checkpointing":True,
@@ -83,7 +83,7 @@ default_config = {
     "use_dora":False,
     "recreate_cache":False,
     "caption_dropout":0.1,
-    "config_path":"config.json",
+    "config_path":"config_slider.json",
     # "resolution":"1024",
     # "resolution_choices":["1024","2048"],
     # 'use_debias':False,
@@ -103,7 +103,7 @@ def save_config(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -146,7 +146,7 @@ def save_config(
     config = {
         "script":script,
         "seed":seed,
-        "logging_dir":logging_dir,
+        # "logging_dir":logging_dir,
         "mixed_precision":mixed_precision,
         "report_to":report_to,
         "lr_warmup_steps":lr_warmup_steps,
@@ -192,7 +192,7 @@ def save_config(
         json.dump(config, f, indent=4)
     print(f"Configuration saved to {config_path}")
     print(f"Update default config")
-    with open("config.json", 'w') as f:
+    with open("config_slider.json", 'w') as f:
         json.dump(config, f, indent=4)
 
 # Function to load configuration from a specified directory
@@ -200,7 +200,7 @@ def load_config(config_path):
     if not config_path.endswith(".json"):
         print("!!!File is not json format.")
         print("Load default config")
-        config_path = "config.json"
+        config_path = "config_slider.json"
     if not os.path.exists(config_path):
         # create config
         with open(config_path, 'w') as f:
@@ -215,13 +215,13 @@ def load_config(config_path):
         with open(config_path, 'r') as f:
             config = json.load(f)
     except:
-        config_path = "config.json"
+        config_path = "config_slider.json"
     print(f"Loaded configuration from {config_path}")
     for key in config:
         if key in config_keys:
             default_config[key] = config[key]
             
-    return config_path,default_config['script'],default_config['seed'],default_config['logging_dir'], \
+    return config_path,default_config['script'],default_config['seed'],\
             default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
@@ -239,12 +239,13 @@ def load_config(config_path):
             default_config['cfg'], \
             default_config['generation_batch'], \
             default_config['image_prefix']
+            # default_config['logging_dir'], 
             # default_config['validation_epochs'],
             # default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             # default_config['resolution'], default_config['snr_gamma'], \
 
 # load config.json by default
-load_config("config.json")
+load_config("config_slider.json")
 
 def gen(
     pretrained_model_name_or_path,
@@ -296,7 +297,7 @@ def run(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -337,7 +338,7 @@ def run(
     
     inputs = {
         "seed":seed,
-        "logging_dir":logging_dir,
+        # "logging_dir":logging_dir,
         "mixed_precision":mixed_precision,
         "report_to":report_to,
         "lr_warmup_steps":lr_warmup_steps,
@@ -352,22 +353,16 @@ def run(
         "gradient_accumulation_steps":gradient_accumulation_steps,
         "num_train_epochs":num_train_epochs,
         "save_model_epochs":save_model_epochs,
-        # "validation_epochs":validation_epochs,
         "rank":rank,
         "skip_epoch":skip_epoch,
         "break_epoch":break_epoch,
-        # "skip_step":skip_step,
         "gradient_checkpointing":gradient_checkpointing,
-        # "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
         "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
-        # "resolution":resolution,
-        # "use_debias":use_debias,
-        # "snr_gamma":snr_gamma,
         "caption_dropout":caption_dropout,
         "main_prompt":main_prompt,
         "pos_prompt":pos_prompt,
@@ -396,7 +391,7 @@ def run(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -411,22 +406,16 @@ def run(
         gradient_accumulation_steps,
         num_train_epochs,
         save_model_epochs,
-        # validation_epochs,
         rank,
         skip_epoch,
         break_epoch,
-        # skip_step,
         gradient_checkpointing,
-        # validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
         vae_path,
-        # resolution,
-        # use_debias,
-        # snr_gamma,
         caption_dropout,
         main_prompt,
         pos_prompt,
@@ -470,15 +459,24 @@ with gr.Blocks() as demo:
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
-            logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
-        with gr.Row():
+            # logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
             report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
 
     with gr.Accordion("Prompt"): 
         with gr.Row():
             main_prompt = gr.Textbox(label="Main prompt", value=default_config["main_prompt"], placeholder="main prompt")
+            seed = gr.Number(label="seed", value=default_config["seed"], info="seed for generation and training")
+        with gr.Row():
             pos_prompt = gr.Textbox(label="Positive prompt", value=default_config["pos_prompt"], placeholder="pos prompt")
             neg_prompt = gr.Textbox(label="Negative prompt", value=default_config["neg_prompt"], placeholder="neg prompt")
+        gr.Markdown(
+"""
+## Generation Function
+- If you already prepared the dataset, you can skip this step.
+- The following setting would use main prompt, positive prompt and negative prompt to generate images.
+- The current version would make use of the pretrained_model_name_or_path to load kolors weight
+- The generated images would save to train_data_dir
+""")
         with gr.Row():
             steps = gr.Number(label="Steps", value=default_config["steps"], info="Steps for generation", maximum=50, minimum=30)
             cfg = gr.Number(label="CFG", value=default_config["cfg"], info="CFG for generation", maximum=5, minimum=1)
@@ -506,7 +504,6 @@ with gr.Blocks() as demo:
         with gr.Row():
             learning_rate = gr.Number(label="learning_rate", value=default_config["learning_rate"], info="Recommended: 1e-4 or 1 for prodigy")
             lr_warmup_steps = gr.Number(label="lr_warmup_steps", value=default_config["lr_warmup_steps"])
-            seed = gr.Number(label="seed", value=default_config["seed"])
 
     with gr.Accordion("Misc"):
         with gr.Row():
@@ -549,7 +546,7 @@ with gr.Blocks() as demo:
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -580,7 +577,8 @@ with gr.Blocks() as demo:
         neg_prompt,
         steps,
         cfg,
-        generation_batch
+        generation_batch,
+        image_prefix
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")

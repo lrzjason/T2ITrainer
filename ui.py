@@ -8,7 +8,7 @@ import os
 config_keys = [
     'script',
     'seed',
-    'logging_dir',
+    # 'logging_dir',
     'mixed_precision',
     'report_to',
     'lr_warmup_steps',
@@ -48,12 +48,12 @@ default_config = {
                        ],
     "output_dir":"F:/models/kolors",
     "save_name":"kolors-lora",
-    "pretrained_model_name_or_path":"Kwai-Kolors/Kolors", # or local folder F:\Kolors
+    "pretrained_model_name_or_path":"kolors_models", # or local folder F:\Kolors
     "train_data_dir":"F:/ImageSet/kolors_test", 
     "vae_path":None, # or local file
     "resume_from_checkpoint":None,
     "model_path":None, 
-    "logging_dir":"logs",
+    # "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":32,
     "train_batch_size":1,
@@ -89,7 +89,7 @@ def save_config(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -125,7 +125,7 @@ def save_config(
     config = {
         "script":script,
         "seed":seed,
-        "logging_dir":logging_dir,
+        # "logging_dir":logging_dir,
         "mixed_precision":mixed_precision,
         "report_to":report_to,
         "lr_warmup_steps":lr_warmup_steps,
@@ -193,7 +193,7 @@ def load_config(config_path):
         if key in config_keys:
             default_config[key] = config[key]
             
-    return config_path,default_config['script'],default_config['seed'],default_config['logging_dir'], \
+    return config_path,default_config['script'],default_config['seed'], \
             default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
@@ -204,6 +204,7 @@ def load_config(config_path):
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
             default_config['snr_gamma'],default_config['caption_dropout']
+            # default_config['logging_dir'],
 
 # load config.json by default
 load_config("config.json")
@@ -211,7 +212,7 @@ def run(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -252,7 +253,7 @@ def run(
     
     inputs = {
         "seed":seed,
-        "logging_dir":logging_dir,
+        # "logging_dir":logging_dir,
         "mixed_precision":mixed_precision,
         "report_to":report_to,
         "lr_warmup_steps":lr_warmup_steps,
@@ -304,7 +305,7 @@ def run(
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -371,9 +372,9 @@ with gr.Blocks() as demo:
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
-            logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
-        with gr.Row():
             report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
+            # logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
+        # with gr.Row():
 
     with gr.Accordion("Lora Config"):
         # train related section
@@ -422,7 +423,7 @@ with gr.Blocks() as demo:
         config_path,
         script,
         seed,
-        logging_dir,
+        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
