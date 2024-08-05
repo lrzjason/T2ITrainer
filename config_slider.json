@@ -27,11 +27,11 @@
     "vae_path": "F:\\models\\VAE\\sdxl_vae_fp16fix.safetensors",
     "config_path": "config_slider.json",
     "caption_dropout": 0.1,
-    "main_prompt": "portrait of a single person, ",
-    "pos_prompt": "laughing, smile, happy, Joy, Bliss, Euphoria, Ecstasy, Delight, Contentment, Serenity, Jubilation, Gratitude, Amusement",
-    "neg_prompt": "tearing from eyes, cry, sad, Sadness, Anguish, Misery, Despair, Discontent, Anxiety, Gloom, Grief, Frustration, Melancholy",
+    "main_prompt": "portrait of a girl, ",
+    "pos_prompt": "laughing, smile, happy",
+    "neg_prompt": "tearing, cry, sad",
     "steps": 30,
     "cfg": 3.5,
     "generation_batch": 5,
-    "image_prefix": "person"
+    "image_prefix": "girl"
 }

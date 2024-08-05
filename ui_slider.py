@@ -462,7 +462,7 @@ with gr.Blocks() as demo:
             # logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
             report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
 
-    with gr.Accordion("Prompt"): 
+    with gr.Accordion("Prompt section"): 
         with gr.Row():
             main_prompt = gr.Textbox(label="Main prompt", value=default_config["main_prompt"], placeholder="main prompt", info="Training target. For example: anime artwork of a beautiful girl, ")
             seed = gr.Number(label="seed", value=default_config["seed"], info="Seed for generation and training")
