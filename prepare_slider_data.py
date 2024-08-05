@@ -144,6 +144,12 @@ def parse_args(input_args=None):
         help="Path to pretrained model or model identifier from huggingface.co/models.",
     )
     parser.add_argument(
+        "--model_path",
+        type=str,
+        default=None,
+        help=("seperate model path"),
+    )
+    parser.add_argument(
         "--train_data_dir",
         type=str,
         default="",
@@ -330,9 +336,53 @@ def main(args):
     vae.to(device, dtype=weight_dtype)
     vae.requires_grad_(False)
     scheduler = EulerDiscreteScheduler.from_pretrained(f"{ckpt_dir}/scheduler")
-    unet = UNet2DConditionModel.from_pretrained(f"{ckpt_dir}/unet")
-    unet.to(device, dtype=weight_dtype)
-    unet.requires_grad_(False)
+    # unet = UNet2DConditionModel.from_pretrained(f"{ckpt_dir}/unet")
+    # unet.to(device, dtype=weight_dtype)
+    # unet.requires_grad_(False)
+    
+    
+    # load from repo
+    if args.pretrained_model_name_or_path == "Kwai-Kolors/Kolors":
+        unet = UNet2DConditionModel.from_pretrained(
+                args.pretrained_model_name_or_path, subfolder="unet", variant="fp16"
+            ).to(device, dtype=weight_dtype)
+    else:
+        # load from repo
+        unet_folder = os.path.join(args.pretrained_model_name_or_path, "unet")
+        weight_file = "diffusion_pytorch_model"
+        unet_variant = None
+        ext = ".safetensors"
+        # diffusion_pytorch_model.fp16.safetensors
+        fp16_weight = os.path.join(unet_folder, f"{weight_file}.fp16{ext}")
+        fp32_weight = os.path.join(unet_folder, f"{weight_file}{ext}")
+        if os.path.exists(fp16_weight):
+            unet_variant = "fp16"
+        elif os.path.exists(fp32_weight):
+            unet_variant = None
+        else:
+            raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+            
+        unet = UNet2DConditionModel.from_pretrained(
+                    unet_folder, variant=unet_variant
+                ).to(device, dtype=weight_dtype)
+    
+    if not (args.model_path is None or args.model_path == ""):
+        # load from file
+        state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
+        unexpected_keys = load_model_dict_into_meta(
+            unet,
+            state_dict,
+            device=device,
+            dtype=torch.float32,
+            model_name_or_path=args.model_path,
+        )
+        # updated_state_dict = unet.state_dict()
+        if len(unexpected_keys) > 0:
+            print(f"Unexpected keys in state_dict: {unexpected_keys}")
+        unet.to(device, dtype=weight_dtype)
+        del state_dict,unexpected_keys
+        flush()
+    
     # pipe = OriStableDiffusionXLPipeline.from_pretrained(
     #     "stabilityai/stable-diffusion-xl-base-1.0", 
     #     torch_dtype=torch.float16
@@ -384,15 +434,17 @@ def main(args):
         prompt_embeds_list.append((set_name,prompt_embeds, pooled_prompt_embeds))
     
     _, main_prompt_embeds, main_pooled_prompt_embeds = prompt_embeds_list.pop()
-    
+    text_encoder.to("cpu")
+    # tokenizer.to("cpu")
     del text_encoder, tokenizer
     flush()
     # align seed with positive and negative
-    sample_seed = seed
     pos_set_name, pos_prompt_embeds, pos_pooled_prompt_embeds = prompt_embeds_list[0]
     neg_set_name, neg_prompt_embeds, neg_pooled_prompt_embeds = prompt_embeds_list[1]
+    flush()
     with torch.no_grad():
         for j in range(len(prompt_embeds_list)):
+            sample_seed = seed
             set_name, prompt_embeds, pooled_prompt_embeds = prompt_embeds_list[j]
             save_dir = f"{args.train_data_dir}/{set_name}"
             metadata['generation_configs'][j]['item_list'] = []

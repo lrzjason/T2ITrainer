@@ -68,9 +68,9 @@ default_config = {
     "gradient_accumulation_steps":1,
     "mixed_precision":"fp16",
     "gradient_checkpointing":True,
-    "optimizer":"adamw",
+    "optimizer":"prodigy",
     "lr_scheduler":"cosine", 
-    "learning_rate":1e-4,
+    "learning_rate":1,
     "lr_warmup_steps":0,
     "seed":4321,
     "num_train_epochs":20,
@@ -88,13 +88,13 @@ default_config = {
     # "resolution_choices":["1024","2048"],
     # 'use_debias':False,
     # 'snr_gamma':0,
-    "main_prompt": "anime artwork of a beautiful girl, ",
-    "pos_prompt": "highly detailed, well drawing, digital artwork, detailed background",
-    "neg_prompt": "sketch, unfinised drawing, monochrome, simple background",
+    "main_prompt": "portrait of a single person, ",
+    "pos_prompt": "laughing, smile, happy, Joy, Bliss, Euphoria, Ecstasy, Delight, Contentment, Serenity, Jubilation, Gratitude, Amusement",
+    "neg_prompt": "tearing from eyes, cry, sad, Sadness, Anguish, Misery, Despair, Discontent, Anxiety, Gloom, Grief, Frustration, Melancholy",
     "steps": 30,
     "cfg": 3.5,
     "generation_batch": 5,
-    "image_prefix": "image"
+    "image_prefix": "person"
 }
 
 
