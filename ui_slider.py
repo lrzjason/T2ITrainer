@@ -464,8 +464,8 @@ with gr.Blocks() as demo:
 
     with gr.Accordion("Prompt"): 
         with gr.Row():
-            main_prompt = gr.Textbox(label="Main prompt", value=default_config["main_prompt"], placeholder="main prompt")
-            seed = gr.Number(label="seed", value=default_config["seed"], info="seed for generation and training")
+            main_prompt = gr.Textbox(label="Main prompt", value=default_config["main_prompt"], placeholder="main prompt", info="Training target. For example: anime artwork of a beautiful girl, ")
+            seed = gr.Number(label="seed", value=default_config["seed"], info="Seed for generation and training")
         with gr.Row():
             pos_prompt = gr.Textbox(label="Positive prompt", value=default_config["pos_prompt"], placeholder="pos prompt")
             neg_prompt = gr.Textbox(label="Negative prompt", value=default_config["neg_prompt"], placeholder="neg prompt")
