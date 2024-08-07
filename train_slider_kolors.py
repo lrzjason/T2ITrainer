@@ -19,7 +19,7 @@
 # changed the training target to kolors
 # changed the uncondition embedding from uncondition prompt to opposite prompt
 # use accelerator, peft library
-from diffusers.models.attention_processor import AttnProcessor2_0
+# from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # import jsonlines
 
