@@ -27,7 +27,7 @@
 # 20240402 bucketing works!!!!, many thanks to @minienglish1 from everydream discord
 #          added whole repeats to dataset
 # 20240710 add kolors training, dir kolors copied from https://github.com/Kwai-Kolors/Kolors
-from diffusers.models.attention_processor import AttnProcessor2_0
+# from diffusers.models.attention_processor import AttnProcessor2_0
 from diffusers.models.model_loading_utils import load_model_dict_into_meta
 # import jsonlines
 
