@@ -13,8 +13,8 @@ It updates very frequently, please check the change logs for details.
 
 ## Installation
 ### 0. Microsoft Visual C++ Redistributable latest supported downloads
-Please install Microsoft Visual C++ Redistributable if you have the following error:
-0SError:[WinError 126] ... Error loading "...\Lib\site-packages\torch\lib\fbgemm dl1" or one of its dependencies.
+Please install Microsoft Visual C++ Redistributable if you have the following error: \
+0SError:[WinError 126] ... Error loading "...\Lib\site-packages\torch\lib\fbgemm dl1" or one of its dependencies. \
 https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
 
 ### 1. Setup environment using setup.bat:
