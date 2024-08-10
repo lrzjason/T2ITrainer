@@ -40,7 +40,7 @@ cd T2ITrainer
 Create virtual environment if you want:
 ```
 python -m venv venv
-venv\Scripts\activate
+call venv\Scripts\activate
 ```
 If created virtual environment, install pytorch from https://pytorch.org/get-started/locally/
 (Recommanded Torch version >= 2.3.0+cu121)
