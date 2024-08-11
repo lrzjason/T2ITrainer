@@ -5,7 +5,7 @@
     "report_to": "wandb",
     "lr_warmup_steps": 0,
     "output_dir": "F:/models/kolors",
-    "save_name": "kolors-emotion-lora",
+    "save_name": "kolors-flux-cfg",
     "train_data_dir": "F:\\ImageSet\\kolors_slider_woman",
     "optimizer": "prodigy",
     "lr_scheduler": "cosine",
