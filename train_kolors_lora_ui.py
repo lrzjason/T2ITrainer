@@ -1277,8 +1277,9 @@ def main(args):
                     save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
                     accelerator.save_state(save_path)
                     logger.info(f"Saved state to {save_path}")
-                    
-            if epoch % args.validation_epochs == 0:
+            
+            # only execute when val_metadata_path exists
+            if epoch % args.validation_epochs == 0 and os.path.exists(val_metadata_path):
                 with torch.no_grad():
                     unet = unwrap_model(unet)
                     # freeze rng
