@@ -12,6 +12,11 @@ It updates very frequently, please check the change logs for details.
     - CUDA GPU with 11GB memory for kolors training.
 
 ## Installation
+### 0. Microsoft Visual C++ Redistributable latest supported downloads
+Please install Microsoft Visual C++ Redistributable if you have the following error: \
+0SError:[WinError 126] ... Error loading "...\Lib\site-packages\torch\lib\fbgemm dl1" or one of its dependencies. \
+https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+
 ### 1. Setup environment using setup.bat:
 setup.bat include 5 steps: 
 - Step 1. Setup venv (optional)
@@ -35,7 +40,7 @@ cd T2ITrainer
 Create virtual environment if you want:
 ```
 python -m venv venv
-venv\Scripts\activate
+call venv\Scripts\activate
 ```
 If created virtual environment, install pytorch from https://pytorch.org/get-started/locally/
 (Recommanded Torch version >= 2.3.0+cu121)
