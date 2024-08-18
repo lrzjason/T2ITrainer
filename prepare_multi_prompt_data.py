@@ -279,7 +279,8 @@ def remove_tag_prefix(text):
     return clear_text
 def handle_character_name(text):
     clear_text = remove_tag_prefix(text)
-    clear_text = clear_text.replace("\\","").replace("(","_").replace(")","").replace(" ","").replace(",","_")
+    clear_text = clear_text.replace("\\","").replace("(","_").replace(")","").replace(" ","_").replace(",","_").replace(":","_")
+    clear_text = clear_text.replace("__","_")
     return clean_text(clear_text)
 
 def handle_replace(result):
@@ -554,8 +555,39 @@ def main(args):
 
     generation_configs = [
         {
-            "dir_name" : "female",
-            "character_path":"F:/T2ITrainer/generation/female_character_list_test_one.json",
+            "dir_name" : "rezero",
+            "character_path":"F:/T2ITrainer/generation/female_character_list_rezero.json",
+            "prompt_list":[
+                {
+                    "name":"cloth",
+                    "path":"F:/T2ITrainer/generation/c_female_cloth_test.json"
+                },
+                {
+                    "name":"cameraAngle",
+                    "path":"F:/T2ITrainer/generation/c_angle_test.json"
+                },
+                {
+                    "name":"solo",
+                    "path":"F:/T2ITrainer/generation/c_solo.json"
+                },
+                {
+                    "name":"action",
+                    "path":"F:/T2ITrainer/generation/c_action_test.json"
+                },
+                {
+                    "name":"lookAt",
+                    "path":"F:/T2ITrainer/generation/c_lookat.json"
+                },
+                {
+                    "name":"background",
+                    "path":"F:/T2ITrainer/generation/c_background_test.json"
+                },
+            ]
+        },
+        
+        {
+            "dir_name" : "sao",
+            "character_path":"F:/T2ITrainer/generation/female_character_list_sao.json",
             "prompt_list":[
                 {
                     "name":"background",
@@ -615,7 +647,13 @@ def main(args):
         # }
     ]
     # height, width
-    resolutions = [(1024, 1024),(1344, 768),(1344,1344)]
+    # resolutions = [(1024, 1024),(1344, 768),(1344,1344)]
+    resolutions = [(1344, 768),(1344,1344)]
+    # random_drop some image to avoid too many output
+    random_skip = 0.1
+    def randomly_drop_tokens(tokens, drop_probability=0.3):
+        return tuple(token for token in tokens if random.random() > drop_probability)
+
     # enlarge text_files
     for generation_config in generation_configs:
         all_lists = []
@@ -631,7 +669,7 @@ def main(args):
             with open(path, "r", encoding='utf-8') as readfile:
                 items = json.loads(readfile.read())
             all_lists.append(items)
-        combinations = itertools.product(*all_lists)
+        combinations = list(itertools.product(*all_lists))
             
         character_path = generation_config["character_path"]
         with open(character_path, "r", encoding='utf-8') as readfile:
@@ -642,7 +680,10 @@ def main(args):
             output_character_dir = f"{output_subdir}/{clear_character}" 
             os.makedirs(output_character_dir, exist_ok=True)
             for i,combination in enumerate(combinations):
-                actual_prompt = f"{pos_prompt}, {character}, {', '.join(combination)}"
+                if random.random() < random_skip:
+                    continue
+                desc_prompt = ', '.join(randomly_drop_tokens(combination))
+                actual_prompt = f"{pos_prompt}, {character}, {desc_prompt}"
                 text_path = f"{output_character_dir}/{i}_prompt.txt"
                 if not os.path.exists(text_path):
                     # write actual prompt to text path
@@ -771,6 +812,8 @@ def main(args):
                     print("\n")
                     print(image_path)
                     image.save(image_path)
+                    
+                    del output
                 else:
                     image = Image.open(image_path)
                 
@@ -790,8 +833,8 @@ def main(args):
                 
                 print(config["mps_score"])
                 
-                sample_seed += 100
-                del output, image
+                sample_seed += 1000
+                del image
                 flush()  
             
             # break
