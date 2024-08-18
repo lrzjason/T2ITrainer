@@ -52,4 +52,4 @@ Kolors_models/*
 config.json
 config_slider.json
 
-generation
+generation/*
