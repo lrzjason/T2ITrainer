@@ -29,6 +29,8 @@ import numpy as np
 
 RESOLUTION_CONFIG = {
     1024: [
+        # extra resolution for testing
+        (1344, 1344),
         (1024, 1024),
         (1152, 896), # 1.2857
         (1216, 832), # 1.46
@@ -57,6 +59,8 @@ def get_buckets(resolution=1024):
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
+    if height==width and height <= 2048:
+        return 1, (height,width)
     
     resolution_set = RESOLUTION_CONFIG[resolution]
     

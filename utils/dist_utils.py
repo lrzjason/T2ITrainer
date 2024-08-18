@@ -312,3 +312,9 @@ def clip_grad_norm_(
 def flush():
     gc.collect()
     torch.cuda.empty_cache()
+
+
+def get_device(device):
+    if device == None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    return device
