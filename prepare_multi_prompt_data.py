@@ -274,8 +274,11 @@ def parse_args(input_args=None):
 def clean_text(text):
     return ''.join([char if ord(char) < 128 else '' for char in text])
 
+def remove_tag_prefix(text):
+    clear_text = text.replace("1girl, ","").replace("1boy, ","").replace("1other, ","").replace("male focus, ","")
+    return clear_text
 def handle_character_name(text):
-    clear_text = text.replace("1girl,","").replace("1boy,","").replace("1other","").replace("male focus,","")
+    clear_text = remove_tag_prefix(text)
     clear_text = clear_text.replace("\\","").replace("(","_").replace(")","").replace(" ","").replace(",","_")
     return clean_text(clear_text)
 
@@ -709,7 +712,8 @@ def main(args):
     with torch.no_grad():
         for config in tqdm(metadata["images"]):
             prompt = config["prompt"]
-            pure_prompt = prompt.replace(f"{pos_prompt}","")
+            pure_prompt = prompt.replace(f"{pos_prompt}, ","")
+            pure_prompt = remove_tag_prefix(pure_prompt)
             text_file = config["txt_path"]
             latent_path = text_file.replace(".txt",".npkolors")
             sample_seed = seed
@@ -817,7 +821,7 @@ def main(args):
         # read text file
         with open(text_file, "r", encoding="utf-8") as f:
             text = f.read()
-            new_content = f"{args.caption_prefix}, {result}, {text}"
+            new_content = f"{args.caption_prefix}, {result} {text}"
             # rename original text file to _ori.txt
             old_text_file = text_file.replace(".txt","_ori.txt")
             if os.path.exists(old_text_file):
