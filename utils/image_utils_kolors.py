@@ -139,7 +139,9 @@ class BucketBatchSampler(Sampler):
                     batch = []
             if not self.drop_last and batch: #if too small
                 yield batch  #yield last batch if drop_last is False
+            # skip leftovers
             elif batch:  #else store leftovers for the next epoch
+                # print("leftovers",batch)
                 self.leftover_items.extend(batch)  
 
     def __len__(self):

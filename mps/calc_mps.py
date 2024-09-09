@@ -130,151 +130,151 @@ def calc_mps_multiple(images, prompt, condition, clip_model, clip_processor, tok
         # probs = torch.softmax(scores, dim=-1)[0]
         return image_0_scores.cpu().tolist() + image_1_scores.cpu().tolist()
         
+if __name__ == "__main__":
+    # img_0, img_1 = "F:/ImageSet/SA1B_caption_selected/others/sa_110.webp", "F:/ImageSet/SA1B_caption_selected/others/sa_111.webp"
+    # img_0, img_1 = "F:/ImageSet/SA1B_caption_selected/female/sa_1001.webp", "F:/ImageSet/SA1B_caption_selected/female/sa_1091.webp"
+    # # infer the best image for the caption
+    # prompt = "a city street scene with a large building, a church, and a traffic light. There is a woman walking down the street, and a car is driving by. The style of the image is black and white, giving it a classic and timeless appearance. The black and white color scheme adds a sense of nostalgia and emphasizes the architectural details of the buildings and the urban environment. The woman walking down the street and the car driving by contribute to the dynamic and lively atmosphere of the scene."
 
-# img_0, img_1 = "F:/ImageSet/SA1B_caption_selected/others/sa_110.webp", "F:/ImageSet/SA1B_caption_selected/others/sa_111.webp"
-# img_0, img_1 = "F:/ImageSet/SA1B_caption_selected/female/sa_1001.webp", "F:/ImageSet/SA1B_caption_selected/female/sa_1091.webp"
-# # infer the best image for the caption
-# prompt = "a city street scene with a large building, a church, and a traffic light. There is a woman walking down the street, and a car is driving by. The style of the image is black and white, giving it a classic and timeless appearance. The black and white color scheme adds a sense of nostalgia and emphasizes the architectural details of the buildings and the urban environment. The woman walking down the street and the car driving by contribute to the dynamic and lively atmosphere of the scene."
+    # # condition for overall
+    # # condition = ""
 
-# # condition for overall
-# # condition = ""
+    # print(calc_mps(img_0, prompt, condition, model, image_processor, tokenizer, device))
 
-# print(calc_mps(img_0, prompt, condition, model, image_processor, tokenizer, device))
-
-# mps_score_list = []
-input_dir = "F:/ImageSet/SA1B_caption_selected"
-output_dir = "F:/ImageSet/SA1B_caption_classified"
-os.makedirs(output_dir,exist_ok=True)
-# result_path = f"{input_dir}/mps_score.json"
-
-
-# # load model
-# device = "cuda"
-# processor_name_or_path = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
-# image_processor = CLIPImageProcessor.from_pretrained(processor_name_or_path)
-# tokenizer = AutoTokenizer.from_pretrained(processor_name_or_path, trust_remote_code=True)
-
-# model_ckpt_path = "F:/MPS/outputs/MPS_overall_checkpoint.pth"
-# model = torch.load(model_ckpt_path)
-# model.eval().to(device)
-
-# model.model.text_model.pad_token_id = 1
-# model.model.text_model.bos_token_id = 49406
-# model.model.text_model.eos_token_id = 49407
+    # mps_score_list = []
+    input_dir = "F:/ImageSet/SA1B_caption_selected"
+    output_dir = "F:/ImageSet/SA1B_caption_classified"
+    os.makedirs(output_dir,exist_ok=True)
+    # result_path = f"{input_dir}/mps_score.json"
 
 
-mps_model = MPSModel()
+    # # load model
+    # device = "cuda"
+    # processor_name_or_path = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
+    # image_processor = CLIPImageProcessor.from_pretrained(processor_name_or_path)
+    # tokenizer = AutoTokenizer.from_pretrained(processor_name_or_path, trust_remote_code=True)
 
-condition = "light, color, clarity, tone, style, ambiance, artistry, shape, face, hair, hands, limbs, structure, instance, texture, quantity, attributes, position, number, location, word, things."
+    # model_ckpt_path = "F:/MPS/outputs/MPS_overall_checkpoint.pth"
+    # model = torch.load(model_ckpt_path)
+    # model.eval().to(device)
 
-
-image_ext = ".webp"
-supported_image_types = [image_ext]
-files = glob.glob(f"{input_dir}/**", recursive=True)
-image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
-
-image_files = ["F:/ImageSet/SA1B_caption_selected/female/sa_1001.webp"]
-for image_file in tqdm(image_files):
-    text_file = ""
-    for image_type in supported_image_types:
-        if image_type in image_file:
-            text_file = image_file.replace(image_ext, ".txt")
-    if not os.path.exists(text_file):
-        print(f"{text_file} not exists")
-        continue
-    
-    prompt = open(text_file, "r", encoding="utf-8").read()
-    mps_score = mps_model.score(image_file, prompt)
-    print(mps_score)
-    # mps_score_1 = calc_mps(image_file, prompt, condition, model, image_processor, tokenizer, device)[0]
-    
-    # print("\n")
-    # print(mps_score_1)
-    
-    # mps_score_2 = infer_one_sample(image_file, prompt, condition, model, image_processor, tokenizer, device)
-    # print(mps_score_2)
-
-# if os.path.exists(result_path):
-#     mps_score_list = json.load(open(result_path, "r", encoding='utf-8'))
-# else:
-    
-#     # load model
-#     device = "cuda"
-#     processor_name_or_path = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
-#     image_processor = CLIPImageProcessor.from_pretrained(processor_name_or_path)
-#     tokenizer = AutoTokenizer.from_pretrained(processor_name_or_path, trust_remote_code=True)
-
-#     model_ckpt_path = "F:/MPS/outputs/MPS_overall_checkpoint.pth"
-#     model = torch.load(model_ckpt_path)
-#     model.eval().to(device)
-
-#     model.model.text_model.pad_token_id = 1
-#     model.model.text_model.bos_token_id = 49406
-#     model.model.text_model.eos_token_id = 49407
-
-#     condition = "light, color, clarity, tone, style, ambiance, artistry, shape, face, hair, hands, limbs, structure, instance, texture, quantity, attributes, position, number, location, word, things."
+    # model.model.text_model.pad_token_id = 1
+    # model.model.text_model.bos_token_id = 49406
+    # model.model.text_model.eos_token_id = 49407
 
 
-#     image_ext = ".webp"
-#     supported_image_types = [image_ext]
-#     files = glob.glob(f"{input_dir}/**", recursive=True)
-#     image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+    mps_model = MPSModel()
+
+    condition = "light, color, clarity, tone, style, ambiance, artistry, shape, face, hair, hands, limbs, structure, instance, texture, quantity, attributes, position, number, location, word, things."
 
 
-#     for image_file in tqdm(image_files):
-#         text_file = ""
-#         for image_type in supported_image_types:
-#             if image_type in image_file:
-#                 text_file = image_file.replace(image_ext, ".txt")
-#         if not os.path.exists(text_file):
-#             print(f"{text_file} not exists")
-#             continue
+    image_ext = ".webp"
+    supported_image_types = [image_ext]
+    files = glob.glob(f"{input_dir}/**", recursive=True)
+    image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+
+    image_files = ["F:/ImageSet/SA1B_caption_selected/female/sa_1001.webp"]
+    for image_file in tqdm(image_files):
+        text_file = ""
+        for image_type in supported_image_types:
+            if image_type in image_file:
+                text_file = image_file.replace(image_ext, ".txt")
+        if not os.path.exists(text_file):
+            print(f"{text_file} not exists")
+            continue
         
-#         prompt = open(text_file, "r", encoding="utf-8").read()
-#         mps_score = calc_mps(image_file, prompt, condition, model, image_processor, tokenizer, device)[0]
-#         mps_score_list.append({
-#             "image_file": image_file,
-#             "text_file": text_file,
-#             "prompt": prompt,
-#             "mps_score": mps_score
-#         })
-#         # break
+        prompt = open(text_file, "r", encoding="utf-8").read()
+        mps_score = mps_model.score(image_file, prompt)
+        print(mps_score)
+        # mps_score_1 = calc_mps(image_file, prompt, condition, model, image_processor, tokenizer, device)[0]
+        
+        # print("\n")
+        # print(mps_score_1)
+        
+        # mps_score_2 = infer_one_sample(image_file, prompt, condition, model, image_processor, tokenizer, device)
+        # print(mps_score_2)
 
-#     print(mps_score_list)
+    # if os.path.exists(result_path):
+    #     mps_score_list = json.load(open(result_path, "r", encoding='utf-8'))
+    # else:
+        
+    #     # load model
+    #     device = "cuda"
+    #     processor_name_or_path = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
+    #     image_processor = CLIPImageProcessor.from_pretrained(processor_name_or_path)
+    #     tokenizer = AutoTokenizer.from_pretrained(processor_name_or_path, trust_remote_code=True)
 
-#     with open(result_path, "w", encoding='utf-8') as writefile:
-#         writefile.write(json.dumps(mps_score_list, indent=4))
-    
-# scores = [item['mps_score'] for item in mps_score_list]
+    #     model_ckpt_path = "F:/MPS/outputs/MPS_overall_checkpoint.pth"
+    #     model = torch.load(model_ckpt_path)
+    #     model.eval().to(device)
 
-# # Calculate percentiles
-# p25 = np.percentile(scores, 25)
-# p50 = np.percentile(scores, 50)
-# p75 = np.percentile(scores, 75)
+    #     model.model.text_model.pad_token_id = 1
+    #     model.model.text_model.bos_token_id = 49406
+    #     model.model.text_model.eos_token_id = 49407
 
-# # Categorize and copy files
-# for item in tqdm(mps_score_list):
-#     mps_score = item['mps_score']
-#     image_file = item['image_file']
-#     text_file = item['text_file']
+    #     condition = "light, color, clarity, tone, style, ambiance, artistry, shape, face, hair, hands, limbs, structure, instance, texture, quantity, attributes, position, number, location, word, things."
 
-#     # Determine the category based on percentiles
-#     if mps_score >= p75:
-#         category = 'high'
-#     elif mps_score >= p50:
-#         category = 'good'
-#     elif mps_score >= p25:
-#         category = 'bad'
-#     else:
-#         category = 'worst'
 
-#     # Create the directory if it doesn't exist
-#     category_dir = os.path.join(output_dir, category)
-#     os.makedirs(category_dir, exist_ok=True)
+    #     image_ext = ".webp"
+    #     supported_image_types = [image_ext]
+    #     files = glob.glob(f"{input_dir}/**", recursive=True)
+    #     image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
 
-#     # Copy the image and text files to the category directory
-#     shutil.copy(image_file, category_dir)
-#     shutil.copy(text_file, category_dir)
 
-#     print(f"Copied {image_file} and {text_file} to {category_dir}")
-#     # break
+    #     for image_file in tqdm(image_files):
+    #         text_file = ""
+    #         for image_type in supported_image_types:
+    #             if image_type in image_file:
+    #                 text_file = image_file.replace(image_ext, ".txt")
+    #         if not os.path.exists(text_file):
+    #             print(f"{text_file} not exists")
+    #             continue
+            
+    #         prompt = open(text_file, "r", encoding="utf-8").read()
+    #         mps_score = calc_mps(image_file, prompt, condition, model, image_processor, tokenizer, device)[0]
+    #         mps_score_list.append({
+    #             "image_file": image_file,
+    #             "text_file": text_file,
+    #             "prompt": prompt,
+    #             "mps_score": mps_score
+    #         })
+    #         # break
+
+    #     print(mps_score_list)
+
+    #     with open(result_path, "w", encoding='utf-8') as writefile:
+    #         writefile.write(json.dumps(mps_score_list, indent=4))
+        
+    # scores = [item['mps_score'] for item in mps_score_list]
+
+    # # Calculate percentiles
+    # p25 = np.percentile(scores, 25)
+    # p50 = np.percentile(scores, 50)
+    # p75 = np.percentile(scores, 75)
+
+    # # Categorize and copy files
+    # for item in tqdm(mps_score_list):
+    #     mps_score = item['mps_score']
+    #     image_file = item['image_file']
+    #     text_file = item['text_file']
+
+    #     # Determine the category based on percentiles
+    #     if mps_score >= p75:
+    #         category = 'high'
+    #     elif mps_score >= p50:
+    #         category = 'good'
+    #     elif mps_score >= p25:
+    #         category = 'bad'
+    #     else:
+    #         category = 'worst'
+
+    #     # Create the directory if it doesn't exist
+    #     category_dir = os.path.join(output_dir, category)
+    #     os.makedirs(category_dir, exist_ok=True)
+
+    #     # Copy the image and text files to the category directory
+    #     shutil.copy(image_file, category_dir)
+    #     shutil.copy(text_file, category_dir)
+
+    #     print(f"Copied {image_file} and {text_file} to {category_dir}")
+    #     # break

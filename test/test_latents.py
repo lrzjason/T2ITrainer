@@ -11,14 +11,14 @@ import cv2
 import torchvision.transforms as T
 import torchvision
 
-vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+vae_path = "F:/models/VAE/sdxl_vae_fp16fix.safetensors"
 vae = AutoencoderKL.from_single_file(
     vae_path
 )
 
 
 vae.to("cuda").to(torch.float16)
-npz_path = "F:/ImageSet/kolors_slider_anime/positive/1.nplatent"
+npz_path = "F:/ImageSet/vit_train/anatomy/train/good_anatomy/4_prompt_res_1344x1344 - Copy (2).nplatent"
 # image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
 
 latents = torch.load(npz_path)
@@ -27,4 +27,4 @@ image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
 with torch.no_grad():
     image = vae.decode(latent / vae.config.scaling_factor, return_dict=False)[0]
 image = image_processor.postprocess(image, output_type="pil")[0]
-image.save("bird.png")
+image.save("test.png")

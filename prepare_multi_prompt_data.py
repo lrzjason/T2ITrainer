@@ -292,7 +292,9 @@ def handle_replace(result):
 def main(args):
     # args.train_data_dir = "F:/ImageSet/kolors_anime"
     # args.train_data_dir = "F:/ImageSet/pony_caption"
-    args.output_dir = "F:/ImageSet/pony_caption_output_test"
+
+    trainer_dir = "/root/xinglin-data/T2ITrainer"
+    args.output_dir = "/root/xinglin-data/output/images/female/extra2"
     
     
     # If the destination directory doesn't exist, create it
@@ -314,8 +316,8 @@ def main(args):
     
     args.image_prefix = "anime"
     
-    args.male_character_list = "F:/T2ITrainer/generation/male_character_list_test.txt"
-    args.female_character_list = "F:/T2ITrainer/generation/female_character_list_test.txt"
+    args.male_character_list = f"{trainer_dir}/generation/male_character_list_test.txt"
+    args.female_character_list = f"{trainer_dir}/generation/female_character_list_test.txt"
     # args.main_prompt = "photo of sky"
     # args.uncondition_prompt = "star, starry, oil painting"
     
@@ -325,18 +327,18 @@ def main(args):
     
     args.is_kolors = False
     # args.model_path = "F:/models/Stable-diffusion/sdxl/ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
-    args.model_path = "F:/models/Stable-diffusion/sdxl/tPonynai3_v6.safetensors"
+    args.model_path = "/root/xinglin-data/Models/SDXL/tpony"
     args.pos_prompt = "score_9, score_8_up, score_7_up, score_6_up, score_5_up, score_4_up, source_anime, anime"
     # args.neg_prompt = "weapon, sword, katana, score_6, score_5, score_4,  source_pony, source_furry, child, loli, deformed, bad anatomy, disfigured, poorly drawn face, watermark, web adress, mutated, extra limb, ugly, poorly drawn hands, missing limb, floating limbs, disconnected limbs, disconnected head, malformed hands, long neck, mutated hands and fingers, bad hands, missing fingers, worst quality, low quality, mutation, poorly drawn, huge calf, bad hands, fused hand, missing hand, disappearing arms, disappearing thigh, disappearing calf, disappearing legs, missing fingers, fused fingers, abnormal eye proportion, abnormal hands, abnormal legs, abnormal feet, abnormal fingers, noisy, deformed, ugly, text, abstract"
     args.neg_prompt = "score_6, score_5, score_4,  source_pony, source_furry, deformed, bad anatomy, disfigured, poorly drawn face, watermark, web adress, mutated, extra limb, ugly, poorly drawn hands, missing limb, floating limbs, disconnected limbs, disconnected head, malformed hands, long neck, mutated hands and fingers, bad hands, missing fingers, worst quality, low quality, mutation, poorly drawn, "
     args.caption_prefix = "二次元动漫风格, anime artwork"
     # args.batch_size = 2
     args.generation_batch = 1
-    args.pretrained_model_name_or_path = "F:/T2ITrainer/kolors_models"
+    args.pretrained_model_name_or_path = f"{trainer_dir}/Kolors_models"
     args.steps = 30
     args.cfg = 5
     args.seed = 34652
-    args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    args.vae_path = f"{trainer_dir}/vae/sdxl_vae.safetensors"
     
     # main_prompt = args.main_prompt
     # uncondition_prompt = args.uncondition_prompt
@@ -473,20 +475,39 @@ def main(args):
         
         if not (args.model_path is None or args.model_path == ""):
             # load from file
-            state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
-            unexpected_keys = load_model_dict_into_meta(
-                unet,
-                state_dict,
-                device=device,
-                dtype=weight_dtype,
-                model_name_or_path=args.model_path,
-            )
-            # updated_state_dict = unet.state_dict()
-            if len(unexpected_keys) > 0:
-                print(f"Unexpected keys in state_dict: {unexpected_keys}")
-            unet.to(device, dtype=weight_dtype)
-            del state_dict,unexpected_keys
-            flush()
+            # state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
+            # unexpected_keys = load_model_dict_into_meta(
+            #     unet,
+            #     state_dict,
+            #     device=device,
+            #     dtype=weight_dtype,
+            #     model_name_or_path=args.model_path,
+            # )
+            # # updated_state_dict = unet.state_dict()
+            # if len(unexpected_keys) > 0:
+            #     print(f"Unexpected keys in state_dict: {unexpected_keys}")
+            # unet.to(device, dtype=weight_dtype)
+            # del state_dict,unexpected_keys
+            # flush()
+            # load from repo
+            unet_folder = os.path.join(args.model_path, "unet")
+            weight_file = "diffusion_pytorch_model"
+            unet_variant = None
+            ext = ".safetensors"
+            # diffusion_pytorch_model.fp16.safetensors
+            fp16_weight = os.path.join(unet_folder, f"{weight_file}.fp16{ext}")
+            fp32_weight = os.path.join(unet_folder, f"{weight_file}{ext}")
+            if os.path.exists(fp16_weight):
+                unet_variant = "fp16"
+            elif os.path.exists(fp32_weight):
+                unet_variant = None
+            else:
+                raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found.")
+                
+            unet = UNet2DConditionModel.from_pretrained(
+                        unet_folder, variant=unet_variant
+                    ).to(device, dtype=weight_dtype)
+        
     
     # pipe = OriStableDiffusionXLPipeline.from_pretrained(
     #     "stabilityai/stable-diffusion-xl-base-1.0", 
@@ -507,8 +528,8 @@ def main(args):
         # for negative
     else: 
         
-        pipe = StableDiffusionXLPipeline.from_single_file(
-            args.model_path,variant="fp16", use_safetensors=True, 
+        pipe = StableDiffusionXLPipeline.from_pretrained(
+            args.model_path, use_safetensors=True, 
             torch_dtype=torch.float16).to("cuda")
         
         pipe.unet.to(device, dtype=weight_dtype)
@@ -555,96 +576,35 @@ def main(args):
 
     generation_configs = [
         {
-            "dir_name" : "rezero",
-            "character_path":"F:/T2ITrainer/generation/female_character_list_rezero.json",
+            "dir_name" : "extra",
+            "character_path":f"{trainer_dir}/generation/female_character_list_extra.json",
             "prompt_list":[
                 {
                     "name":"cloth",
-                    "path":"F:/T2ITrainer/generation/c_female_cloth_test.json"
+                    "path":f"{trainer_dir}/generation/c_female_cloth_test.json"
                 },
                 {
                     "name":"cameraAngle",
-                    "path":"F:/T2ITrainer/generation/c_angle_test.json"
+                    "path":f"{trainer_dir}/generation/c_angle_test.json"
                 },
                 {
                     "name":"solo",
-                    "path":"F:/T2ITrainer/generation/c_solo.json"
+                    "path":f"{trainer_dir}/generation/c_solo.json"
                 },
                 {
                     "name":"action",
-                    "path":"F:/T2ITrainer/generation/c_action_test.json"
+                    "path":f"{trainer_dir}/generation/c_action_test.json"
                 },
                 {
                     "name":"lookAt",
-                    "path":"F:/T2ITrainer/generation/c_lookat.json"
+                    "path":f"{trainer_dir}/generation/c_lookat.json"
                 },
                 {
                     "name":"background",
-                    "path":"F:/T2ITrainer/generation/c_background_test.json"
+                    "path":f"{trainer_dir}/generation/c_background_test.json"
                 },
             ]
         },
-        
-        {
-            "dir_name" : "sao",
-            "character_path":"F:/T2ITrainer/generation/female_character_list_sao.json",
-            "prompt_list":[
-                {
-                    "name":"background",
-                    "path":"F:/T2ITrainer/generation/c_background_test.json"
-                },
-                {
-                    "name":"cloth",
-                    "path":"F:/T2ITrainer/generation/c_female_cloth_test.json"
-                },
-                {
-                    "name":"cameraAngle",
-                    "path":"F:/T2ITrainer/generation/c_angle_test.json"
-                },
-                {
-                    "name":"solo",
-                    "path":"F:/T2ITrainer/generation/c_solo.json"
-                },
-                {
-                    "name":"action",
-                    "path":"F:/T2ITrainer/generation/c_action_test.json"
-                },
-                {
-                    "name":"lookAt",
-                    "path":"F:/T2ITrainer/generation/c_lookat.json"
-                },
-            ]
-        },
-        # {
-        #     "dir_name" : "male",
-        #     "character_path":"F:/T2ITrainer/generation/male_character_list_test_one.json",
-        #     "prompt_list":[
-        #         {
-        #             "name":"background",
-        #             "path":"F:/T2ITrainer/generation/c_background_test.json"
-        #         },
-        #         {
-        #             "name":"cloth",
-        #             "path":"F:/T2ITrainer/generation/c_male_cloth_test.json"
-        #         },
-        #         {
-        #             "name":"cameraAngle",
-        #             "path":"F:/T2ITrainer/generation/c_angle_test.json"
-        #         },
-        #         {
-        #             "name":"solo",
-        #             "path":"F:/T2ITrainer/generation/c_solo.json"
-        #         },
-        #         {
-        #             "name":"action",
-        #             "path":"F:/T2ITrainer/generation/c_action_test.json"
-        #         },
-        #         {
-        #             "name":"lookAt",
-        #             "path":"F:/T2ITrainer/generation/c_lookat.json"
-        #         }
-        #     ]
-        # }
     ]
     # height, width
     # resolutions = [(1024, 1024),(1344, 768),(1344,1344)]
@@ -654,6 +614,7 @@ def main(args):
     def randomly_drop_tokens(tokens, drop_probability=0.3):
         return tuple(token for token in tokens if random.random() > drop_probability)
 
+    total_character = 0
     # enlarge text_files
     for generation_config in generation_configs:
         all_lists = []
@@ -675,13 +636,15 @@ def main(args):
         with open(character_path, "r", encoding='utf-8') as readfile:
             characters = json.loads(readfile.read())
         
+        print(f"{dir_name} has {len(characters)} characters")
+        total_character += len(characters)
         for character in characters:
             clear_character = handle_character_name(character)
             output_character_dir = f"{output_subdir}/{clear_character}" 
             os.makedirs(output_character_dir, exist_ok=True)
             for i,combination in enumerate(combinations):
-                if random.random() < random_skip:
-                    continue
+                # if random.random() < random_skip:
+                #     continue
                 desc_prompt = ', '.join(randomly_drop_tokens(combination))
                 actual_prompt = f"{pos_prompt}, {character}, {desc_prompt}"
                 text_path = f"{output_character_dir}/{i}_prompt.txt"
@@ -691,11 +654,12 @@ def main(args):
                         # save file
                         writefile.write(actual_prompt)
             
+    print(f"total_character: {total_character}")
     # read file agains
     supported_image_types = ['.txt']
     files = glob.glob(f"{output_dir}/**", recursive=True)
     text_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types and "_res_" not in f]
- 
+    print(f"total prompt files: {len(text_files)}")
     for text_file in tqdm(text_files):
         npz_path = text_file.replace(".txt",".npkolors")
         prompt = ""
@@ -749,7 +713,7 @@ def main(args):
     torch.backends.cuda.matmul.allow_tf32 = True
     # pipe.enable_sequential_cpu_offload()
     pipe.enable_vae_tiling()
-    mps_model = MPSModel()
+    # mps_model = MPSModel()
     with torch.no_grad():
         for config in tqdm(metadata["images"]):
             prompt = config["prompt"]
@@ -814,69 +778,79 @@ def main(args):
                     image.save(image_path)
                     
                     del output
-                else:
-                    image = Image.open(image_path)
+                    sample_seed += 1000
+                    del image
+                    flush()  
+                # else:
+                #     image = Image.open(image_path)
+                # if "score_" not in pure_prompt and not os.path.exists(new_text_file):
+                #     score = mps_model.score(image,pure_prompt).item()
+                #     config["mps_score"] = score
+                #     # avoid double score
+                #     score_prompt = "below_score_2"
+                #     if score >= 2 and score < 5:
+                #         score_prompt = "below_score_5"
+                #     elif score >= 5 and score < 10:
+                #         score_prompt = "below_score_10"
+                #     elif score >= 13:
+                #         score_prompt = "score_13_up"
+                #     elif score >= 15:
+                #         score_prompt = "score_15_up"
+                #     elif score >= 10:
+                #         score_prompt = "score_10_up"
+                #     pure_prompt += f", {score_prompt}"
+                #     # write actual prompt to text path
+                #     with open(new_text_file, "w", encoding='utf-8') as writefile:
+                #         # save file
+                #         writefile.write(pure_prompt)
+                #     # write pure_prompt to new text file
+                    
+                #     print(config["mps_score"])
                 
-                score = mps_model.score(image,pure_prompt).item()
-                config["mps_score"] = score
-                score_prompt = " score_10_down"
-                if score > 10:
-                    score_prompt = "score_10_up"
-                if score > 15:
-                    score_prompt = "score_15_up"
-                pure_prompt += f", {score_prompt}"
-                # write actual prompt to text path
-                with open(new_text_file, "w", encoding='utf-8') as writefile:
-                    # save file
-                    writefile.write(pure_prompt)
-                # write pure_prompt to new text file
-                
-                print(config["mps_score"])
-                
-                sample_seed += 1000
-                del image
-                flush()  
+                # sample_seed += 1000
+                # del image
+                # flush()  
             
             # break
                 
     # save metadata
-    with open(metadata_path, "w", encoding='utf-8') as writefile:
-        writefile.write(json.dumps(metadata, indent=4))
+    # with open(metadata_path, "w", encoding='utf-8') as writefile:
+    #     writefile.write(json.dumps(metadata, indent=4))
 
     
-    del pipe
-    flush()
+    # del pipe
+    # flush()
     
-    captioner = FlorenceLargeFtModelWrapper()
+    # captioner = FlorenceLargeFtModelWrapper()
     
-    files = glob.glob(f"{output_dir}/**", recursive=True)
-    image_exts = [".png",".jpg",".jpeg",".webp"]
-    image_files = [f for f in files if os.path.splitext(f)[-1].lower() in image_exts and "_ori" not in f]
-    for image_file in tqdm(image_files):
-        text_file = os.path.splitext(image_file)[0] + ".txt"
-        # image_path = os.path.join(input_dir, image_file)
+    # files = glob.glob(f"{output_dir}/**", recursive=True)
+    # image_exts = [".png",".jpg",".jpeg",".webp"]
+    # image_files = [f for f in files if os.path.splitext(f)[-1].lower() in image_exts and "_ori" not in f]
+    # for image_file in tqdm(image_files):
+    #     text_file = os.path.splitext(image_file)[0] + ".txt"
+    #     # image_path = os.path.join(input_dir, image_file)
         
-        image = cv2.imread(image_file)
-        result = captioner.execute(image)
+    #     image = cv2.imread(image_file)
+    #     result = captioner.execute(image)
         
-        result = handle_replace(result)
+    #     result = handle_replace(result)
         
-        # read text file
-        with open(text_file, "r", encoding="utf-8") as f:
-            text = f.read()
-            new_content = f"{args.caption_prefix}, {result} {text}"
-            # rename original text file to _ori.txt
-            old_text_file = text_file.replace(".txt","_ori.txt")
-            if os.path.exists(old_text_file):
-                continue
-            # save new content to text file
-            with open(old_text_file, "w", encoding="utf-8") as ori_f:
-                ori_f.write(text)
-                print("save ori content to text file: ", old_text_file)
-            # save new content to text file
-            with open(text_file, "w", encoding="utf-8") as new_f:
-                new_f.write(new_content)
-                print("save new content to text file: ", text_file)
+    #     # read text file
+    #     with open(text_file, "r", encoding="utf-8") as f:
+    #         text = f.read()
+    #         new_content = f"{args.caption_prefix}, {result} {text}"
+    #         # rename original text file to _ori.txt
+    #         old_text_file = text_file.replace(".txt","_ori.txt")
+    #         if os.path.exists(old_text_file):
+    #             continue
+    #         # save new content to text file
+    #         with open(old_text_file, "w", encoding="utf-8") as ori_f:
+    #             ori_f.write(text)
+    #             print("save ori content to text file: ", old_text_file)
+    #         # save new content to text file
+    #         with open(text_file, "w", encoding="utf-8") as new_f:
+    #             new_f.write(new_content)
+    #             print("save new content to text file: ", text_file)
             
         
 
