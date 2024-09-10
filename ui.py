@@ -207,7 +207,8 @@ def load_config(config_path):
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
-            default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout']
+            default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
+            default_config['cosine_restarts']
             # default_config['logging_dir'],
 
 # load config.json by default

@@ -1290,7 +1290,7 @@ def main(args):
                     logger.info(f"Saved state to {save_path}")
             
             # only execute when val_metadata_path exists
-            if epoch % args.validation_epochs == 0 and os.path.exists(val_metadata_path):
+            if (epoch >= args.skip_epoch and epoch % args.validation_epochs == 0 or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
                 with torch.no_grad():
                     unet = unwrap_model(unet)
                     # freeze rng
@@ -1360,7 +1360,28 @@ def main(args):
                                 )[0]
                                 
                                 target = noise
-                                loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                                # loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                                # code reference: https://github.com/huggingface/diffusers/blob/main/examples/text_to_image/train_text_to_image.py
+                                if args.snr_gamma is None or args.snr_gamma == 0:
+                                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
+                                else:
+                                    # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
+                                    # Since we predict the noise instead of x_0, the original formulation is slightly changed.
+                                    # This is discussed in Section 4.2 of the same paper.
+                                    snr = compute_snr(noise_scheduler, timesteps)
+                                    mse_loss_weights = torch.stack([snr, args.snr_gamma * torch.ones_like(timesteps)], dim=1).min(
+                                        dim=1
+                                    )[0]
+                                    if noise_scheduler.config.prediction_type == "epsilon":
+                                        mse_loss_weights = mse_loss_weights / snr
+                                    elif noise_scheduler.config.prediction_type == "v_prediction":
+                                        mse_loss_weights = mse_loss_weights / (snr + 1)
+
+                                    loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
+                                    loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
+                                    loss = loss.mean()
+                                    del mse_loss_weights
+                                
                                 
                                 # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
                                 if args.use_debias:

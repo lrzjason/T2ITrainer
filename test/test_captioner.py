@@ -17,7 +17,7 @@ if __name__ == "__main__":
     # input_dir = "E:/Development/Bilibili-Image-Grapple/classification/output/bomiao"
     input_dir = "F:/ImageSet/pony_caption_output_test"
     # output_dir = "E:/Development/Bilibili-Image-Grapple/classification/output/bomiao_crop_watermark"
-    # os.makedirs(output_dir, exist_ok=True)
+    # os.makedirs(output_dir, exist_ok=True)                                                                                    
     files = glob.glob(f"{input_dir}/**", recursive=True)
     image_exts = [".png",".jpg",".jpeg",".webp"]
     image_files = [f for f in files if os.path.splitext(f)[-1].lower() in image_exts]
