@@ -194,11 +194,8 @@ class WD14ModelWrapper(ModelWrapper):
         return result,gender_tags,character_tags
 
 if __name__ == "__main__":
-    # input_dir = "F:/ImageSet/kolors_realistic"
-    # input_dir = "F:/ImageSet/kolors_train_ai_gen/test"
-    # input_dir = "F:/ImageSet/kolors_train_ai_gen/unclassified"
-    input_dir = "F:/ImageSet/cosplay/bambi"
-    output_dir =  "F:/ImageSet/kolors_train_ai_gen/train/bambi"
+    input_dir = "F:/ImageSet/input_dir"
+    output_dir =  "F:/ImageSet/output_dir"
     os.makedirs(output_dir, exist_ok=True)
     
     gender_list = ["male","female","other"]
