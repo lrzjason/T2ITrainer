@@ -129,7 +129,7 @@ class WD14ModelWrapper(ModelWrapper):
             'multiple_others'
         ]
         
-        self.skip_non_character = True
+        self.skip_non_character = False
     def execute(self,image=None,query=None,filter_tags=['questionable','general','sensitive'], tag_threshold=0.7, character_threshold=0.70):
         model = self.model
         tags_scores = []
