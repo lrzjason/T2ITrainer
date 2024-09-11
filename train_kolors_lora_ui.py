@@ -146,6 +146,17 @@ def prepare_scheduler_for_custom_training(noise_scheduler, device):
 
     noise_scheduler.all_snr = all_snr.to(device)
 
+
+def apply_snr_weight(loss, timesteps, noise_scheduler, gamma, v_prediction=False):
+    snr = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])
+    min_snr_gamma = torch.minimum(snr, torch.full_like(snr, gamma))
+    if v_prediction:
+        snr_weight = torch.div(min_snr_gamma, snr + 1).float().to(loss.device)
+    else:
+        snr_weight = torch.div(min_snr_gamma, snr).float().to(loss.device)
+    loss = loss * snr_weight
+    return loss
+
 def apply_debiased_estimation(loss, timesteps, noise_scheduler):
     snr_t = torch.stack([noise_scheduler.all_snr[t] for t in timesteps])  # batch_size
     snr_t = torch.minimum(snr_t, torch.ones_like(snr_t) * 1000)  # if timestep is 0, snr_t is inf, so limit it to 1000
@@ -1209,26 +1220,15 @@ def main(args):
                     if args.snr_gamma is None or args.snr_gamma == 0:
                         loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
                     else:
-                        # Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.
-                        # Since we predict the noise instead of x_0, the original formulation is slightly changed.
-                        # This is discussed in Section 4.2 of the same paper.
-                        snr = compute_snr(noise_scheduler, timesteps)
-                        mse_loss_weights = torch.stack([snr, args.snr_gamma * torch.ones_like(timesteps)], dim=1).min(
-                            dim=1
-                        )[0]
-                        if noise_scheduler.config.prediction_type == "epsilon":
-                            mse_loss_weights = mse_loss_weights / snr
-                        elif noise_scheduler.config.prediction_type == "v_prediction":
-                            mse_loss_weights = mse_loss_weights / (snr + 1)
-
                         loss = F.mse_loss(model_pred.float(), target.float(), reduction="none")
-                        loss = loss.mean(dim=list(range(1, len(loss.shape)))) * mse_loss_weights
-                        loss = loss.mean()
-                        del mse_loss_weights
-                    
-                    # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
-                    if args.use_debias:
-                        loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                        loss = loss.mean([1, 2, 3])
+                        # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
+                        if not (args.snr_gamma is None or args.snr_gamma == 0):
+                            loss = apply_snr_weight(loss, timesteps, noise_scheduler, args.snr_gamma)
+                        # referenced from https://github.com/kohya-ss/sd-scripts/blob/25f961bc779bc79aef440813e3e8e92244ac5739/sdxl_train.py
+                        if args.use_debias:
+                            loss = apply_debiased_estimation(loss,timesteps,noise_scheduler)
+                            
                         loss = loss.mean()
                     
                     # Backpropagate

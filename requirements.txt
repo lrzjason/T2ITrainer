@@ -14,3 +14,6 @@ bitsandbytes
 urllib3==1.26.19
 adamw_bf16
 glob2
+onnxruntime
+pandas
+huggingface_hub
