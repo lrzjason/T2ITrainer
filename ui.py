@@ -399,7 +399,7 @@ with gr.Blocks() as demo:
             optimizer = gr.Dropdown(label="optimizer", value=default_config["optimizer"], choices=["adamw","prodigy"])
             lr_scheduler = gr.Dropdown(label="lr_scheduler", value=default_config["lr_scheduler"], 
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial","constant", "constant_with_warmup"])
-            cosine_restarts = gr.Number(label="cosine_restarts", value=default_config["cosine_restarts"], info="Cosine restarts", minimum=1)
+            cosine_restarts = gr.Number(label="cosine_restarts", value=default_config["cosine_restarts"], info="Only useful for lr_scheduler: cosine_with_restarts", minimum=1)
         with gr.Row():
             learning_rate = gr.Number(label="learning_rate", value=default_config["learning_rate"], info="Recommended: 1e-4 or 1 for prodigy")
             lr_warmup_steps = gr.Number(label="lr_warmup_steps", value=default_config["lr_warmup_steps"])
