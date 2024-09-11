@@ -184,7 +184,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--validation_epochs",
         type=int,
-        default=50,
+        default=1,
         help=(
             "Run validation every X epochs."
         ),
@@ -1290,7 +1290,7 @@ def main(args):
                     logger.info(f"Saved state to {save_path}")
             
             # only execute when val_metadata_path exists
-            if (epoch >= args.skip_epoch and epoch % args.validation_epochs == 0 or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
+            if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
                 with torch.no_grad():
                     unet = unwrap_model(unet)
                     # freeze rng
