@@ -125,6 +125,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-07-22:(2)**  Thanks emojiiii for linux setup.sh script and related updates.
 - **2024-07-28:**  Update caching logic, automatically update cache when added or deleted files.
 - **2024-08-04:**  Add kolors slider training code and image generation code
+- **2024-09-11:**  Fix debiased estimation loss and min-snr logic
 
 
 ## Acknowledgements:
