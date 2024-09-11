@@ -419,7 +419,7 @@ with gr.Blocks() as demo:
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
             use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
             snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
-            caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=0.5, minimum=0)
+            caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=1, minimum=0)
         gr.Markdown(
 """
 ## Experiment Option: resolution
