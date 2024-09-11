@@ -44,6 +44,7 @@ config_keys = [
 default_config = {
     "script": "train_kolors_lora_ui.py",
     "script_choices": ["train_kolors_lora_ui.py",
+                    #    "train_kolors_rewards_wip.py"
                     #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
                        ],
     "output_dir":"F:/models/kolors",
@@ -79,8 +80,9 @@ default_config = {
     "config_path":"config.json",
     "resolution":"1024",
     "resolution_choices":["1024","2048"],
-    'use_debias':False,
-    'snr_gamma':0
+    "use_debias":False,
+    "snr_gamma":0,
+    "cosine_restarts":1
 }
 
 
@@ -120,7 +122,8 @@ def save_config(
         resolution,
         use_debias,
         snr_gamma,
-        caption_dropout
+        caption_dropout,
+        cosine_restarts
     ):
     config = {
         "script":script,
@@ -157,7 +160,8 @@ def save_config(
         "resolution":resolution,
         "use_debias":use_debias,
         'snr_gamma':snr_gamma,
-        "caption_dropout":caption_dropout
+        "caption_dropout":caption_dropout,
+        "cosine_restarts":cosine_restarts
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -203,7 +207,8 @@ def load_config(config_path):
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
-            default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout']
+            default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
+            default_config['cosine_restarts']
             # default_config['logging_dir'],
 
 # load config.json by default
@@ -243,7 +248,8 @@ def run(
         resolution,
         use_debias,
         snr_gamma,
-        caption_dropout
+        caption_dropout,
+        cosine_restarts
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -284,7 +290,8 @@ def run(
         "resolution":resolution,
         "use_debias":use_debias,
         "snr_gamma":snr_gamma,
-        "caption_dropout":caption_dropout
+        "caption_dropout":caption_dropout,
+        "cosine_restarts":cosine_restarts
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -336,7 +343,8 @@ def run(
         resolution,
         use_debias,
         snr_gamma,
-        caption_dropout
+        caption_dropout,
+        cosine_restarts
     )
     # print(args)
     return " ".join(args)
@@ -391,6 +399,7 @@ with gr.Blocks() as demo:
             optimizer = gr.Dropdown(label="optimizer", value=default_config["optimizer"], choices=["adamw","prodigy"])
             lr_scheduler = gr.Dropdown(label="lr_scheduler", value=default_config["lr_scheduler"], 
                         choices=["linear", "cosine", "cosine_with_restarts", "polynomial","constant", "constant_with_warmup"])
+            cosine_restarts = gr.Number(label="cosine_restarts", value=default_config["cosine_restarts"], info="Cosine restarts", minimum=1)
         with gr.Row():
             learning_rate = gr.Number(label="learning_rate", value=default_config["learning_rate"], info="Recommended: 1e-4 or 1 for prodigy")
             lr_warmup_steps = gr.Number(label="lr_warmup_steps", value=default_config["lr_warmup_steps"])
@@ -454,7 +463,8 @@ with gr.Blocks() as demo:
         resolution,
         use_debias,
         snr_gamma,
-        caption_dropout
+        caption_dropout,
+        cosine_restarts,
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")

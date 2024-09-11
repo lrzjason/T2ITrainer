@@ -9,13 +9,17 @@ from transformers import BlipForConditionalGeneration
 from torchvision import transforms
 import cv2
 import numpy as np
-
+import hpsv2
 
 processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-large")
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large", torch_dtype=torch.float16).to("cuda")
 # model.train()
-image_path = "F:/ImageSet/pixart_test_cropped/_0f810856-9473-4be9-9103-e5050ebb55a6.webp"
-text = "cotton doll, A plush toy resembling a chef's attire. It has brown hair styled in a fringe, rosy cheeks with pink blushes, and black eyes. The toy is wearing a white chef hat and a white chef outfit with blue buttons on the front. Beside the toy, there's a wooden rolling pin. The setting appears to be a soft fabric surface, possibly a tablecloth, against a light-colored wall with subtle textures."
+# image_path = "F:/ImageSet/pixart_test_cropped/_0f810856-9473-4be9-9103-e5050ebb55a6.webp"
+# text = "cotton doll, A plush toy resembling a chef's attire. It has brown hair styled in a fringe, rosy cheeks with pink blushes, and black eyes. The toy is wearing a white chef hat and a white chef outfit with blue buttons on the front. Beside the toy, there's a wooden rolling pin. The setting appears to be a soft fabric surface, possibly a tablecloth, against a light-colored wall with subtle textures."
+
+image_path = "F:/ImageSet/SA1B_caption_selected/others/sa_111.webp"
+# image_path = "F:/ImageSet/SA1B_caption_selected/others/sa_110.webp"
+text = "a large, old stone building with a brick facade, which is located on a city street. The building has a distinct architectural style, featuring a combination of stone and brick elements, giving it a historical and rustic appearance. The building is situated on a cobblestone street, which adds to the old-world charm of the scene. The sky in the background is blue, creating a pleasant and serene atmosphere, further enhancing the overall aesthetic of the image."
 
 mean = [
     0.48145466,
@@ -37,19 +41,23 @@ try:
 except Exception as e:
     print(f"An error occurred while processing {image_path}: {e}")
 
-text = ['a photography of' + ' ' + text]
+prompt = f"{text}"
+result = hpsv2.score(image_path, prompt, hps_version="v2.1")[0]
+
+text = ['anime artwork of' + ' ' + text]
 inputs = processor(images=[image], text=text, return_tensors="pt", padding='longest')
 inputs = {key: inputs[key].to("cuda") for key in inputs.keys()}
 inputs['labels'] = inputs['input_ids'].masked_fill(
     inputs['input_ids'] == processor.tokenizer.pad_token_id, -100
 )
-prompt_length = len(processor.tokenizer('a photography of').input_ids) - 1
+prompt_length = len(processor.tokenizer('anime artwork of').input_ids) - 1
 inputs['labels'][:, :prompt_length] = -100
 
 with torch.autocast(device_type="cuda"):
     outputs = model(**inputs)
     reward = -outputs.loss
     
+print(result)
 print(reward)
 # score = model.score(inputs)
 # print(score)

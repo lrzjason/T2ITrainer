@@ -50,7 +50,8 @@ config_keys = [
 
 default_config = {
     "script": "train_slider_kolors.py",
-    "script_choices": ["train_slider_kolors.py",
+    "script_choices": ["train_kolors_slider.py",
+                       "train_kolors_dpo.py",
                     #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
                        ],
     "output_dir":"F:/models/kolors",
