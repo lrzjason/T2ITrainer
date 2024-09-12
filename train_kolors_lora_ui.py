@@ -579,7 +579,7 @@ def main(args):
     #     beta_start=0.00085, beta_end=0.014, beta_schedule="scaled_linear", num_train_timesteps=1100, clip_sample=False, 
     #     dynamic_thresholding_ratio=0.995, prediction_type="epsilon", steps_offset=1, timestep_spacing="leading", trained_betas=None
     # )
-    if args.use_debias:
+    if args.use_debias or (args.snr_gamma is not None and args.snr_gamma > 0):
         prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     
     # noise_scheduler_copy = copy.deepcopy(noise_scheduler)

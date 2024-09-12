@@ -6,9 +6,9 @@ import os
 from tqdm import tqdm 
 import numpy
 
-import sys
-sys.path.append('F:/T2ITrainer/aesthetic')
-import aesthetic_predict
+import aesthetic.aesthetic_predict as aesthetic_predict
+
+import glob
 
 
 BASE_RESOLUTION = 1024
@@ -317,8 +317,7 @@ def features_centered_crop(image,scale_with_height,closest_resolution,model,proc
     return resized_image
 
 def apply_crop(model,processor,image_path,output_dir,highest_count,ae_model,image_encoder,preprocess,device):
-    if output_dir != "" and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     filename, ext = os.path.splitext(os.path.basename(image_path))
 
@@ -329,7 +328,7 @@ def apply_crop(model,processor,image_path,output_dir,highest_count,ae_model,imag
 
     # read image
     image = Image.open(image_path)
-    image_ori = image.copy()
+    # image_ori = image.copy()
 
     # pil_image = Image.open(image_path).convert('RGB')
     open_cv_image = numpy.array(image)
@@ -428,8 +427,11 @@ def average(lst):
     else:
         return 0
 def main():
-    input_dir = "F:/ImageSet/8k_images_captioned"
-    output_dir = "F:/ImageSet/8k_images_captioned_cropped"
+    # input_dir = "F:/ImageSet/8k_images_captioned"
+    # output_dir = "F:/ImageSet/8k_images_captioned_cropped"
+    input_dir = "F:/ImageSet/kolors_cosplay/train"
+    output_dir = "F:/ImageSet/kolors_cosplay/cropped"
+    os.path.makedirs(output_dir, exist_ok=True)
 
     simple_score_list = []
     preserved_score_list = []
@@ -454,34 +456,53 @@ def main():
 
     crop_methods = ["centered","preserved","simple"]
 
+    for coser_name in os.listdir(input_dir):
+        coser_dir = os.path.join(input_dir, coser_name)
+        files = glob.glob(f"{coser_dir}/**", recursive=True)
+        image_exts = [".png",".jpg",".jpeg",".webp"]
+        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in image_exts]
+        output_subdir = os.path.join(output_dir, coser_name)
+        for file_path in tqdm(image_files):
+            try:
+                simple_score,preserved_score,centered_score,highest_score = apply_crop(model,
+                    processor,file_path,output_subdir,
+                    highest_count,ae_model,image_encoder,
+                    preprocess,device)    
+                
+                simple_score_list.append(simple_score)
+                preserved_score_list.append(preserved_score)
+                centered_score_list.append(centered_score)
+                highest_score_list.append(highest_score)
+            except Exception as e: 
+                print(e)
 
-    for subdir in tqdm(os.listdir(input_dir),position=0):
-        subdir_path = os.path.join(input_dir,subdir)
-        output_subdir = os.path.join(output_dir,subdir)
-        for file in tqdm(os.listdir(subdir_path),position=1):
-            # Check if the file is an image by its extension
-            if file.endswith((".webp")) or file.endswith((".jpg")) or file.endswith((".png")) or file.endswith((".jpeg")) :
-                filename,_ = os.path.splitext(file)
-                skip = False
-                if os.path.exists(os.path.join(output_dir,f"{filename}.webp")):
-                    # highest_count['simple'] +=1
-                    print('skip',filename)
-                    # highest_count['simple_list'].append(filename)
-                    continue
-                file_path = os.path.join(subdir_path,file)
+    # for subdir in tqdm(os.listdir(input_dir),position=0):
+    #     subdir_path = os.path.join(input_dir,subdir)
+    #     output_subdir = os.path.join(output_dir,subdir)
+    #     for file in tqdm(os.listdir(subdir_path),position=1):
+    #         # Check if the file is an image by its extension
+    #         if file.endswith((".webp")) or file.endswith((".jpg")) or file.endswith((".png")) or file.endswith((".jpeg")) :
+    #             filename,_ = os.path.splitext(file)
+    #             skip = False
+    #             if os.path.exists(os.path.join(output_dir,f"{filename}.webp")):
+    #                 # highest_count['simple'] +=1
+    #                 print('skip',filename)
+    #                 # highest_count['simple_list'].append(filename)
+    #                 continue
+    #             file_path = os.path.join(subdir_path,file)
 
-                try:
-                    simple_score,preserved_score,centered_score,highest_score = apply_crop(model,
-                        processor,file_path,output_subdir,
-                        highest_count,ae_model,image_encoder,
-                        preprocess,device)    
+                # try:
+                #     simple_score,preserved_score,centered_score,highest_score = apply_crop(model,
+                #         processor,file_path,output_subdir,
+                #         highest_count,ae_model,image_encoder,
+                #         preprocess,device)    
                     
-                    simple_score_list.append(simple_score)
-                    preserved_score_list.append(preserved_score)
-                    centered_score_list.append(centered_score)
-                    highest_score_list.append(highest_score)
-                except Exception as e: 
-                    print(e)
+                #     simple_score_list.append(simple_score)
+                #     preserved_score_list.append(preserved_score)
+                #     centered_score_list.append(centered_score)
+                #     highest_score_list.append(highest_score)
+                # except Exception as e: 
+                #     print(e)
                     # print(f'Error: Could not read image from {file_path}')
         #     break
         # break

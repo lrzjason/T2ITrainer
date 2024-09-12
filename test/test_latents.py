@@ -18,7 +18,8 @@ vae = AutoencoderKL.from_single_file(
 
 
 vae.to("cuda").to(torch.float16)
-npz_path = "F:/ImageSet/vit_train/anatomy/train/good_anatomy/4_prompt_res_1344x1344 - Copy (2).nplatent"
+# npz_path = "F:/ImageSet/vit_train/anatomy/train/good_anatomy/4_prompt_res_1344x1344 - Copy (2).nplatent"
+npz_path = "F:/ImageSet/kolors_cosplay/train/nekokoyoshi/female/artoria_pendragon_fate/XXM02508.nplatent"
 # image_path = "alan-w-ZpmFJoWRqUE-unsplash.webp"
 
 latents = torch.load(npz_path)
