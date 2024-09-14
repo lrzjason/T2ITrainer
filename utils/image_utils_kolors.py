@@ -636,35 +636,4 @@ def resize(img,resolution):
     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
     return cv2.resize(img,resolution, interpolation=cv2.INTER_AREA)
 
-if __name__ == "__main__":
-    image = Image.open("F:/ImageSet/handpick_high_quality/animal/blue-jay-8075346.jpg")
     
-    # set meta data
-    width, height = image.size
-    
-    
-    open_cv_image = numpy.array(image)
-    # # Convert RGB to BGR
-    image = open_cv_image[:, :, ::-1].copy()
-    
-    # get nearest resolution
-    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=1024)
-    # print('init closest_resolution',closest_resolution)
-
-    # we need to expand the closest resolution to target resolution before cropping
-    scale_ratio = closest_resolution[0] / closest_resolution[1]
-    image_ratio = width / height
-
-    scale_with_height = True
-    # referenced kohya ss code
-    if image_ratio < scale_ratio: 
-        scale_with_height = False
-    try:
-        # image = simple_center_crop(image,scale_with_height,closest_resolution)
-        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
-        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
-    except Exception as e:
-        print(e)
-        raise e
-    # set meta data
-    image_height, image_width, _ = image.shape

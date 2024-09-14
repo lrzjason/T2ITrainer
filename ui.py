@@ -392,7 +392,8 @@ with gr.Blocks() as demo:
         with gr.Row():
             repeats = gr.Number(label="repeats", value=default_config["repeats"])
             gradient_accumulation_steps = gr.Number(label="gradient_accumulation_steps", value=default_config["gradient_accumulation_steps"])
-            mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["fp16", "bf16"])
+            # mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["fp16", "bf16"])
+            mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["fp16"])
             gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", value=default_config["gradient_checkpointing"])
             use_dora = gr.Checkbox(label="use_dora", value=default_config["use_dora"])
         with gr.Row():
