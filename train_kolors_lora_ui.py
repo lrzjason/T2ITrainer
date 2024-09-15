@@ -918,21 +918,21 @@ def main(args):
             # loop all the datarow and check file md5 for integrity
             # print(f"Checking integrity: ")
             # # fine images not in full_datarows, handle added images
-            # current_images = [d['image_path'] for d in full_datarows]
-            # missing_images = [f for f in image_files if f not in current_images]
-            # if len(missing_images) > 0:
-            #     print(f"Images exists but not in metadata: {len(missing_images)}")
-            #     # add missing images to cache list
-            #     cache_list += missing_images
+            current_images = [d['image_path'] for d in full_datarows]
+            missing_images = [f for f in image_files if f not in current_images]
+            if len(missing_images) > 0:
+                print(f"Images exists but not in metadata: {len(missing_images)}")
+                # add missing images to cache list
+                cache_list += missing_images
             
-            # # check full_datarows md5
-            # corrupted_files, new_datarows = check_md5(full_datarows,md5_pairs)
-            # # skip corrupted datarows, update full datarows
-            # full_datarows = new_datarows
-            # if len(corrupted_files) > 0:
-            #     print(f"corrupted files: {len(corrupted_files)}")
-            #     # add corrupted files to cache list
-            #     cache_list += corrupted_files
+            # check full_datarows md5
+            corrupted_files, new_datarows = check_md5(full_datarows,md5_pairs)
+            # skip corrupted datarows, update full datarows
+            full_datarows = new_datarows
+            if len(corrupted_files) > 0:
+                print(f"corrupted files: {len(corrupted_files)}")
+                # add corrupted files to cache list
+                cache_list += corrupted_files
                     
         if len(cache_list)>0:
             # Load the tokenizers
