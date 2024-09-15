@@ -366,9 +366,24 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkol
     prompt_embed = prompt_embeds.squeeze(0)
     pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
     
+    try:
+        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        if image is not None:
+            # Convert to RGB format (assuming the original image is in BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            print(f"Failed to open {image_path}.")
+    except Exception as e:
+        print(f"An error occurred while processing {image_path}: {e}")
+
+    height, width, _ = image.shape
+    original_size = (height, width)
+    crops_coords_top_left = (0,0)
+    time_id = torch.tensor(list(original_size + crops_coords_top_left + original_size)).to(text_encoders[0].device, dtype=text_encoders[0].dtype)
     npz_dict = {
         "prompt_embed": prompt_embed.cpu(), 
         "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+        "time_id": time_id.cpu()
     }
     
     # save latent to cache file
