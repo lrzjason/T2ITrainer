@@ -723,86 +723,6 @@ def main(args):
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
 
-    # Make sure the trainable params are in float32.
-    if args.mixed_precision == "fp16":
-        models = [unet]
-        # only upcast trainable parameters (LoRA) into fp32
-        cast_training_params(models, dtype=torch.float32)
-
-    unet_lora_parameters = list(filter(lambda p: p.requires_grad, unet.parameters()))
-    # Optimization parameters
-    unet_lora_parameters_with_lr = {"params": unet_lora_parameters, "lr": args.learning_rate}
-    params_to_optimize = [unet_lora_parameters_with_lr]
-    
-    # Optimizer creation
-    if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
-        logger.warning(
-            f"Unsupported choice of optimizer: {args.optimizer}.Supported optimizers include [adamW, prodigy]."
-            "Defaulting to adamW"
-        )
-        args.optimizer = "adamw"
-
-    if use_8bit_adam and not args.optimizer.lower() == "adamw":
-        logger.warning(
-            f"use_8bit_adam is ignored when optimizer is not set to 'AdamW'. Optimizer was "
-            f"set to {args.optimizer.lower()}"
-        )
-
-    if args.optimizer.lower() == "adamw":
-        if args.mixed_precision == "bf16":
-            try:
-                from adamw_bf16 import AdamWBF16
-            except ImportError:
-                raise ImportError(
-                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
-                )
-            optimizer_class = AdamWBF16
-            unet.to(dtype=torch.bfloat16)
-        elif use_8bit_adam:
-            try:
-                import bitsandbytes as bnb
-            except ImportError:
-                raise ImportError(
-                    "To use 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
-                )
-
-            optimizer_class = bnb.optim.AdamW8bit
-        else:
-            optimizer_class = torch.optim.AdamW
-
-        optimizer = optimizer_class(
-            params_to_optimize,
-            betas=(adam_beta1, adam_beta2),
-            weight_decay=adam_weight_decay,
-            eps=adam_epsilon,
-        )
-
-    if args.optimizer.lower() == "prodigy":
-        try:
-            import prodigyopt
-        except ImportError:
-            raise ImportError("To use Prodigy, please install the prodigyopt library: `pip install prodigyopt`")
-
-        optimizer_class = prodigyopt.Prodigy
-
-        if args.learning_rate <= 0.1:
-            logger.warning(
-                "Learning rate is too low. When using prodigy, it's generally better to set learning rate around 1.0"
-            )
-
-        optimizer = optimizer_class(
-            params_to_optimize,
-            lr=args.learning_rate,
-            betas=(adam_beta1, adam_beta2),
-            beta3=prodigy_beta3,
-            d_coef=prodigy_d_coef,
-            weight_decay=adam_weight_decay,
-            eps=adam_epsilon,
-            decouple=prodigy_decouple,
-            use_bias_correction=prodigy_use_bias_correction,
-            safeguard_warmup=prodigy_safeguard_warmup,
-        )
-    
     # ==========================================================
     # Create train dataset
     # ==========================================================
@@ -1028,8 +948,89 @@ def main(args):
     
     datarows = datarows * args.repeats
     # resume from cpu after cache files
+    
     unet.to(accelerator.device)
 
+    # Make sure the trainable params are in float32.
+    if args.mixed_precision == "fp16":
+        models = [unet]
+        # only upcast trainable parameters (LoRA) into fp32
+        cast_training_params(models, dtype=torch.float32)
+
+    unet_lora_parameters = list(filter(lambda p: p.requires_grad, unet.parameters()))
+    # Optimization parameters
+    unet_lora_parameters_with_lr = {"params": unet_lora_parameters, "lr": args.learning_rate}
+    params_to_optimize = [unet_lora_parameters_with_lr]
+    
+    # Optimizer creation
+    if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
+        logger.warning(
+            f"Unsupported choice of optimizer: {args.optimizer}.Supported optimizers include [adamW, prodigy]."
+            "Defaulting to adamW"
+        )
+        args.optimizer = "adamw"
+
+    if use_8bit_adam and not args.optimizer.lower() == "adamw":
+        logger.warning(
+            f"use_8bit_adam is ignored when optimizer is not set to 'AdamW'. Optimizer was "
+            f"set to {args.optimizer.lower()}"
+        )
+
+    if args.optimizer.lower() == "adamw":
+        if args.mixed_precision == "bf16":
+            try:
+                from adamw_bf16 import AdamWBF16
+            except ImportError:
+                raise ImportError(
+                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
+                )
+            optimizer_class = AdamWBF16
+            unet.to(dtype=torch.bfloat16)
+        elif use_8bit_adam:
+            try:
+                import bitsandbytes as bnb
+            except ImportError:
+                raise ImportError(
+                    "To use 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
+                )
+
+            optimizer_class = bnb.optim.AdamW8bit
+        else:
+            optimizer_class = torch.optim.AdamW
+
+        optimizer = optimizer_class(
+            params_to_optimize,
+            betas=(adam_beta1, adam_beta2),
+            weight_decay=adam_weight_decay,
+            eps=adam_epsilon,
+        )
+
+    if args.optimizer.lower() == "prodigy":
+        try:
+            import prodigyopt
+        except ImportError:
+            raise ImportError("To use Prodigy, please install the prodigyopt library: `pip install prodigyopt`")
+
+        optimizer_class = prodigyopt.Prodigy
+
+        if args.learning_rate <= 0.1:
+            logger.warning(
+                "Learning rate is too low. When using prodigy, it's generally better to set learning rate around 1.0"
+            )
+
+        optimizer = optimizer_class(
+            params_to_optimize,
+            lr=args.learning_rate,
+            betas=(adam_beta1, adam_beta2),
+            beta3=prodigy_beta3,
+            d_coef=prodigy_d_coef,
+            weight_decay=adam_weight_decay,
+            eps=adam_epsilon,
+            decouple=prodigy_decouple,
+            use_bias_correction=prodigy_use_bias_correction,
+            safeguard_warmup=prodigy_safeguard_warmup,
+        )
+    
     # ================================================================
     # End create embedding 
     # ================================================================
