@@ -30,6 +30,7 @@ import numpy as np
 RESOLUTION_CONFIG = {
     1024: [
         # extra resolution for testing
+        (1536, 1536),
         (1344, 1344),
         (1024, 1024),
         (1152, 896), # 1.2857
