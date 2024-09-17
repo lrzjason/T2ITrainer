@@ -127,6 +127,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-08-04:**  Add kolors slider training code and image generation code
 - **2024-09-11:**  Merge dev branch. Fix debiased estimation loss and min-snr logic.
 - **2024-09-14:**  Update captioner script: internvl2 and wd14
+- **2024-09-17:**  Add more res buckets in 1024 range
 
 
 ## Acknowledgements:
