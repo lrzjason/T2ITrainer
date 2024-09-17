@@ -59,7 +59,7 @@ def get_buckets(resolution=1024):
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
-    if height==width and height <= 2048:
+    if height==width and height <= 1536:
         return 1, (height,width)
     
     resolution_set = RESOLUTION_CONFIG[resolution]
