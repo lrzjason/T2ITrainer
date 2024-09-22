@@ -449,6 +449,12 @@ def parse_args(input_args=None):
         help="SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
         "More details here: https://arxiv.org/abs/2303.09556.",
     )
+    parser.add_argument(
+        "--max_time_steps",
+        type=int,
+        default=1100,
+        help="Max time steps limitation. The training timesteps would limited as this value. 0 to max_time_steps",
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -505,6 +511,10 @@ def main(args):
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
     val_seed = random.randint(1, 100)
+    
+    # test max_time_steps
+    # args.max_time_steps = 600
+    
     # args.seed = 4321
     # args.logging_dir = 'logs'
     # args.mixed_precision = "bf16"
@@ -1169,7 +1179,9 @@ def main(args):
         disable=not accelerator.is_local_main_process,
     )
     
-
+    max_time_steps = noise_scheduler.config.num_train_timesteps
+    if args.max_time_steps is not None and args.max_time_steps > 0:
+        max_time_steps = args.max_time_steps
     for epoch in range(first_epoch, args.num_train_epochs):
         unet.train()
         for step, batch in enumerate(train_dataloader):
@@ -1180,7 +1192,7 @@ def main(args):
                     
                     bsz, _, _, _ = latents.shape
                     
-                    indices = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,))
+                    indices = torch.randint(0, max_time_steps, (bsz,))
                     timesteps = noise_scheduler.timesteps[indices].to(device=accelerator.device)
                     
                     noise = torch.randn_like(latents)

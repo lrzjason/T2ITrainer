@@ -38,7 +38,8 @@ config_keys = [
     'vae_path',
     'config_path',
     'resolution',
-    'use_debias'
+    'use_debias',
+    'max_time_steps'
 ]
 
 default_config = {
@@ -82,7 +83,8 @@ default_config = {
     "resolution_choices":["1024","2048"],
     "use_debias":False,
     "snr_gamma":0,
-    "cosine_restarts":1
+    "cosine_restarts":1,
+    "max_time_steps":0
 }
 
 
@@ -123,7 +125,8 @@ def save_config(
         use_debias,
         snr_gamma,
         caption_dropout,
-        cosine_restarts
+        cosine_restarts,
+        max_time_steps
     ):
     config = {
         "script":script,
@@ -161,7 +164,8 @@ def save_config(
         "use_debias":use_debias,
         'snr_gamma':snr_gamma,
         "caption_dropout":caption_dropout,
-        "cosine_restarts":cosine_restarts
+        "cosine_restarts":cosine_restarts,
+        "max_time_steps":max_time_steps
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -208,7 +212,7 @@ def load_config(config_path):
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
             default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
-            default_config['cosine_restarts']
+            default_config['cosine_restarts'],default_config['max_time_steps']
             # default_config['logging_dir'],
 
 # load config.json by default
@@ -249,7 +253,8 @@ def run(
         use_debias,
         snr_gamma,
         caption_dropout,
-        cosine_restarts
+        cosine_restarts,
+        max_time_steps
     ):
     if vae_path is not None:
         if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -291,7 +296,8 @@ def run(
         "use_debias":use_debias,
         "snr_gamma":snr_gamma,
         "caption_dropout":caption_dropout,
-        "cosine_restarts":cosine_restarts
+        "cosine_restarts":cosine_restarts,
+        "max_time_steps":max_time_steps
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -344,7 +350,8 @@ def run(
         use_debias,
         snr_gamma,
         caption_dropout,
-        cosine_restarts
+        cosine_restarts,
+        max_time_steps
     )
     # print(args)
     return " ".join(args)
@@ -421,6 +428,7 @@ with gr.Blocks() as demo:
             use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
             snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
             caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=1, minimum=0)
+            max_time_steps = gr.Number(label="Max timesteps limitation", value=default_config["max_time_steps"], info="Max timesteps limitation", maximum=1100, minimum=0)
         gr.Markdown(
 """
 ## Experiment Option: resolution
@@ -466,6 +474,7 @@ with gr.Blocks() as demo:
         snr_gamma,
         caption_dropout,
         cosine_restarts,
+        max_time_steps,
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")

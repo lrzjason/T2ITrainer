@@ -410,7 +410,10 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     
     npz_dict = {}
     if os.path.exists(npz_path):
-        npz_dict = torch.load(npz_path)
+        try:
+            npz_dict = torch.load(npz_path)
+        except:
+            print(f"Failed to load {npz_path}")
     image_path = json_obj["image_path"]
     # resolution = json_obj["resolution"]
     
