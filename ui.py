@@ -26,7 +26,7 @@ config_keys = [
     'validation_epochs',
     'rank',
     'skip_epoch',
-    'break_epoch',
+    # 'break_epoch',
     'skip_step',
     'gradient_checkpointing',
     'validation_ratio',
@@ -72,7 +72,7 @@ default_config = {
     "save_model_epochs":1, 
     "validation_epochs":1, 
     "skip_epoch":0, 
-    "break_epoch":0,
+    # "break_epoch":0,
     "skip_step":0, 
     "validation_ratio":0.1, 
     "use_dora":False,
@@ -111,7 +111,7 @@ def save_config(
         validation_epochs,
         rank,
         skip_epoch,
-        break_epoch,
+        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,
@@ -149,7 +149,7 @@ def save_config(
         "validation_epochs":validation_epochs,
         "rank":rank,
         "skip_epoch":skip_epoch,
-        "break_epoch":break_epoch,
+        # "break_epoch":break_epoch,
         "skip_step":skip_step,
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
@@ -207,13 +207,13 @@ def load_config(config_path):
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
             default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'], \
             default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
-            default_config['rank'],default_config['skip_epoch'],default_config['break_epoch'], \
+            default_config['rank'],default_config['skip_epoch'], \
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
             default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps']
-            # default_config['logging_dir'],
+            # default_config['logging_dir'],default_config['break_epoch'],
 
 # load config.json by default
 load_config("config.json")
@@ -239,7 +239,7 @@ def run(
         validation_epochs,
         rank,
         skip_epoch,
-        break_epoch,
+        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,
@@ -282,7 +282,7 @@ def run(
         "validation_epochs":validation_epochs,
         "rank":rank,
         "skip_epoch":skip_epoch,
-        "break_epoch":break_epoch,
+        # "break_epoch":break_epoch,
         "skip_step":skip_step,
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
@@ -336,7 +336,7 @@ def run(
         validation_epochs,
         rank,
         skip_epoch,
-        break_epoch,
+        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,
@@ -420,7 +420,7 @@ with gr.Blocks() as demo:
             validation_epochs = gr.Number(label="validation_epochs", value=default_config["validation_epochs"], info="perform validation when x epoches")
         with gr.Row():
             skip_epoch = gr.Number(label="skip_epoch", value=default_config["skip_epoch"], info="Skip x epoches for validation and save checkpoint")
-            break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
+            # break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
             skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
         with gr.Row():
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
@@ -459,7 +459,7 @@ with gr.Blocks() as demo:
         validation_epochs,
         rank,
         skip_epoch,
-        break_epoch,
+        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,

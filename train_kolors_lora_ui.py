@@ -380,22 +380,22 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--skip_epoch",
         type=int,
-        default=1,
+        default=0,
         help=("skip val and save model before x epochs"),
     )
     parser.add_argument(
         "--skip_step",
         type=int,
-        default=1,
+        default=0,
         help=("skip val and save model before x step"),
     )
     
-    parser.add_argument(
-        "--break_epoch",
-        type=int,
-        default=1,
-        help=("break training after x epochs"),
-    )
+    # parser.add_argument(
+    #     "--break_epoch",
+    #     type=int,
+    #     default=0,
+    #     help=("break training after x epochs"),
+    # )
     parser.add_argument(
         "--validation_ratio",
         type=float,
