@@ -422,8 +422,9 @@ with gr.Blocks() as demo:
             skip_epoch = gr.Number(label="skip_epoch", value=default_config["skip_epoch"], info="Skip x epoches for validation and save checkpoint")
             # break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
             skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
-        with gr.Row():
             validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
+            
+        with gr.Row():
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
             use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
             snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
