@@ -31,7 +31,7 @@ import pandas as pd
 RESOLUTION_CONFIG = {
     1024: [
         # extra resolution for testing
-        (1536, 1536),
+        # (1536, 1536),
         (1344, 1344),
         (1024, 1024),
         (1344, 1024),
