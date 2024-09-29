@@ -68,6 +68,9 @@ python ui.py
   - [ComfyUI-Kolors-MZ](https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ)
   
   Then use the normal lora loader in ComfyUI.
+
+### 4. Parameter Explanation:
+Refer to my civitai article https://civitai.com/articles/7743
 <!-- 
 - For hunyuandit 1.1:
   Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
@@ -128,6 +131,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-09-11:**  Merge dev branch. Fix debiased estimation loss and min-snr logic.
 - **2024-09-14:**  Update captioner script: internvl2 and wd14
 - **2024-09-17:**  Add more res buckets in 1024 scope
+- **2024-09-30:**  T2Itrainer parameter explanation https://civitai.com/articles/7743
 
 
 ## Acknowledgements:
