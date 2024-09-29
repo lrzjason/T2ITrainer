@@ -791,7 +791,7 @@ def main(args):
         #     single_image_training = (len(resolutions) > 1 and len(full_datarows) == len(resolutions)) or len(full_datarows) == len(resolutions)
         # no metadata file, all files should be cached
         cache_list = []
-        if (len(full_datarows) == 0) or recreate_cache:
+        if (len(datarows) == 0) or recreate_cache:
             cache_list = image_files
         else:
             md5_pairs = [

@@ -74,7 +74,7 @@ python ui.py
   ```
   python test.py
   ``` -->
-
+<!-- 
 ## Kolors Merging SDXL Checkpoint
 
 ### **!!! Important !!!**
@@ -98,7 +98,7 @@ python ui_for_merge.py
 ```
 
 ### 3. Testing:
-As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing.
+As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing. -->
 
 ## Star History
 
