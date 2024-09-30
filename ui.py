@@ -5,42 +5,6 @@ import json
 import sys
 import os
 
-config_keys = [
-    'script',
-    'seed',
-    # 'logging_dir',
-    'mixed_precision',
-    'report_to',
-    'lr_warmup_steps',
-    'output_dir',
-    'save_name',
-    'train_data_dir',
-    'optimizer',
-    'lr_scheduler',
-    'learning_rate',
-    'train_batch_size',
-    'repeats',
-    'gradient_accumulation_steps',
-    'num_train_epochs',
-    'save_model_epochs',
-    'validation_epochs',
-    'rank',
-    'skip_epoch',
-    # 'break_epoch',
-    'skip_step',
-    'gradient_checkpointing',
-    'validation_ratio',
-    'pretrained_model_name_or_path',
-    'model_path',
-    'resume_from_checkpoint',
-    'use_dora',
-    'recreate_cache',
-    'vae_path',
-    'config_path',
-    'resolution',
-    'use_debias',
-    'max_time_steps'
-]
 
 default_config = {
     "script": "train_kolors_lora_ui.py",
@@ -79,8 +43,8 @@ default_config = {
     "recreate_cache":False,
     "caption_dropout":0.1,
     "config_path":"config.json",
-    "resolution":"1024",
-    "resolution_choices":["1024","2048"],
+    # "resolution":"1024",
+    # "resolution_choices":["1024","2048"],
     "use_debias":False,
     "snr_gamma":0,
     "cosine_restarts":1,
@@ -121,7 +85,7 @@ def save_config(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
+        # resolution,
         use_debias,
         snr_gamma,
         caption_dropout,
@@ -160,7 +124,7 @@ def save_config(
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
         "config_path":config_path,
-        "resolution":resolution,
+        # "resolution":resolution,
         "use_debias":use_debias,
         'snr_gamma':snr_gamma,
         "caption_dropout":caption_dropout,
@@ -185,9 +149,8 @@ def load_config(config_path):
         # create config
         with open(config_path, 'w') as f:
             config = {}
-            for key in config_keys:
-                if key in default_config.keys():
-                    config[key] = default_config[key]
+            for key in default_config.keys():
+                config[key] = default_config[key]
             json.dump(config, f, indent=4)
         return config
     config_path = os.path.join(config_path)
@@ -197,10 +160,13 @@ def load_config(config_path):
     except:
         config_path = "config.json"
     print(f"Loaded configuration from {config_path}")
-    for key in config:
-        if key in config_keys:
-            default_config[key] = config[key]
+    # print("config")
+    # print(config)
+    for key in config.keys():
+        default_config[key] = config[key]
             
+    # print("default_config")
+    # print(default_config)
     return config_path,default_config['script'],default_config['seed'], \
             default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
@@ -210,10 +176,10 @@ def load_config(config_path):
             default_config['rank'],default_config['skip_epoch'], \
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
-            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
+            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'], \
             default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps']
-            # default_config['logging_dir'],default_config['break_epoch'],
+            # default_config['logging_dir'],default_config['break_epoch'], default_config['resolution'], 
 
 # load config.json by default
 load_config("config.json")
@@ -249,7 +215,7 @@ def run(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
+        # resolution,
         use_debias,
         snr_gamma,
         caption_dropout,
@@ -292,7 +258,7 @@ def run(
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         "vae_path":vae_path,
-        "resolution":resolution,
+        # "resolution":resolution,
         "use_debias":use_debias,
         "snr_gamma":snr_gamma,
         "caption_dropout":caption_dropout,
@@ -346,7 +312,7 @@ def run(
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
+        # resolution,
         use_debias,
         snr_gamma,
         caption_dropout,
@@ -430,14 +396,14 @@ with gr.Blocks() as demo:
             snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
             caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=1, minimum=0)
             max_time_steps = gr.Number(label="Max timesteps limitation", value=default_config["max_time_steps"], info="Max timesteps limitation", maximum=1100, minimum=0)
-        gr.Markdown(
-"""
-## Experiment Option: resolution
-- Based target resolution (default:1024). 
-- 2048 resolution requires more vram for encoding image and training. Please make sure you have enough vram.
-""")
-        with gr.Row():
-            resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
+#         gr.Markdown(
+# """
+# ## Experiment Option: resolution
+# - Based target resolution (default:1024). 
+# - 2048 resolution requires more vram for encoding image and training. Please make sure you have enough vram.
+# """)
+#         with gr.Row():
+#             resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
     inputs = [
         config_path,
         script,
@@ -470,7 +436,7 @@ with gr.Blocks() as demo:
         use_dora,
         recreate_cache,
         vae_path,
-        resolution,
+        # resolution,
         use_debias,
         snr_gamma,
         caption_dropout,

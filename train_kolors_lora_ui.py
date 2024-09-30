@@ -430,12 +430,12 @@ def parse_args(input_args=None):
         default=None,
         help=("seperate vae path"),
     )
-    parser.add_argument(
-        "--resolution_config",
-        type=str,
-        default=None,
-        help=("default: '1024', accept str: '1024', '2048'"),
-    )
+    # parser.add_argument(
+    #     "--resolution_config",
+    #     type=str,
+    #     default=None,
+    #     help=("default: '1024', accept str: '1024', '2048'"),
+    # )
     parser.add_argument(
         "--use_debias",
         action="store_true",
@@ -910,7 +910,7 @@ def main(args):
             tokenizers = [tokenizer_one]
             text_encoders = [text_encoder_one]
             # create metadata and latent cache
-            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache,resolution_config=args.resolution_config)
+            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache)
             
             # merge newly cached datarows to full_datarows
             full_datarows += cached_datarows
