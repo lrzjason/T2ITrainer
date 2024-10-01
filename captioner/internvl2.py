@@ -14,7 +14,7 @@ from transformers import AutoTokenizer, AutoModel
 import os
 import time
 from ModelWrapper import ModelWrapper
-from utils import flush,get_device
+# from utils import flush,get_device
 import glob
 from tqdm import tqdm
 import cv2
@@ -25,6 +25,10 @@ import shutil
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
+def get_device(device):
+    if device == None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    return device
 def build_transform(input_size):
     MEAN, STD = IMAGENET_MEAN, IMAGENET_STD
     transform = T.Compose([
@@ -143,11 +147,12 @@ class InternVL2ModelWrapper(ModelWrapper):
         return response
        
 if __name__ == "__main__":
-    input_dir = "F:/ImageSet/kolors_pony/training/character"
+    # F:\ImageSet\Rockman
+    input_dir = "F:/ImageSet/Rockman"
     model = InternVL2ModelWrapper()
-    prefix = "二次元动漫风格, anime artwork, "
+    prefix = "rockman, "
     max_attempt_count = 3
-    character = "character_name"
+    character = ""
     
     files = glob.glob(f"{input_dir}/**", recursive=True)
     image_exts = [".png",".jpg",".jpeg",".webp"]
