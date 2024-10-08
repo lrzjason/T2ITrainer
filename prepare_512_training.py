@@ -288,7 +288,7 @@ def main(args):
     # trainer_dir = "/root/xinglin-data/T2ITrainer"
     trainer_dir = "F:/T2ITrainer"
     # args.output_dir = "/root/xinglin-data/output/images/female/extra2"
-    args.output_dir = "F:/ImageSet/comat_kolors_512_2"
+    args.output_dir = "F:/ImageSet/comat_kolors_512"
     
     
     # If the destination directory doesn't exist, create it
@@ -561,10 +561,11 @@ def main(args):
     supported_image_types = ['.txt']
     # read text file by lines
     prompt_file = "F:/CoMat/collected_data/abc5k_2.txt"
+    constant = 0
     with open(prompt_file, 'r', encoding="utf-8") as f:
         prompts = f.readlines()
         for i,prompt in enumerate(prompts):
-            index = i+2500
+            index = i+constant
             text_file = os.path.join(args.output_dir, f"{index}.txt")
             npz_path = text_file.replace(".txt",".npkolors")
             if os.path.exists(text_file):

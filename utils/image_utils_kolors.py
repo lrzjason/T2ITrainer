@@ -29,6 +29,15 @@ import pandas as pd
 # ]
 
 RESOLUTION_CONFIG = {
+    512: [
+        # extra resolution for testing
+        # (1536, 1536),
+        # (672, 672),
+        (512, 512),
+        (768, 512), # 1.5
+        (576, 448), # 1.5
+        (608, 416), # 1.5
+    ],
     1024: [
         # extra resolution for testing
         # (1536, 1536),
@@ -64,7 +73,7 @@ def get_buckets(resolution=1024):
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
-    if height==width and height <= 1536:
+    if height==width and height <= 1536 and resolution>=1024:
         return 1, (height,width)
     
     resolution_set = RESOLUTION_CONFIG[resolution]

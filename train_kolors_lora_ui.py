@@ -430,12 +430,12 @@ def parse_args(input_args=None):
         default=None,
         help=("seperate vae path"),
     )
-    # parser.add_argument(
-    #     "--resolution_config",
-    #     type=str,
-    #     default=None,
-    #     help=("default: '1024', accept str: '1024', '2048'"),
-    # )
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        default='1024',
+        help=("default: '1024', accept str: '1024', '512'"),
+    )
     parser.add_argument(
         "--use_debias",
         action="store_true",
@@ -744,7 +744,7 @@ def main(args):
         datarows = []
         cache_list = []
         recreate_cache = args.recreate_cache
-        # resolutions = args.resolution_config.split(",")
+        # resolution = args.resolution_config.split(",")
         
         supported_image_types = ['.jpg','.jpeg','.png','.webp']
         files = glob.glob(f"{input_dir}/**", recursive=True)
@@ -788,7 +788,7 @@ def main(args):
             
         datarows = full_datarows
         # if not single_image_training:
-        #     single_image_training = (len(resolutions) > 1 and len(full_datarows) == len(resolutions)) or len(full_datarows) == len(resolutions)
+        #     single_image_training = (len(resolution) > 1 and len(full_datarows) == len(resolution)) or len(full_datarows) == len(resolution)
         # no metadata file, all files should be cached
         cache_list = []
         if (len(datarows) == 0) or recreate_cache:
@@ -910,7 +910,7 @@ def main(args):
             tokenizers = [tokenizer_one]
             text_encoders = [text_encoder_one]
             # create metadata and latent cache
-            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache)
+            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache, resolution_config=args.resolution)
             
             # merge newly cached datarows to full_datarows
             full_datarows += cached_datarows

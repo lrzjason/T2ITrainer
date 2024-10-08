@@ -3,8 +3,7 @@ import glob
 from tqdm import tqdm
 import torch
 
-input_dir = "F:/ImageSet/kolors_cosplay/train"
-
+input_dir = "F:/ImageSet/comat_kolors_512"
 
 files = glob.glob(f"{input_dir}/**", recursive=True)
 image_exts = [".png",".jpg",".jpeg",".webp"]
@@ -23,7 +22,7 @@ for image_file in tqdm(image_files,position=0):
     
     latent = torch.load(latent_file)
     # print(latent['latent'].shape)
-    if torch.equal(torch.Tensor(list(latent['latent'].shape)),torch.Tensor([4, 192, 192])):
+    if torch.equal(torch.Tensor(list(latent['latent'].shape)),torch.Tensor([4, 128, 128])):
         print(latent_file)
         print(latent['latent'].shape)
         kolors = torch.load(kolors_file)
