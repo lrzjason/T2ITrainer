@@ -45,7 +45,7 @@ if "!install_model!" == "y" (
       echo huggingface-cli is not installed. Installing now...
       pip install --upgrade huggingface_hub
    )
-   huggingface-cli download Kwai-Kolors/Kolors-diffusers --local-dir kolors_models/
+   huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
 )
 
 

@@ -242,6 +242,7 @@ class ChatGLMTokenizer(PreTrainedTokenizer):
             max_length: Optional[int] = None,
             padding_strategy: PaddingStrategy = PaddingStrategy.DO_NOT_PAD,
             pad_to_multiple_of: Optional[int] = None,
+            padding_side: Optional[bool] = None,
             return_attention_mask: Optional[bool] = None,
     ) -> dict:
         """
