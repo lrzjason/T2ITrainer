@@ -358,8 +358,8 @@ with gr.Blocks() as demo:
     with gr.Accordion("Lora Config"):
         # train related section
         with gr.Row():
-            rank = gr.Number(label="rank", value=default_config["rank"])
-            train_batch_size = gr.Number(label="train_batch_size", value=default_config["train_batch_size"])
+            rank = gr.Number(label="rank", value=default_config["rank"], info="Recommanded to use rank 4 for training set small than 100." )
+            train_batch_size = gr.Number(label="train_batch_size", value=default_config["train_batch_size"], info="Batch size 1 is using 18GB. Please use small batch size to avoid oom." )
         with gr.Row():
             repeats = gr.Number(label="repeats", value=default_config["repeats"])
             gradient_accumulation_steps = gr.Number(label="gradient_accumulation_steps", value=default_config["gradient_accumulation_steps"])
