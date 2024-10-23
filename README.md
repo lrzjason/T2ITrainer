@@ -141,7 +141,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-09-30:**  T2Itrainer parameter explanation https://civitai.com/articles/7743
 - **2024-09-30:(2)**  Fix small bug and remove 2048 training option.
 - **2024-10-08:**  Add 512 resolution training
-- **2024-10-23:**  Add sd3.5 L training script
+- **2024-10-23:**  Add sd3.5 Large training script
 
 
 ## Acknowledgements:
