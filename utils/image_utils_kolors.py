@@ -70,11 +70,15 @@ def get_buckets(resolution=1024):
         buckets[f'{resolution[0]}x{resolution[1]}'] = []
     return buckets
 
+def closest_mod_64(value):
+    return value - (value % 64)
+
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
     if height==width and (width <= 1344 and height <= 1344):
-        return 1, (height,width)
+        closest_pixel = closest_mod_64(width)
+        return 1, (closest_pixel,closest_pixel)
     
     resolution_set = RESOLUTION_CONFIG[resolution]
     
