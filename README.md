@@ -56,10 +56,14 @@ pip install -r requirements.txt
 ```
 Download Models seperately via huggingface-cli:
 For Kolors:
+```
 huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
+```
 
 For SD3.5 Large:
+```
 huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+```
 
 
 ### 2. Run the script (Kolors):
@@ -68,7 +72,6 @@ huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "s
 - sdxl.vae.safetensors or sdxl_vae.safetensors and use one of them in vae_path option
 ```
 python ui.py
-
 ```
 ### 2. Run the script (SD3.5 Large):
 ```
