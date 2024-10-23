@@ -17,3 +17,4 @@ glob2
 onnxruntime
 pandas
 huggingface_hub
+protobuf==3.20

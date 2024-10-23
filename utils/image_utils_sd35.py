@@ -199,7 +199,7 @@ class CachedImageDataset(Dataset):
         latent = cached_latent['latent']
         prompt_embed = cached_npz['prompt_embed']
         pooled_prompt_embed = cached_npz['pooled_prompt_embed']
-        time_id = cached_npz['time_id']
+        # time_id = cached_npz['time_id']
 
         # conditional_dropout
         if random.random() < self.conditional_dropout_percent:
@@ -210,7 +210,7 @@ class CachedImageDataset(Dataset):
             "latent": latent,
             "prompt_embed": prompt_embed,
             "pooled_prompt_embed": pooled_prompt_embed,
-            "time_id": time_id,
+            # "time_id": time_id,
         }
 
 
@@ -247,7 +247,7 @@ class CachedPairsDataset(Dataset):
         pos_prompt_embed = pos_npz['prompt_embed']
         pos_pooled_prompt_embed = pos_npz['pooled_prompt_embed']
         pos_latent = pos_latent_dict['latent']
-        pos_time_id = pos_latent_dict['time_id']
+        # pos_time_id = pos_latent_dict['time_id']
         
         # conditional_dropout
         if random.random() < self.conditional_dropout_percent:
@@ -261,7 +261,7 @@ class CachedPairsDataset(Dataset):
         neg_prompt_embed = neg_npz['prompt_embed']
         neg_pooled_prompt_embed = neg_npz['pooled_prompt_embed']
         neg_latent = neg_latent_dict['latent']
-        neg_time_id = neg_latent_dict['time_id']
+        # neg_time_id = neg_latent_dict['time_id']
         
         # conditional_dropout
         if random.random() < self.conditional_dropout_percent:
@@ -281,13 +281,13 @@ class CachedPairsDataset(Dataset):
             "pos_latent": pos_latent,
             "pos_prompt_embed": pos_prompt_embed,
             "pos_pooled_prompt_embed": pos_pooled_prompt_embed,
-            "pos_time_id":pos_time_id,
+            # "pos_time_id":pos_time_id,
             
             # negative latent
             "neg_latent": neg_latent,
             "neg_prompt_embed": neg_prompt_embed,
             "neg_pooled_prompt_embed": neg_pooled_prompt_embed,
-            "neg_time_id":neg_time_id,
+            # "neg_time_id":neg_time_id,
             
             # uncondition embedding
             "main_prompt_embed": main_prompt_embed,
@@ -297,7 +297,8 @@ class CachedPairsDataset(Dataset):
 # main idea is store all tensor related in .npz file
 # other information stored in .json
 @torch.no_grad()
-def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cache=False, metadata_path="metadata_kolors.json", resolution_config="1024"):
+def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cache=False, metadata_path="metadata_sd35.json", resolution_config="1024"):
+    create_empty_embedding(tokenizers,text_encoders)
     datarows = []
     embedding_objects = []
     resolutions = resolution_config.split(",")
@@ -333,7 +334,7 @@ def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cach
     return datarows
 
 @torch.no_grad()
-def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkolors",resolutions=None,recreate_cache=False):
+def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npsd35",resolutions=None,recreate_cache=False):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -393,11 +394,11 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkol
     height, width, _ = image.shape
     original_size = (height, width)
     crops_coords_top_left = (0,0)
-    time_id = torch.tensor(list(original_size + crops_coords_top_left + original_size)).to(text_encoders[0].device, dtype=text_encoders[0].dtype)
+    # time_id = torch.tensor(list(original_size + crops_coords_top_left + original_size)).to(text_encoders[0].device, dtype=text_encoders[0].dtype)
     npz_dict = {
         "prompt_embed": prompt_embed.cpu(), 
         "pooled_prompt_embed": pooled_prompt_embed.cpu(),
-        "time_id": time_id.cpu()
+        # "time_id": time_id.cpu()
     }
     
     # save latent to cache file
@@ -407,7 +408,7 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npkol
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
 @torch.no_grad()
-def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".nplatent",recreate_cache=False):
+def cache_file(vae,json_obj,resolution=1024,cache_ext=".npsd35",latent_ext=".npsd35latent",recreate_cache=False):
     npz_path = json_obj["npz_path"]
     
     
@@ -473,7 +474,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     
     json_obj['bucket'] = f"{image_width}x{image_height}"
     
-    time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
+    # time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
 
     # skip if already cached
     if os.path.exists(latent_cache_path) and not recreate_cache:
@@ -504,7 +505,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npkolors",latent_ext=".n
     }
     torch.save(latent_dict, latent_cache_path)
     # latent_dict['latent'] = latent.cpu()
-    npz_dict['time_id'] = time_id.cpu()
+    # npz_dict['time_id'] = time_id.cpu()
     npz_dict['latent_path'] = latent_cache_path
     json_obj['latent_path_md5'] = get_md5_by_path(latent_cache_path)
     # save latent to cache file
@@ -522,10 +523,10 @@ def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
     return prompt_embeds, pooled_prompt_embeds
 
 
-def get_empty_embedding(cache_path="cache/empty_embedding_kolors.npkolors"):
+def get_empty_embedding(cache_path="cache/empty_embedding.npsd35"):
     if os.path.exists(cache_path):
         return torch.load(cache_path)
-def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding_kolors.npkolors",recreate=False, resolution=1024):
+def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embedding.npsd35",recreate=False, resolution=1024):
     if recreate:
         os.remove(cache_path)
 
@@ -535,59 +536,150 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
     prompt_embeds, pooled_prompt_embeds = encode_prompt(text_encoders,tokenizers,"")
     prompt_embeds = prompt_embeds.squeeze(0)
     pooled_prompt_embeds = pooled_prompt_embeds.squeeze(0)
-    time_id = torch.tensor([
-        # original size
-        resolution,resolution,
-        0,0,
-        # target size
-        resolution,resolution
-    ])
+    # time_id = torch.tensor([
+    #     # original size
+    #     resolution,resolution,
+    #     0,0,
+    #     # target size
+    #     resolution,resolution
+    # ])
     latent = {
         "prompt_embed": prompt_embeds.cpu(), 
         "pooled_prompt_embed": pooled_prompt_embeds.cpu(),
-        "time_id":time_id.cpu()
+        # "time_id":time_id.cpu()
     }
     # save latent to cache file
     torch.save(latent, cache_path)
 
     return latent
 
-def encode_prompt_with_glm(
+
+def tokenize_prompt(tokenizer, prompt):
+    text_inputs = tokenizer(
+        prompt,
+        padding="max_length",
+        max_length=77,
+        truncation=True,
+        return_tensors="pt",
+    )
+    text_input_ids = text_inputs.input_ids
+    return text_input_ids
+
+
+def encode_prompt_with_t5(
+    text_encoder,
+    tokenizer,
+    max_sequence_length,
+    prompt=None,
+    num_images_per_prompt=1,
+    device=None,
+    text_input_ids=None,
+):
+    prompt = [prompt] if isinstance(prompt, str) else prompt
+    batch_size = len(prompt)
+
+    if tokenizer is not None:
+        text_inputs = tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=max_sequence_length,
+            truncation=True,
+            add_special_tokens=True,
+            return_tensors="pt",
+        )
+        text_input_ids = text_inputs.input_ids
+    else:
+        if text_input_ids is None:
+            raise ValueError("text_input_ids must be provided when the tokenizer is not specified")
+
+    prompt_embeds = text_encoder(text_input_ids.to(device))[0]
+
+    dtype = text_encoder.dtype
+    prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
+
+    _, seq_len, _ = prompt_embeds.shape
+
+    # duplicate text embeddings and attention mask for each generation per prompt, using mps friendly method
+    prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+    prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
+
+    return prompt_embeds
+
+
+def encode_prompt_with_clip(
     text_encoder,
     tokenizer,
     prompt: str,
     device=None,
+    text_input_ids=None,
     num_images_per_prompt: int = 1,
 ):
     prompt = [prompt] if isinstance(prompt, str) else prompt
-    # batch_size = len(prompt)
+    batch_size = len(prompt)
 
-    text_inputs = tokenizer(
-        prompt,
-        padding="max_length",
-        max_length=256,
-        truncation=True,
-        return_tensors="pt",
-    ).to(device)
+    if tokenizer is not None:
+        text_inputs = tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=77,
+            truncation=True,
+            return_tensors="pt",
+        )
 
-    output = text_encoder(
-            input_ids=text_inputs['input_ids'],
-            attention_mask=text_inputs['attention_mask'],
-            position_ids=text_inputs['position_ids'],
-            output_hidden_states=True)
-    # text_input_ids = text_inputs.input_ids
-    # prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
-    prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
-    pooled_prompt_embeds = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
-    bs_embed, seq_len, _ = prompt_embeds.shape
+        text_input_ids = text_inputs.input_ids
+    else:
+        if text_input_ids is None:
+            raise ValueError("text_input_ids must be provided when the tokenizer is not specified")
+
+    prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
+
+    pooled_prompt_embeds = prompt_embeds[0]
+    prompt_embeds = prompt_embeds.hidden_states[-2]
+    prompt_embeds = prompt_embeds.to(dtype=text_encoder.dtype, device=device)
+
+    _, seq_len, _ = prompt_embeds.shape
+    # duplicate text embeddings for each generation per prompt, using mps friendly method
     prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
-    prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
-    
-    pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, num_images_per_prompt).view(
-        bs_embed * num_images_per_prompt, -1
-    )
-    
+    prompt_embeds = prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
+
     return prompt_embeds, pooled_prompt_embeds
+
+# def encode_prompt_with_glm(
+#     text_encoder,
+#     tokenizer,
+#     prompt: str,
+#     device=None,
+#     num_images_per_prompt: int = 1,
+# ):
+#     prompt = [prompt] if isinstance(prompt, str) else prompt
+#     # batch_size = len(prompt)
+
+#     text_inputs = tokenizer(
+#         prompt,
+#         padding="max_length",
+#         max_length=256,
+#         truncation=True,
+#         return_tensors="pt",
+#     ).to(device)
+
+#     output = text_encoder(
+#             input_ids=text_inputs['input_ids'],
+#             attention_mask=text_inputs['attention_mask'],
+#             position_ids=text_inputs['position_ids'],
+#             output_hidden_states=True)
+#     # text_input_ids = text_inputs.input_ids
+#     # prompt_embeds = text_encoder(text_input_ids.to(device), output_hidden_states=True)
+#     prompt_embeds = output.hidden_states[-2].permute(1, 0, 2).clone()
+#     pooled_prompt_embeds = output.hidden_states[-1][-1, :, :].clone() # [batch_size, 4096]
+#     bs_embed, seq_len, _ = prompt_embeds.shape
+#     prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+#     prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
+    
+#     pooled_prompt_embeds = pooled_prompt_embeds.repeat(1, num_images_per_prompt).view(
+#         bs_embed * num_images_per_prompt, -1
+#     )
+    
+#     return prompt_embeds, pooled_prompt_embeds
 
 
 def encode_prompt(
@@ -599,15 +691,39 @@ def encode_prompt(
 ):
     prompt = [prompt] if isinstance(prompt, str) else prompt
 
-    text_encoder = text_encoders[0]
-    tokenizer = tokenizers[0]
-    prompt_embeds, pooled_prompt_embeds = encode_prompt_with_glm(
-        text_encoder=text_encoder,
-        tokenizer=tokenizer,
+    clip_tokenizers = tokenizers[:2]
+    clip_text_encoders = text_encoders[:2]
+
+    clip_prompt_embeds_list = []
+    clip_pooled_prompt_embeds_list = []
+    for tokenizer, text_encoder in zip(clip_tokenizers, clip_text_encoders):
+        prompt_embeds, pooled_prompt_embeds = encode_prompt_with_clip(
+            text_encoder=text_encoder,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            device=device if device is not None else text_encoder.device,
+            num_images_per_prompt=num_images_per_prompt,
+        )
+        clip_prompt_embeds_list.append(prompt_embeds)
+        clip_pooled_prompt_embeds_list.append(pooled_prompt_embeds)
+
+    clip_prompt_embeds = torch.cat(clip_prompt_embeds_list, dim=-1)
+    pooled_prompt_embeds = torch.cat(clip_pooled_prompt_embeds_list, dim=-1)
+
+    t5_prompt_embed = encode_prompt_with_t5(
+        text_encoders[-1],
+        tokenizers[-1],
+        256,
         prompt=prompt,
-        device=device if device is not None else text_encoder.device,
         num_images_per_prompt=num_images_per_prompt,
+        device=device if device is not None else text_encoders[-1].device,
     )
+
+    clip_prompt_embeds = torch.nn.functional.pad(
+        clip_prompt_embeds, (0, t5_prompt_embed.shape[-1] - clip_prompt_embeds.shape[-1])
+    )
+    prompt_embeds = torch.cat([clip_prompt_embeds, t5_prompt_embed], dim=-2)
+
     return prompt_embeds, pooled_prompt_embeds
     
 def simple_center_crop(image,scale_with_height,closest_resolution):

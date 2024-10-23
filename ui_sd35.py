@@ -9,20 +9,20 @@ import os
 default_config = {
     "script": "train_kolors_lora_ui.py",
     "script_choices": [
-                        "train_kolors_lora_ui.py",
-                        # "train_sd3_lora_ui.py"
+                        # "train_kolors_lora_ui.py",
+                        "train_sd3_lora_ui.py"
                     #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
                        ],
-    "output_dir":"F:/models/kolors",
-    "save_name":"kolors-lora",
-    "pretrained_model_name_or_path":"kolors_models", # or local folder F:\Kolors
-    "train_data_dir":"F:/ImageSet/kolors_test", 
-    "vae_path":None, # or local file
+    "output_dir":"F:/models/sd3",
+    "save_name":"sd35-lora",
+    "pretrained_model_name_or_path":"F:/T2ITrainer/sd3.5L", # or local folder F:\Kolors
+    "train_data_dir":"F:/ImageSet/3dkitten", 
+    # "vae_path":None, # or local file
     "resume_from_checkpoint":None,
-    "model_path":None, 
+    # "model_path":None, 
     # "logging_dir":"logs",
     "report_to":"wandb", 
-    "rank":32,
+    "rank":4,
     "train_batch_size":1,
     "repeats":10,
     "gradient_accumulation_steps":1,
@@ -81,14 +81,14 @@ def save_config(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path,
+        # model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path,
+        # vae_path,
         resolution,
-        use_debias,
-        snr_gamma,
+        # use_debias,
+        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps
@@ -119,15 +119,15 @@ def save_config(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        "model_path":model_path,
+        # "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
-        "vae_path":vae_path,
+        # "vae_path":vae_path,
         "config_path":config_path,
         "resolution":resolution,
-        "use_debias":use_debias,
-        'snr_gamma':snr_gamma,
+        # "use_debias":use_debias,
+        # 'snr_gamma':snr_gamma,
         "caption_dropout":caption_dropout,
         "cosine_restarts":cosine_restarts,
         "max_time_steps":max_time_steps
@@ -176,9 +176,9 @@ def load_config(config_path):
             default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
             default_config['rank'],default_config['skip_epoch'], \
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
-            default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
-            default_config['use_dora'],default_config['recreate_cache'],default_config['vae_path'],default_config['resolution'], \
-            default_config['use_debias'],default_config['snr_gamma'],default_config['caption_dropout'], \
+            default_config['pretrained_model_name_or_path'],default_config['resume_from_checkpoint'], \
+            default_config['use_dora'],default_config['recreate_cache'],default_config['resolution'], \
+            default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps']
             # default_config['logging_dir'],default_config['break_epoch'], 
 
@@ -211,23 +211,23 @@ def run(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path,
+        # model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path,
+        # vae_path,
         resolution,
-        use_debias,
-        snr_gamma,
+        # use_debias,
+        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps
     ):
-    if vae_path is not None:
-        if not vae_path.endswith('.safetensors') and not vae_path == "":
-            msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
-            gr.Warning(msg)
-            return msg
+    # if vae_path is not None:
+    #     if not vae_path.endswith('.safetensors') and not vae_path == "":
+    #         msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
+    #         gr.Warning(msg)
+    #         return msg
     
     inputs = {
         "seed":seed,
@@ -254,14 +254,14 @@ def run(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        "model_path":model_path,
+        # "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
-        "vae_path":vae_path,
+        # "vae_path":vae_path,
         "resolution":resolution,
-        "use_debias":use_debias,
-        "snr_gamma":snr_gamma,
+        # "use_debias":use_debias,
+        # "snr_gamma":snr_gamma,
         "caption_dropout":caption_dropout,
         "cosine_restarts":cosine_restarts,
         "max_time_steps":max_time_steps
@@ -308,14 +308,14 @@ def run(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path,
+        # model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path,
+        # vae_path,
         resolution,
-        use_debias,
-        snr_gamma,
+        # use_debias,
+        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps
@@ -348,9 +348,6 @@ with gr.Blocks() as demo:
                 value=default_config["pretrained_model_name_or_path"], 
                 placeholder="repo name or dir contains diffusers model structure"
             )
-            vae_path = gr.Textbox(label="fp16_fix_vae_path Url: https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main", value=default_config["vae_path"], placeholder="separate fp16 fix vae single file path. File end with .safetensors")
-        with gr.Row():
-            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
@@ -393,8 +390,8 @@ with gr.Blocks() as demo:
             
         with gr.Row():
             recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
-            use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
-            snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
+            # use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
+            # snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
             caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=1, minimum=0)
             max_time_steps = gr.Number(label="Max timesteps limitation", value=default_config["max_time_steps"], info="Max timesteps limitation", maximum=1100, minimum=0)
         gr.Markdown(
@@ -432,14 +429,14 @@ with gr.Blocks() as demo:
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        model_path,
+        # model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
-        vae_path,
+        # vae_path,
         resolution,
-        use_debias,
-        snr_gamma,
+        # use_debias,
+        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps,

@@ -10,6 +10,7 @@ It updates very frequently, please check the change logs for details.
   - **Hardware requirements:**
     - CUDA GPU with >13GB memory for hunyuandit lora training.
     - CUDA GPU with 11GB memory for kolors training.
+    - CUDA GPU with 24GB memory for sd3.5 fp16 bs1 lora training.
 
 ## Installation
 ### 0. Microsoft Visual C++ Redistributable latest supported downloads
@@ -23,7 +24,8 @@ setup.bat include 5 steps:
 - Step 2. Upgrade pip
 - Step 3. Install torch (auto,optional) if setup venv install torch automatically.
 - Step 4. Install other dependencies from requirements.txt
-- Step 5. Download the Model Files (optional)
+- Step 5. Download the Kolors Model Files (optional, must if you train Kolors)
+- Step 5. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
 ```
 git clone https://github.com/lrzjason/T2ITrainer.git
 cd T2ITrainer
@@ -53,12 +55,17 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-### 2. Run the script:
+### 2. Run the script (Kolors):
 - PS: Kolors' original vae in fp16 would cause training error and produce black image when inference.
 - Please download the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
 - sdxl.vae.safetensors or sdxl_vae.safetensors and use one of them in vae_path option
 ```
 python ui.py
+
+```
+### 2. Run the script (SD3.5 Large):
+```
+python ui_sd35.py
 ```
 
 ### 3. Testing:
@@ -134,6 +141,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-09-30:**  T2Itrainer parameter explanation https://civitai.com/articles/7743
 - **2024-09-30:(2)**  Fix small bug and remove 2048 training option.
 - **2024-10-08:**  Add 512 resolution training
+- **2024-10-23:**  Add sd3.5 L training script
 
 
 ## Acknowledgements:
