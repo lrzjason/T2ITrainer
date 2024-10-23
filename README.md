@@ -25,7 +25,7 @@ setup.bat include 5 steps:
 - Step 3. Install torch (auto,optional) if setup venv install torch automatically.
 - Step 4. Install other dependencies from requirements.txt
 - Step 5. Download the Kolors Model Files (optional, must if you train Kolors)
-- Step 5. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
+- Step 6. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
 ```
 git clone https://github.com/lrzjason/T2ITrainer.git
 cd T2ITrainer
@@ -54,6 +54,13 @@ Install dependencies:
 ```
 pip install -r requirements.txt
 ```
+Download Models seperately via huggingface-cli:
+For Kolors:
+huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
+
+For SD3.5 Large:
+huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+
 
 ### 2. Run the script (Kolors):
 - PS: Kolors' original vae in fp16 would cause training error and produce black image when inference.
