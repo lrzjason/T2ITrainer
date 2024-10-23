@@ -55,6 +55,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 Download Models seperately via huggingface-cli:
+
 For Kolors:
 ```
 huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
