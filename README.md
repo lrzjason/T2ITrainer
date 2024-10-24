@@ -153,6 +153,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-09-30:(2)**  Fix small bug and remove 2048 training option.
 - **2024-10-08:**  Add 512 resolution training
 - **2024-10-23:**  Add sd3.5 Large training script
+- **2024-10-24:**  Add freeze layers for SD3.5 training, default as 30 which would freeze 30~37 layers to keep texture
 
 
 ## Acknowledgements:
