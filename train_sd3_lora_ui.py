@@ -764,24 +764,23 @@ def main(args):
     transformer.add_adapter(transformer_lora_config)
     # Freeze the layers
     for name, param in transformer.named_parameters():
-        # print(f"name: {name}")
+        print(f"name: {name}")
         if "transformer" in name:
             name_split = name.split(".")
             layer_order = name_split[1]
             if int(layer_order) >= args.freeze_transformer_layer_after_include:
                 param.requires_grad = False
+        # freeze final layers, suggested by dev (lora not used, it might used in full fine tune)
+        # if "norm_out" in name:
+        #     param.requires_grad = False
+        # if "proj_out" in name:
+        #     param.requires_grad = False
     
+    # layer_names = []
     # for name, param in transformer.named_parameters():
     #     print(f"name: {name} requires_grad:{param.requires_grad}")
+    #     layer_names.append(name)
     # print("debug")
-    # for k, v in transformer.state_dict().items():
-    #     if "transformer" in k:
-    #         print(k)
-    #         name_split = k.split(".")
-    #         layer_order = name_split[1]
-    #         print(f'layer_order:{layer_order}')
-    #         if int(layer_order) >= args.freeze_transformer_layer_after_include:
-    #             v.requires_grad = False
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
