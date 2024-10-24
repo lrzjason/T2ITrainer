@@ -41,7 +41,7 @@ RESOLUTION_CONFIG = {
     1024: [
         # extra resolution for testing
         # (1536, 1536),
-        (1344, 1344),
+        # (1344, 1344),
         (1024, 1024),
         (1344, 1024),
         (1152, 896), # 1.2857
@@ -76,9 +76,9 @@ def closest_mod_64(value):
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
-    if height==width and (width <= 1344 and height <= 1344):
-        closest_pixel = closest_mod_64(width)
-        return 1, (closest_pixel,closest_pixel)
+    # if height==width and (width <= 1344 and height <= 1344):
+    #     closest_pixel = closest_mod_64(width)
+    #     return 1, (closest_pixel,closest_pixel)
     
     resolution_set = RESOLUTION_CONFIG[resolution]
     

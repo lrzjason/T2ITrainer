@@ -551,6 +551,13 @@ def parse_args(input_args=None):
         "model `target` is calculated.",
     )
     
+    parser.add_argument(
+        "--freeze_transformer_layer_after_include",
+        type=int,
+        default=30,
+        help="Stop training the transformer layers after this layer (include). As suggested by the developer. Freeze 30~37 layers to keep the texture."
+    )
+    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
@@ -755,6 +762,26 @@ def main(args):
         target_modules=["to_k", "to_q", "to_v", "to_out.0"],
     )
     transformer.add_adapter(transformer_lora_config)
+    # Freeze the layers
+    for name, param in transformer.named_parameters():
+        # print(f"name: {name}")
+        if "transformer" in name:
+            name_split = name.split(".")
+            layer_order = name_split[1]
+            if int(layer_order) >= args.freeze_transformer_layer_after_include:
+                param.requires_grad = False
+    
+    # for name, param in transformer.named_parameters():
+    #     print(f"name: {name} requires_grad:{param.requires_grad}")
+    # print("debug")
+    # for k, v in transformer.state_dict().items():
+    #     if "transformer" in k:
+    #         print(k)
+    #         name_split = k.split(".")
+    #         layer_order = name_split[1]
+    #         print(f'layer_order:{layer_order}')
+    #         if int(layer_order) >= args.freeze_transformer_layer_after_include:
+    #             v.requires_grad = False
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
