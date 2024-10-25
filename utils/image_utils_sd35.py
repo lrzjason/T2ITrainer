@@ -786,6 +786,6 @@ def crop_image(image,resolution=1024):
 
 def resize(img,resolution):
     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    return cv2.resize(img,resolution, interpolation=cv2.INTER_AREA)
+    return cv2.resize(img,resolution, interpolation=cv2.INTER_CUBIC)
 
     
