@@ -863,6 +863,8 @@ def main(args):
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
 
+    
+
     # ==========================================================
     # Create train dataset
     # ==========================================================
@@ -995,6 +997,8 @@ def main(args):
                 cache_list += corrupted_files
                     
         if len(cache_list)>0:
+            # for cpu offload
+            transformer.to("cpu")
             # Load the tokenizers
             # tokenizer_one = ChatGLMTokenizer.from_pretrained(
             #     args.pretrained_model_name_or_path,
@@ -1133,7 +1137,6 @@ def main(args):
     
     datarows = datarows * args.repeats
     # resume from cpu after cache files
-    
     transformer.to(accelerator.device)
 
     # Make sure the trainable params are in float32.
