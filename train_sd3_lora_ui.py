@@ -764,7 +764,7 @@ def main(args):
     transformer.add_adapter(transformer_lora_config)
     # Freeze the layers
     for name, param in transformer.named_parameters():
-        print(f"name: {name}")
+        # print(f"name: {name}")
         if "transformer" in name:
             name_split = name.split(".")
             layer_order = name_split[1]
