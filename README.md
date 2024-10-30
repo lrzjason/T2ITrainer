@@ -26,6 +26,8 @@ setup.bat include 5 steps:
 - Step 4. Install other dependencies from requirements.txt
 - Step 5. Download the Kolors Model Files (optional, must if you train Kolors)
 - Step 6. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
+- Step 6. Download the SD3.5 Medium Model Files (optional, must if you train SD3.5 Medium)
+  - **Note:** If you already have SD3.5 Large downloaded, you can only download the SD3.5 Medium transformer subfolder and replace it to the sd3.5 Large transformer subfolder.
 ```
 git clone https://github.com/lrzjason/T2ITrainer.git
 cd T2ITrainer
@@ -64,6 +66,11 @@ huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
 For SD3.5 Large:
 ```
 huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+```
+
+For SD3.5 Medium:
+```
+huggingface-cli download "stabilityai/stable-diffusion-3.5-medium" --local-dir "sd3.5M/"
 ```
 
 
@@ -154,7 +161,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-10-08:**  Add 512 resolution training
 - **2024-10-23:**  Add sd3.5 Large training script
 - **2024-10-24:**  Add freeze layers for SD3.5 training, default as 30 which would freeze 30~37 layers to keep texture
-
+- **2024-10-30:**  Add model_path for SD3.5 training
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
