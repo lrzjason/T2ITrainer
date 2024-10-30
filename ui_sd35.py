@@ -19,7 +19,7 @@ default_config = {
     "train_data_dir":"F:/ImageSet/3dkitten", 
     # "vae_path":None, # or local file
     "resume_from_checkpoint":None,
-    # "model_path":None, 
+    "model_path":None, 
     # "logging_dir":"logs",
     "report_to":"wandb", 
     "rank":4,
@@ -82,7 +82,7 @@ def save_config(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        # model_path,
+        model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
@@ -121,7 +121,7 @@ def save_config(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        # "model_path":model_path,
+        "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
@@ -179,7 +179,7 @@ def load_config(config_path):
             default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
             default_config['rank'],default_config['skip_epoch'], \
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
-            default_config['pretrained_model_name_or_path'],default_config['resume_from_checkpoint'], \
+            default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['use_dora'],default_config['recreate_cache'],default_config['resolution'], \
             default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps'], \
@@ -215,7 +215,7 @@ def run(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        # model_path,
+        model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
@@ -259,7 +259,7 @@ def run(
         "gradient_checkpointing":gradient_checkpointing,
         "validation_ratio":validation_ratio,
         "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        # "model_path":model_path,
+        "model_path":model_path,
         "resume_from_checkpoint":resume_from_checkpoint,
         "use_dora":use_dora,
         "recreate_cache":recreate_cache,
@@ -314,7 +314,7 @@ def run(
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        # model_path,
+        model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,
@@ -358,9 +358,11 @@ with gr.Blocks() as demo:
             resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
         with gr.Row():
             train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
-            report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
+            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
             # logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
-        # with gr.Row():
+        with gr.Row():
+            report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
+            
 
     with gr.Accordion("Lora Config"):
         # train related section
@@ -438,7 +440,7 @@ with gr.Blocks() as demo:
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
-        # model_path,
+        model_path,
         resume_from_checkpoint,
         use_dora,
         recreate_cache,

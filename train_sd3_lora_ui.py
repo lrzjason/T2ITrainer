@@ -731,22 +731,22 @@ def main(args):
                     transformer_folder, variant=variant
                 ).to(offload_device, dtype=weight_dtype)
     
-    # if not (args.model_path is None or args.model_path == ""):
-    #     # load from file
-    #     state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
-    #     unexpected_keys = load_model_dict_into_meta(
-    #         unet,
-    #         state_dict,
-    #         device=offload_device,
-    #         dtype=torch.float32,
-    #         model_name_or_path=args.model_path,
-    #     )
-    #     # updated_state_dict = unet.state_dict()
-    #     if len(unexpected_keys) > 0:
-    #         print(f"Unexpected keys in state_dict: {unexpected_keys}")
-    #     unet.to(offload_device, dtype=weight_dtype)
-    #     del state_dict,unexpected_keys
-    #     flush()
+    if not (args.model_path is None or args.model_path == ""):
+        # load from file
+        state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
+        unexpected_keys = load_model_dict_into_meta(
+            transformer,
+            state_dict,
+            device=offload_device,
+            dtype=torch.float32,
+            model_name_or_path=args.model_path,
+        )
+        # updated_state_dict = unet.state_dict()
+        if len(unexpected_keys) > 0:
+            print(f"Unexpected keys in state_dict: {unexpected_keys}")
+        transformer.to(offload_device, dtype=weight_dtype)
+        del state_dict,unexpected_keys
+        flush()
 
     transformer.requires_grad_(False)
 

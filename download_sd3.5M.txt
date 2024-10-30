@@ -1,0 +1,1 @@
+huggingface-cli download "stabilityai/stable-diffusion-3.5-medium" --local-dir sd3.5M/
