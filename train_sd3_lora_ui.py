@@ -124,6 +124,7 @@ from utils.dist_utils import flush
 
 from hashlib import md5
 import glob
+import shutil
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.30.0.dev0")
@@ -806,6 +807,13 @@ def main(args):
                 output_dir,
                 transformer_lora_layers=transformer_lora_layers_to_save
             )
+            
+            last_part = os.path.basename(os.path.normpath(output_dir))
+            file_path = f"{output_dir}/{last_part}.safetensors"
+            ori_file = f"{output_dir}/pytorch_lora_weights.safetensors"
+            if os.path.exists(ori_file): 
+                # copy ori to new name
+                shutil.copy(ori_file, file_path)
             
             # # save to kohya
             # peft_state_dict = convert_all_state_dict_to_peft(transformer_lora_layers_to_save)
