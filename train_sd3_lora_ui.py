@@ -1501,7 +1501,7 @@ def main(args):
         
         # store rng before validation
         before_state = torch.random.get_rng_state()
-        np_seed = args.seed if args.seed is not None else np.random.seed()
+        np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
         
         if accelerator.is_main_process:
