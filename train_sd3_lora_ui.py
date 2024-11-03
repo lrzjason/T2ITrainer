@@ -763,9 +763,10 @@ def main(args):
         target_modules=["to_k", "to_q", "to_v", "to_out.0"],
     )
     transformer.add_adapter(transformer_lora_config)
+    layer_names = []
     # Freeze the layers
     for name, param in transformer.named_parameters():
-        # print(f"name: {name}")
+        layer_names.append(name)
         if "transformer" in name:
             name_split = name.split(".")
             layer_order = name_split[1]
@@ -776,7 +777,7 @@ def main(args):
         #     param.requires_grad = False
         # if "proj_out" in name:
         #     param.requires_grad = False
-    
+    # print(layer_names)
     # layer_names = []
     # for name, param in transformer.named_parameters():
     #     print(f"name: {name} requires_grad:{param.requires_grad}")
@@ -1500,7 +1501,7 @@ def main(args):
         
         # store rng before validation
         before_state = torch.random.get_rng_state()
-        np_seed = np.random.seed() if args.seed is None else args.seed
+        np_seed = args.seed if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
         
         if accelerator.is_main_process:
