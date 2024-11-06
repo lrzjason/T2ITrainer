@@ -553,10 +553,10 @@ def parse_args(input_args=None):
     )
     
     parser.add_argument(
-        "--freeze_transformer_layer_after_include",
-        type=int,
-        default=30,
-        help="Stop training the transformer layers after this layer (include). As suggested by the developer. Freeze 30~37 layers to keep the texture."
+        "--freeze_transformer_layers",
+        type=str,
+        default='5,7,10,17,18,19',
+        help="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19"
     )
     
     if input_args is not None:
@@ -764,13 +764,19 @@ def main(args):
     )
     transformer.add_adapter(transformer_lora_config)
     layer_names = []
+    freezed_layers = []
+    if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
+        splited_layers = args.freeze_transformer_layers.split()
+        for layer in splited_layers:
+            layer_name = int(layer.strip())
+            freezed_layers.append(layer_name)
     # Freeze the layers
     for name, param in transformer.named_parameters():
         layer_names.append(name)
         if "transformer" in name:
             name_split = name.split(".")
             layer_order = name_split[1]
-            if int(layer_order) >= args.freeze_transformer_layer_after_include:
+            if int(layer_order) in freezed_layers:
                 param.requires_grad = False
         # freeze final layers, suggested by dev (lora not used, it might used in full fine tune)
         # if "norm_out" in name:

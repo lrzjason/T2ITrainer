@@ -50,7 +50,7 @@ default_config = {
     "snr_gamma":0,
     "cosine_restarts":1,
     "max_time_steps":0,
-    "freeze_transformer_layer_after_include":30
+    "freeze_transformer_layers":'5,7,10,17,18,19'
 }
 
 
@@ -93,7 +93,7 @@ def save_config(
         caption_dropout,
         cosine_restarts,
         max_time_steps,
-        freeze_transformer_layer_after_include
+        freeze_transformer_layers
     ):
     config = {
         "script":script,
@@ -133,7 +133,7 @@ def save_config(
         "caption_dropout":caption_dropout,
         "cosine_restarts":cosine_restarts,
         "max_time_steps":max_time_steps,
-        "freeze_transformer_layer_after_include":freeze_transformer_layer_after_include
+        "freeze_transformer_layers":freeze_transformer_layers
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
     with open(config_path, 'w') as f:
@@ -183,7 +183,7 @@ def load_config(config_path):
             default_config['use_dora'],default_config['recreate_cache'],default_config['resolution'], \
             default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps'], \
-            default_config['freeze_transformer_layer_after_include']
+            default_config['freeze_transformer_layers']
             # default_config['logging_dir'],default_config['break_epoch'], 
 
 # load config.json by default
@@ -226,7 +226,7 @@ def run(
         caption_dropout,
         cosine_restarts,
         max_time_steps,
-        freeze_transformer_layer_after_include
+        freeze_transformer_layers
     ):
     # if vae_path is not None:
     #     if not vae_path.endswith('.safetensors') and not vae_path == "":
@@ -270,7 +270,7 @@ def run(
         "caption_dropout":caption_dropout,
         "cosine_restarts":cosine_restarts,
         "max_time_steps":max_time_steps,
-        "freeze_transformer_layer_after_include":freeze_transformer_layer_after_include
+        "freeze_transformer_layers":freeze_transformer_layers
     }
     # Convert the inputs dictionary to a list of arguments
     # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
@@ -325,7 +325,7 @@ def run(
         caption_dropout,
         cosine_restarts,
         max_time_steps,
-        freeze_transformer_layer_after_include
+        freeze_transformer_layers
     )
     # print(args)
     return " ".join(args)
@@ -386,7 +386,7 @@ with gr.Blocks() as demo:
             lr_warmup_steps = gr.Number(label="lr_warmup_steps", value=default_config["lr_warmup_steps"])
             seed = gr.Number(label="seed", value=default_config["seed"])
         with gr.Row():
-            freeze_transformer_layer_after_include = gr.Number(label="freeze_transformer_layer_after_include", value=default_config["freeze_transformer_layer_after_include"], info="Stop training the transformer layers after this layer (include). As suggested by the developer. Freeze 30~37 layers to keep the texture." )
+            freeze_transformer_layers = gr.Textbox(label="freeze_transformer_layers", value=default_config["freeze_transformer_layers"], info="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19" )
             
     with gr.Accordion("Misc"):
         with gr.Row():
@@ -451,7 +451,7 @@ with gr.Blocks() as demo:
         caption_dropout,
         cosine_restarts,
         max_time_steps,
-        freeze_transformer_layer_after_include,
+        freeze_transformer_layers,
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
