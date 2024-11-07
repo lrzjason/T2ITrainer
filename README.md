@@ -162,6 +162,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-10-23:**  Add sd3.5 Large training script
 - **2024-10-24:**  Add freeze layers for SD3.5 training, default as 30 which would freeze 30~37 layers to keep texture
 - **2024-10-30:**  Add model_path for SD3.5 training
+- **2024-11-07:**  Modify sd3.5 freeze layers training
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
