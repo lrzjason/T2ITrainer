@@ -47,6 +47,7 @@ RESOLUTION_CONFIG = {
         (1152, 896), # 1.2857
         (1216, 832), # 1.46
         (1344, 768), # 1.75
+        (1536, 768), # 2
         (1536, 640), # 2.4
     ],
     2048: [
@@ -632,10 +633,10 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     # crop extra part of the resized images
     if diff_x>0:
         crop_x =  diff_x //2
-        cropped_image = image[:,  crop_x:width-diff_x+crop_x]
+        cropped_image = image[:,  crop_x:width-crop_x]
     elif diff_y>0:
         crop_y =  diff_y//2
-        cropped_image = image[crop_y:height-diff_y+crop_y, :]
+        cropped_image = image[crop_y:height-crop_y, :]
     else:
         # 1:1 ratio
         cropped_image = image
