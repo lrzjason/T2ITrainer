@@ -372,7 +372,7 @@ def parse_args(input_args=None):
         "--mixed_precision",
         type=str,
         default=None,
-        choices=["no", "fp16", "bf16"],
+        choices=["bf16", "fp8"],
         help=(
             "Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
             " 1.10.and an Nvidia Ampere GPU.  Default to the value of accelerate config of the current system or the"
@@ -454,6 +454,12 @@ def parse_args(input_args=None):
         help=("caption_dropout ratio which drop the caption and update the unconditional space"),
     )
     parser.add_argument(
+        "--mask_dropout",
+        type=float,
+        default=0.01,
+        help=("mask_dropout ratio which replace the mask with all 0"),
+    )
+    parser.add_argument(
         "--vae_path",
         type=str,
         default=None,
@@ -522,11 +528,11 @@ def parse_args(input_args=None):
         default=3.5,
         help="the FLUX.1 dev variant is a guidance distilled model",
     )
-    parser.add_argument(
-        "--use_fp8",
-        action="store_true",
-        help="Use fp8 model",
-    )
+    # parser.add_argument(
+    #     "--use_fp8",
+    #     action="store_true",
+    #     help="Use fp8 model",
+    # )
     parser.add_argument(
         "--blocks_to_swap",
         type=int,
@@ -606,7 +612,7 @@ def main(args):
     args.validation_ratio = 0.1
     args.num_validation_images = 1
     # args.pretrained_model_name_or_path = "F:/Kolors"
-    args.pretrained_model_name_or_path = "black-forest-labs/FLUX.1-dev"
+    args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/dev"
     args.model_path = None
     # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
     args.use_fp8 = True
@@ -621,7 +627,7 @@ def main(args):
     args.save_model_epochs = 1
     args.validation_epochs = 1
     args.train_batch_size = 1
-    args.repeats = 100
+    args.repeats = 1
     args.gradient_accumulation_steps = 1
     args.num_train_epochs = 1
     args.caption_dropout = 0
@@ -629,14 +635,14 @@ def main(args):
     args.blocks_to_swap = 10
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
     # F:\ImageSet\flux\cutecollage
-    args.train_data_dir = "F:/ImageSet/flux/gogo_single" 
-    args.output_dir = 'F:/models/flux/gogo'
+    args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
+    args.output_dir = 'F:/models/flux/token_route'
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
     args.resume_from_checkpoint = ""
     # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
     # normal case
-    # args.save_name = "flux_3dkitten"
+    args.save_name = "tr_cutecollage"
     # args.weighting_scheme = "logit_normal"
     # args.logit_mean = 0.0
     # args.logit_std = 1.0
@@ -648,10 +654,10 @@ def main(args):
     # args.logit_std = 1.0
     
     
-    args.save_name = "gogo"
-    args.weighting_scheme = "logit_snr"
-    args.logit_mean = -6.0
-    args.logit_std = 2.0
+    # args.save_name = "gogo"
+    # args.weighting_scheme = "logit_snr"
+    # args.logit_mean = -6.0
+    # args.logit_std = 2.0
 
     lr_num_cycles = args.cosine_restarts
     
@@ -729,12 +735,13 @@ def main(args):
     if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
         offload_device = torch.device("cpu")
     
-    if args.use_fp8:
-        transformer = MaskedFluxTransformer2DModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="transformer"
-        ).to("cuda", dtype=torch.float8_e4m3fn)
-    # load from repo
-    elif args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
+    # if args.use_fp8:
+    #     transformer = MaskedFluxTransformer2DModel.from_pretrained(
+    #         args.pretrained_model_name_or_path, subfolder="transformer"
+    #     ).to("cuda", dtype=torch.float8_e4m3fn)
+    # # load from repo
+    # el
+    if args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
         # transformer  = SD3Transformer2DModel.from_pretrained(
         #         args.pretrained_model_name_or_path, subfolder="transformer"
         #     ).to(offload_device, dtype=weight_dtype)
