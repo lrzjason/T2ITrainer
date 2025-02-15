@@ -408,7 +408,7 @@ with gr.Blocks() as demo:
             seed = gr.Number(label="seed", value=default_config["seed"])
         with gr.Row():
             blocks_to_swap = gr.Number(label="blocks_to_swap", value=default_config["blocks_to_swap"], info="How many blocks to swap to cpu. It is suggested 10 for 24 GB and more for lower VRAM" )
-            mask_dropout = gr.Number(label="mask_dropout", value=default_config["mask_dropout"], info="Dropout mask which means mask is all one to generate image" )
+            mask_dropout = gr.Number(label="mask_dropout", value=default_config["mask_dropout"], info="Dropout mask which means mask is all one for whole image reconstruction" )
         #     freeze_transformer_layers = gr.Textbox(label="freeze_transformer_layers", value=default_config["freeze_transformer_layers"], info="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19" )
             
     with gr.Accordion("Misc"):
