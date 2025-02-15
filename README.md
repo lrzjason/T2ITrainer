@@ -142,10 +142,11 @@ https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 ## ⚙️ Recommended Parameters
 | Category          | Settings                      |
 |-------------------|-------------------------------|
-| Base Configuration| Rank 32, AdamW, LR 1e-4       |
+| Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
 | 24GB GPU          | 512 resolution, Batch Size 1  |
-| VRAM Optimization | blocks_to_swap: 10            | (15-20 for lower VRAM GPUs) 
+| VRAM Optimization | blocks_to_swap: 10 (15-20 for lower VRAM GPUs)  | 
 | Precision         | bf16 (3090) / fp8 (40xx)      |
+
 
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
