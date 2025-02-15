@@ -113,13 +113,16 @@ For flux fill training, it is recommended to use the following parameters:
 - adamw
 - lr 1e-4
 
-for 24 GB GPU
+For 24 GB GPU
 - resolution 512 
 - batch size 1
 - blocks_to_swap 10
 - for lower GPU, please use more blocks_to_swap like: 15 or 20
 - mask_dropout = ignore mask area, all pixels viewed as masked when x ratio.
 - mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
+
+For more details:
+https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
 Flux Fill VRam Usage with bf16 blocks_to_swap 10
 <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="600" />
@@ -157,7 +160,6 @@ python ui_for_merge.py
 As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing. -->
 
 ## Star History
-
 [![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
 
 ## Change Logs:
@@ -196,8 +198,6 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
-    
-
 
 ## Contact
 - **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)  
