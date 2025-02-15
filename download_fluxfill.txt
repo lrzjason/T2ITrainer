@@ -1,1 +1,1 @@
-huggingface-cli download "black-forest-labs/FLUX.1-fill-dev/transformer" --local-dir flux_models/fill/
+huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/

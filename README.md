@@ -108,8 +108,19 @@ python ui_sd35.py
 ### 4. Parameter Explanation:
 Refer to my civitai article https://civitai.com/articles/7743
 
+## Flux Training
+download flux model files:
+```
+huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
+```
+
 ## Flux Fill Training
 requires diffusers>=0.32.0  
+
+download flux fill model files:
+```
+huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+```
 
 For flux fill training, it is recommended to use the following parameters:
 - rank 32
