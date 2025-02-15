@@ -141,38 +141,10 @@ For more details (example dataset structure):
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
 
-## Change Logs:
-- **2024-06-17:** Initial UI release.
-- **2024-06-25:** Updated hunyuandit lora training script and UI for multiple training scripts.
-- **2024-06-27:** Fixed incorrect bucketing in hunyuandit lora training and added cache recreation option in UI.
-- **2024-07-06:** Fixed RGB to BGR channel issue in sd3 latent.
-- **2024-07-08:** Added `merge_state_dict.py` for merging Kolors and SDXL state dicts, saving as Kolors unet.
-- **2024-07-11:** Added Kolors training script to UI.
-- **2024-07-11:(2)** Added resume from checkpoint
-- **2024-07-13:** Remove some unused dependencies
-- **2024-07-13:(2)** Fix bugs on saved lora, added prefix to keys
-- **2024-07-14:** Avoid loading text encoder unnecessarily after cached latent
-- **2024-07-15:** Added setup.bat for windows users
-- **2024-07-16:** Added save and load config.json
-- **2024-07-19:** Fix model_path couldn't load the weight
-- **2024-07-20:** Adjust cache logic and fix caching bug. Please recreate cache after this update.
-- **2024-07-20:(2)** Add 2048 resolution, it could choose 1024, 2048 training based resolution now. It only recommanded to train 2048 resolution when you have >= 24GB vram.
-- **2024-07-21:** Update debiased estimation loss and change cache resize from default to area
-- **2024-07-22:** Fix when batch_size > 1, debiased estimation loss would cause error.
-- **2024-07-22:(2)**  Thanks emojiiii for linux setup.sh script and related updates.
-- **2024-07-28:**  Update caching logic, automatically update cache when added or deleted files.
-- **2024-08-04:**  Add kolors slider training code and image generation code
-- **2024-09-11:**  Merge dev branch. Fix debiased estimation loss and min-snr logic.
-- **2024-09-14:**  Update captioner script: internvl2 and wd14
-- **2024-09-17:**  Add more res buckets in 1024 scope
-- **2024-09-30:**  T2Itrainer parameter explanation https://civitai.com/articles/7743
-- **2024-09-30:(2)**  Fix small bug and remove 2048 training option.
-- **2024-10-08:**  Add 512 resolution training
-- **2024-10-23:**  Add sd3.5 Large training script
-- **2024-10-24:**  Add freeze layers for SD3.5 training, default as 30 which would freeze 30~37 layers to keep texture
-- **2024-10-30:**  Add model_path for SD3.5 training
-- **2024-11-07:**  Modify sd3.5 freeze layers training
-- **2025-01-02:**  Add flux lora training script. Thanks to diffusers and kohya codebase. Most code are referencied from them. (UI not ready yet. It is still in development.)
+## Old Change logs: 
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
+
+## Recent Change Logs:
 - **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
 
 ## Sponsor:
