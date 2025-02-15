@@ -85,22 +85,29 @@ Recommended Method
 - **Kolors Black Image Issue**: Ensure you're using [FP16 Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
 - **VRAM Limitations**: Adjust `blocks_to_swap` parameter (higher values reduce memory usage)
 - **Windows DLL Errors**: Verify VC++ Redistributable installation
+---
 
-### 4. Parameter Explanation:
-Refer to my civitai article https://civitai.com/articles/7743
+## 🔧 Parameter Configuration Guide
+[![CivitAI Article](https://img.shields.io/badge/📖-Detailed_Parameter_Guide-purple)](https://civitai.com/articles/7743)
 
-## Flux Training
-download flux model files:
+---
+
+## 🌌 Flux Model Management
+
+### Core Model Download
+!!! success "Base Model Installation"
+```bash
+  huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
 ```
-huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
-```
 
-## Flux Fill Training
-requires diffusers>=0.32.0  
+## 🎨 Flux Fill Special Requirements
+!!! warning "Dependency Alert"
+    **Mandatory:** `diffusers>=0.32.0`
 
-download flux fill model files:
-```
-huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+### Fill Model Installation
+!!! success "Inpainting Model Setup"
+```bash
+  huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
 ```
 
 ## ⚙️ Flux Fill Training Recommended Parameters
