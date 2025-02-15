@@ -108,6 +108,9 @@ python ui_sd35.py
 ### 4. Parameter Explanation:
 Refer to my civitai article https://civitai.com/articles/7743
 
+## Flux Fill Training
+requires diffusers>=0.32.0  
+
 For flux fill training, it is recommended to use the following parameters:
 - rank 32
 - adamw

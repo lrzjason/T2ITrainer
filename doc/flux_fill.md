@@ -1,4 +1,5 @@
 ##Flux Fill Training
+requires diffusers>=0.32.0  
 
 ##Object Removal Alpha Example  
 Example dataset:  
