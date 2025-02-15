@@ -138,53 +138,31 @@ For 24 GB GPU
 For more details (example dataset structure):
 https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
-Flux Fill VRam Usage with bf16 blocks_to_swap 10
+
+## ⚙️ Recommended Parameters
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32, AdamW, LR 1e-4       |
+| 24GB GPU          | 512 resolution, Batch Size 1  |
+| VRAM Optimization | blocks_to_swap: 10            | (15-20 for lower VRAM GPUs) 
+| Precision         | bf16 (3090) / fp8 (40xx)      |
+
+## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
   <table>
     <tr>
       <td align="center">
-        <p>VRam Peak:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400" />
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400">
       </td>
       <td align="center">
-        <p>VRam Low:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400" />
+        <strong>VRAM Low</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>
 </div>
 
-<!-- 
-- For hunyuandit 1.1:
-  Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
-  ```
-  python test.py
-  ``` -->
-<!-- 
-## Kolors Merging SDXL Checkpoint
-
-### **!!! Important !!!**
-After merging, note that it may not effectively transfer knowledge from SDXL checkpoint to Kolors. It might just add random noise and reverse some overfitting.
-
-- **Hardware requirements:**
-  Requires 20GB+ RAM for model merging.
-
-Please activate your virtual environment if needed.
-
-### 1. Install dependencies:
-```
-git clone https://github.com/lrzjason/T2ITrainer.git
-cd T2ITrainer
-pip install -r requirements.txt
-```
-
-### 2. Run the script:
-```
-python ui_for_merge.py
-```
-
-### 3. Testing:
-As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper) for testing. -->
 
 ## Star History
 [![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
@@ -226,11 +204,11 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
 
-## Contact
-- **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)  
-- **Email**: lrzjason@gmail.com  
-- **QQ Group**: 866612947  
-- **Civitai**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
+## 📬 Contact
+- 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
+- 📧 **Email**: [lrzjason@gmail.com](mailto:lrzjason@gmail.com)
+- 💬 **QQ Group**: 866612947
+- 🎨 **CivitAI**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
 
 
 ## Sponsors me for more open source projects:

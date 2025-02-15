@@ -29,12 +29,10 @@ Folder structure example:
 ## ⚙️ Recommended Parameters
 | Category          | Settings                      |
 |-------------------|-------------------------------|
-| Base Configuration| Rank 32, AdamW, Learning Rate 1e-4 |
+| Base Configuration| Rank 32, AdamW, LR 1e-4       |
 | 24GB GPU          | 512 resolution, Batch Size 1  |
-| VRAM Optimization | blocks_to_swap: 10 (15-20 for lower VRAM GPUs) |
-| Precision         | bf16 (3090) / fp8 (40xx series) |
-
----
+| VRAM Optimization | blocks_to_swap: 10            | (15-20 for lower VRAM GPUs) 
+| Precision         | bf16 (3090) / fp8 (40xx)      |
 
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
@@ -52,15 +50,11 @@ Folder structure example:
   </table>
 </div>
 
----
-
 ## 📬 Contact
 - 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
 - 📧 **Email**: [lrzjason@gmail.com](mailto:lrzjason@gmail.com)
 - 💬 **QQ Group**: 866612947
 - 🎨 **CivitAI**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
-
----
 
 ## ☕ Support Development
 <div align="center">
