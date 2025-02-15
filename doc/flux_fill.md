@@ -45,8 +45,22 @@ For 24 GB GPU
 - mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
 
 Flux Fill VRam Usage with bf16 blocks_to_swap 10
-<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="600" />
-<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="600" />
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <p>VRam Peak:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400" />
+      </td>
+      <td align="center">
+        <p>VRam Low:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400" />
+      </td>
+    </tr>
+  </table>
+</div>
+
+
 
 ## Contact
 - **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)  

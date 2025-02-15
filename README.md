@@ -125,8 +125,21 @@ For more details (example dataset structure):
 https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
 Flux Fill VRam Usage with bf16 blocks_to_swap 10
-<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="600" />
-<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="600" />
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <p>VRam Peak:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400" />
+      </td>
+      <td align="center">
+        <p>VRam Low:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400" />
+      </td>
+    </tr>
+  </table>
+</div>
+
 <!-- 
 - For hunyuandit 1.1:
   Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
