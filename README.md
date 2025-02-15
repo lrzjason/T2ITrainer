@@ -121,7 +121,7 @@ For 24 GB GPU
 - mask_dropout = ignore mask area, all pixels viewed as masked when x ratio.
 - mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
 
-For more details:
+For more details (example dataset structure):
 https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
 Flux Fill VRam Usage with bf16 blocks_to_swap 10
