@@ -1,86 +1,79 @@
-##Flux Fill Training
-requires diffusers>=0.32.0  
+# 🎨 Flux Fill Training Guide
+**Requires diffusers>=0.32.0**
 
-##Object Removal Alpha Example  
-Example dataset:  
-https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha  
+## 🔍 Object Removal Alpha Example
+- **Example Dataset**:  
+  [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-HuggingFace-orange)](https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha)
+- **Trained LoRA**:  
+  [![CivitAI](https://img.shields.io/badge/🖼️-CivitAI-blue)](https://civitai.com/models/1121321/object-removal-flux-fill)
 
-Trained Lora:  
-https://civitai.com/models/1121321/object-removal-flux-fill
+## 📂 Training Dataset Requirements
+Image pairs must include:
+- `_G` suffix: Ground Truth image
+- `_F` suffix: Factual image  
+- `_M` suffix: Mask image
 
-##For training dataset of flux fill lora,  
-it requires image pairs including  
-- Ground True image suffix with '_G'
-- Factual image suffix with '_F'
-- Mask image suffix with '_M'
-
-Each pairs should be in the same folder.  
-But you could have multiple subfolders in one training.  
-For example:  
-```
-root/
-- man/
-    - 1_G.jpg
-    - 1_F.jpg
-    - 1_M.jpg
-    ...
-- woman/
-    - 1_G.jpg
-    - 1_F.jpg
-    - 1_M.jpg
-    ...
+Folder structure example:
+```example
+    root/
+    ├── man/
+    │   ├── 1_G.jpg
+    │   ├── 1_F.jpg
+    │   └── 1_M.jpg
+    └── woman/
+        ├── 1_G.jpg
+        ├── 1_F.jpg
+        └── 1_M.jpg
 ```
 
-##Reference Parameters:
-For flux fill training, it is recommended to use the following parameters:
-- rank 32
-- adamw
-- lr 1e-4
+## ⚙️ Recommended Parameters
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32, AdamW, Learning Rate 1e-4 |
+| 24GB GPU          | 512 resolution, Batch Size 1  |
+| VRAM Optimization | blocks_to_swap: 10 (15-20 for lower VRAM GPUs) |
+| Mask Handling     | mask_dropout = ignore masked area ratio |
+| Precision         | bf16 (3090) / fp8 (40xx series) |
 
-For 24 GB GPU
-- resolution 512 
-- batch size 1
-- blocks_to_swap 10
-- for lower GPU, please use more blocks_to_swap like: 15 or 20
-- mask_dropout = ignore mask area, all pixels viewed as masked when x ratio.
-- mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
+---
 
-Flux Fill VRam Usage with bf16 blocks_to_swap 10
+## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
   <table>
     <tr>
       <td align="center">
-        <p>VRam Peak:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400" />
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400">
       </td>
       <td align="center">
-        <p>VRam Low:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400" />
+        <strong>VRAM Low</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>
 </div>
 
+---
 
+## 📬 Contact
+- 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
+- 📧 **Email**: [lrzjason@gmail.com](mailto:lrzjason@gmail.com)
+- 💬 **QQ Group**: 866612947
+- 🎨 **CivitAI**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
 
-## Contact
-- **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)  
-- **Email**: lrzjason@gmail.com  
-- **QQ Group**: 866612947  
-- **Civitai**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
+---
 
-
-## Sponsors me for more open source projects:
+## ☕ Support Development
 <div align="center">
   <table>
     <tr>
       <td align="center">
-        <p>Buy me a coffee:</p>
-        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/bmc_qr.png" alt="Buy Me a Coffee QR" width="200" />
+        <strong>Buy Me Coffee</strong><br>
+        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/bmc_qr.png" width="200">
       </td>
       <td align="center">
-        <p>WeChat:</p>
-        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/wechat.jpg" alt="WeChat QR" width="200" />
+        <strong>WeChat</strong><br>
+        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/wechat.jpg" width="200">
       </td>
     </tr>
   </table>
