@@ -1,109 +1,90 @@
-# T2ITrainer
-T2ITrainer is still under development stage and not stable yet. \
-It updates very frequently, please check the change logs for details.
-- **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
+# 🚀 T2ITrainer 
+**⚠️ Development Notice:** Currently in active development - stability not guaranteed. Frequent updates - check changelogs regularly.
 
-## Prerequisites
-- PyTorch version >= 2.3.0 with CUDA 12.1 support (`torch>=2.3.0+cu121`).
+---
 
-## Supported Training Configurations
-- For Lora training: Supports kolors, sd3, and hunyuandit 1.1.
-  - **Hardware requirements:**
-    - CUDA GPU with >13GB memory for hunyuandit lora training.
-    - CUDA GPU with 11GB memory for kolors training.
-    - CUDA GPU with 24GB memory for sd3.5 fp16 bs1 lora training.
+## 📅 Recent Updates
+- **2025-02-15:** 🎨 Launched Flux Fill Training script for LoRA-based inpainting
 
-## Installation
-### 0. Microsoft Visual C++ Redistributable latest supported downloads
-Please install Microsoft Visual C++ Redistributable if you have the following error: \
-0SError:[WinError 126] ... Error loading "...\Lib\site-packages\torch\lib\fbgemm dl1" or one of its dependencies. \
-https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+---
 
-### 1. Setup environment using setup.bat:
-setup.bat include 5 steps: 
-- Step 1. Setup venv (optional)
-- Step 2. Upgrade pip
-- Step 3. Install torch (auto,optional) if setup venv install torch automatically.
-- Step 4. Install other dependencies from requirements.txt
-- Step 5. Download the Flux Fill Model Files (optional, must if you train Flux Fill)
-- Step 5. Download the Kolors Model Files (optional, must if you train Kolors)
-- Step 5. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
-- Step 5. Download the SD3.5 Medium Model Files (optional, must if you train SD3.5 Medium)
-  - **Note:** If you already have SD3.5 Large downloaded, you can only download the SD3.5 Medium transformer subfolder and replace it to the sd3.5 Large transformer subfolder.
-```
-git clone https://github.com/lrzjason/T2ITrainer.git
-cd T2ITrainer
-setup.bat
-```
-Goto point 2 after setup.bat
+## 🛡️ Prerequisites
+- **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
 
-### 1. Setup environment manually (optional):
-Clone repository
-```
-git clone https://github.com/lrzjason/T2ITrainer.git
-cd T2ITrainer
-```
-Create virtual environment if you want:
-```
-python -m venv venv
-call venv\Scripts\activate
-```
-If created virtual environment, install pytorch from https://pytorch.org/get-started/locally/
-(Recommanded Torch version >= 2.3.0+cu121)
-Example:
-```
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-```
-Install dependencies:
-```
-pip install -r requirements.txt
-```
-Download Models seperately via huggingface-cli:
+---
 
-For Flux Fill:
+## 💻 Supported Training Configurations
+| Model Type       | VRAM Requirements          | Status       |
+|------------------|----------------------------|--------------|
+| Hunyuandit 1.1   | >13GB GPU                  | ✅ Supported  |
+| Kolors           | 11GB GPU                   | ✅ Supported  |
+| SD3.5 (FP16 BS1) | 24GB GPU                   | ✅ Supported  |
+| Flux, Flux Fill  | 24GB GPU                   | ✅ Supported  |
+
+---
+
+## ⚙️ Installation Guide
+
+### 0. System Requirements
+❗ **Mandatory:** Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) if encountering DLL errors
+
+### 1. Automated Setup
+Recommended Method
+```bash
+  git clone https://github.com/lrzjason/T2ITrainer.git
+  cd T2ITrainer
+  setup.bat
 ```
-huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+- Handles: Virtual Environment • Dependency Installation • Model Downloads
+
+### 2. Manual Installation
+**Clone Repository** 🌐
+```bash
+    git clone https://github.com/lrzjason/T2ITrainer.git
+    cd T2ITrainer
 ```
 
-For Kolors:
-```
-huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
-```
-
-For SD3.5 Large:
-```
-huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+**Virtual Environment** 🛠️
+```bash
+    python -m venv venv
+    call venv\Scripts\activate
+    pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-For SD3.5 Medium:
-```
-huggingface-cli download "stabilityai/stable-diffusion-3.5-medium" --local-dir "sd3.5M/"
+**Model Downloads** 📥
+```bash
+    # Kolors
+    huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
+
+    # Flux Fill
+    huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+    
+    # SD3.5 Models
+    huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
 ```
 
+## 🚀 Launch Options
+| Script          | Command                  | Special Notes                     |
+|-----------------|--------------------------|-----------------------------------|
+| Flux Fill       | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
+| Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
+| SD3.5 Large     | `python ui_sd35.py`      | 24GB VRAM Recommended            |
 
-### 2. Run the script (Flux Fill):
-```
-python ui_flux_fill.py
-```
-### 2. Run the script (Kolors):
-- PS: Kolors' original vae in fp16 would cause training error and produce black image when inference.
-- Please download the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
-- sdxl.vae.safetensors or sdxl_vae.safetensors and use one of them in vae_path option
-```
-python ui.py
-```
-### 2. Run the script (SD3.5 Large):
-```
-python ui_sd35.py
-```
+## 🔧 Testing & Integration
+- **Kolors Workflow**:
+    ```bash
+        # ComfyUI Plugins
+        git clone https://github.com/kijai/ComfyUI-KwaiKolorsWrapper
+        git clone https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ
+    ```
 
-### 3. Testing:
-- For kolors:
-  Install plugins from:
-  - [ComfyUI-KwaiKolorsWrapper](https://github.com/kijai/ComfyUI-KwaiKolorsWrapper)
-  - [ComfyUI-Kolors-MZ](https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ)
-  
-  Then use the normal lora loader in ComfyUI.
+- **Configuration Guide**: [📖 CivitAI Article](https://civitai.com/articles/7743)
+
+
+## 🆘 Troubleshooting
+- **Kolors Black Image Issue**: Ensure you're using [FP16 Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
+- **VRAM Limitations**: Adjust `blocks_to_swap` parameter (higher values reduce memory usage)
+- **Windows DLL Errors**: Verify VC++ Redistributable installation
 
 ### 4. Parameter Explanation:
 Refer to my civitai article https://civitai.com/articles/7743
@@ -122,24 +103,7 @@ download flux fill model files:
 huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
 ```
 
-For flux fill training, it is recommended to use the following parameters:
-- rank 32
-- adamw
-- lr 1e-4
-
-For 24 GB GPU
-- resolution 512 
-- batch size 1
-- blocks_to_swap 10
-- for lower GPU, please use more blocks_to_swap like: 15 or 20
-- mask_dropout = ignore mask area, all pixels viewed as masked when x ratio.
-- mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
-
-For more details (example dataset structure):
-https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
-
-
-## ⚙️ Recommended Parameters
+## ⚙️ Flux Fill Training Recommended Parameters
 | Category          | Settings                      |
 |-------------------|-------------------------------|
 | Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
@@ -147,6 +111,8 @@ https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 | VRAM Optimization | blocks_to_swap: 10 (15-20 for lower VRAM GPUs)  | 
 | Precision         | bf16 (3090) / fp8 (40xx)      |
 
+For more details (example dataset structure):
+https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
