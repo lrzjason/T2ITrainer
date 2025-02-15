@@ -40,7 +40,7 @@ if [ "$install_kolors_model" == "y" ]; then
 fi
 
 
-echo "Step 6. Download the SD3.5 Large Model Files (Optional)"
+echo "Step 5. Download the SD3.5 Large Model Files (Optional)"
 read -p "Do you want to download the SD3.5 Large model files? (y/n): " install_sd35_model
 if [ "$install_sd35_model" == "y" ]; then
    # Try running huggingface-cli with --version
@@ -49,4 +49,16 @@ if [ "$install_sd35_model" == "y" ]; then
       pip install --upgrade huggingface_hub
    fi
    huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+fi
+
+
+echo "Step 5. Download the Flux Fill Model Files (Optional)"
+read -p "Do you want to download the Flux Fill model files? (y/n): " install_fill_model
+if [ "$install_fill_model" == "y" ]; then
+   # Try running huggingface-cli with --version
+   if ! huggingface-cli --version &> /dev/null; then
+      echo "huggingface-cli is not installed. Installing now..."
+      pip install --upgrade huggingface_hub
+   fi
+   huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir "flux_models/fill/"
 fi

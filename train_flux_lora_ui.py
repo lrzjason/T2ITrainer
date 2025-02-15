@@ -62,7 +62,7 @@ from diffusers import (
     # FluxTransformer2DModel,
 )
 
-from flux.transformer_flux_masked import MaskedFluxTransformer2DModel
+from flux.transformer_flux_masked import MaskedFluxTransformer2DModel, compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
 
 from pathlib import Path
 from diffusers.optimization import get_scheduler
@@ -124,52 +124,6 @@ from hashlib import md5
 import glob
 import shutil
 
-
-# https://github.com/huggingface/diffusers/blob/main/src/diffusers/training_utils.py
-def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None):
-    """
-    Computes loss weighting scheme for SD3 training.
-
-    Courtesy: This was contributed by Rafie Walker in https://github.com/huggingface/diffusers/pull/8528.
-
-    SD3 paper reference: https://arxiv.org/abs/2403.03206v1.
-    """
-    if weighting_scheme == "sigma_sqrt":
-        weighting = (sigmas**-2.0).float()
-    elif weighting_scheme == "cosmap":
-        bot = 1 - 2 * sigmas + 2 * sigmas**2
-        weighting = 2 / (math.pi * bot)
-    else:
-        weighting = torch.ones_like(sigmas)
-    return weighting
-
-# https://github.com/huggingface/diffusers/blob/main/src/diffusers/training_utils.py#L236
-def compute_density_for_timestep_sampling(
-    weighting_scheme: str, batch_size: int, logit_mean: float = None, logit_std: float = None, mode_scale: float = None
-):
-    """
-    Compute the density for sampling the timesteps when doing SD3 training.
-
-    Courtesy: This was contributed by Rafie Walker in https://github.com/huggingface/diffusers/pull/8528.
-
-    SD3 paper reference: https://arxiv.org/abs/2403.03206v1.
-    """
-    if weighting_scheme == "logit_normal":
-        # See 3.1 in the SD3 paper ($rf/lognorm(0.00,1.00)$).
-        u = torch.normal(mean=logit_mean, std=logit_std, size=(batch_size,), device="cpu")
-        u = torch.nn.functional.sigmoid(u)
-    elif weighting_scheme == "mode":
-        u = torch.rand(size=(batch_size,), device="cpu")
-        u = 1 - u - mode_scale * (torch.cos(math.pi * u / 2) ** 2 - 1 + u)
-    # from https://arxiv.org/pdf/2411.14793
-    elif weighting_scheme == "logit_snr":
-        # See 3.1 in the SD3 paper ($rf/lognorm(0.00,1.00)$).
-        u = torch.normal(mean=logit_mean, std=logit_std, size=(batch_size,), device="cpu")
-        # from https://arxiv.org/pdf/2411.14793
-        u = torch.nn.functional.sigmoid(-u/2)
-    else:
-        u = torch.rand(size=(batch_size,), device="cpu")
-    return u
 
 def load_text_encoders(class_one, class_two):
     text_encoder_one = class_one.from_pretrained(
@@ -630,11 +584,11 @@ def main(args):
     prodigy_d_coef = 2
     
     
-    lr_num_cycles = args.cosine_restarts
     lr_power = 1
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
-    val_seed = random.randint(1, 100)
+    # val_seed = random.randint(1, 100)
+    val_seed = 42
     
     # test max_time_steps
     # args.max_time_steps = 600
@@ -659,25 +613,28 @@ def main(args):
     # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
     # args.train_data_dir = "F:/ImageSet/3dkitten_small"
     
-    args.learning_rate = 1
+    args.cosine_restarts = 1
+    args.learning_rate = 1e-4
     args.optimizer = "adamw"
-    args.lr_warmup_steps = 1
-    args.lr_scheduler = "cosine"
+    args.lr_warmup_steps = 0
+    args.lr_scheduler = "constant"
     args.save_model_epochs = 1
     args.validation_epochs = 1
     args.train_batch_size = 1
-    args.repeats = 20
+    args.repeats = 100
     args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 20
-    args.caption_dropout = 0.3
+    args.num_train_epochs = 1
+    args.caption_dropout = 0
     args.allow_tf32 = True
     args.blocks_to_swap = 10
-    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
     # F:\ImageSet\flux\cutecollage
-    args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
-    args.output_dir = 'F:/models/flux/cutecollage'
-    args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_logsnr-12250"
-    
+    args.train_data_dir = "F:/ImageSet/flux/gogo_single" 
+    args.output_dir = 'F:/models/flux/gogo'
+    # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
+    # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
+    args.resume_from_checkpoint = ""
+    # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
     # normal case
     # args.save_name = "flux_3dkitten"
     # args.weighting_scheme = "logit_normal"
@@ -691,11 +648,12 @@ def main(args):
     # args.logit_std = 1.0
     
     
-    args.save_name = "cutecollage_logsnr"
+    args.save_name = "gogo"
     args.weighting_scheme = "logit_snr"
     args.logit_mean = -6.0
     args.logit_std = 2.0
 
+    lr_num_cycles = args.cosine_restarts
     
     if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
     if not os.path.exists(args.logging_dir): os.makedirs(args.logging_dir)

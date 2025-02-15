@@ -1,6 +1,7 @@
 # T2ITrainer
 T2ITrainer is still under development stage and not stable yet. \
 It updates very frequently, please check the change logs for details.
+- **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
 
 ## Prerequisites
 - PyTorch version >= 2.3.0 with CUDA 12.1 support (`torch>=2.3.0+cu121`).
@@ -24,9 +25,10 @@ setup.bat include 5 steps:
 - Step 2. Upgrade pip
 - Step 3. Install torch (auto,optional) if setup venv install torch automatically.
 - Step 4. Install other dependencies from requirements.txt
+- Step 5. Download the Flux Fill Model Files (optional, must if you train Flux Fill)
 - Step 5. Download the Kolors Model Files (optional, must if you train Kolors)
-- Step 6. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
-- Step 6. Download the SD3.5 Medium Model Files (optional, must if you train SD3.5 Medium)
+- Step 5. Download the SD3.5 Large Model Files (optional, must if you train SD3.5 Large)
+- Step 5. Download the SD3.5 Medium Model Files (optional, must if you train SD3.5 Medium)
   - **Note:** If you already have SD3.5 Large downloaded, you can only download the SD3.5 Medium transformer subfolder and replace it to the sd3.5 Large transformer subfolder.
 ```
 git clone https://github.com/lrzjason/T2ITrainer.git
@@ -58,6 +60,11 @@ pip install -r requirements.txt
 ```
 Download Models seperately via huggingface-cli:
 
+For Flux Fill:
+```
+huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+```
+
 For Kolors:
 ```
 huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
@@ -74,6 +81,10 @@ huggingface-cli download "stabilityai/stable-diffusion-3.5-medium" --local-dir "
 ```
 
 
+### 2. Run the script (Flux Fill):
+```
+python ui_flux_fill.py
+```
 ### 2. Run the script (Kolors):
 - PS: Kolors' original vae in fp16 would cause training error and produce black image when inference.
 - Please download the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
@@ -96,6 +107,23 @@ python ui_sd35.py
 
 ### 4. Parameter Explanation:
 Refer to my civitai article https://civitai.com/articles/7743
+
+For flux fill training, it is recommended to use the following parameters:
+- rank 32
+- adamw
+- lr 1e-4
+
+for 24 GB GPU
+- resolution 512 
+- batch size 1
+- blocks_to_swap 10
+- for lower GPU, please use more blocks_to_swap like: 15 or 20
+- mask_dropout = ignore mask area, all pixels viewed as masked when x ratio.
+- mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
+
+Flux Fill VRam Usage with bf16 blocks_to_swap 10
+<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="600" />
+<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="600" />
 <!-- 
 - For hunyuandit 1.1:
   Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
@@ -164,6 +192,36 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2024-10-30:**  Add model_path for SD3.5 training
 - **2024-11-07:**  Modify sd3.5 freeze layers training
 - **2025-01-02:**  Add flux lora training script. Thanks to diffusers and kohya codebase. Most code are referencied from them. (UI not ready yet. It is still in development.)
+- **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
+
+## Sponsor:
+* Thanks to [@sourceful](https://www.sourceful.com/) for the sponsor to support me making flux fill lora training script.
+    
+
+
+## Contact
+- **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)  
+- **Email**: lrzjason@gmail.com  
+- **QQ Group**: 866612947  
+- **Civitai**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
+
+
+## Sponsors me for more open source projects:
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <p>Buy me a coffee:</p>
+        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/bmc_qr.png" alt="Buy Me a Coffee QR" width="200" />
+      </td>
+      <td align="center">
+        <p>WeChat:</p>
+        <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/wechat.jpg" alt="WeChat QR" width="200" />
+      </td>
+    </tr>
+  </table>
+</div>
+
 
 ## Acknowledgements:
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
