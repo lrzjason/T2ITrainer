@@ -95,17 +95,17 @@ Recommended Method
 ## 🌌 Flux Model Management
 
 ### Core Model Download
-!!! success "Base Model Installation"
+Base Model Installation
 ```bash
   huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
 ```
 
 ## 🎨 Flux Fill Special Requirements
-!!! warning "Dependency Alert"
+Dependency Alert
     **Mandatory:** `diffusers>=0.32.0`
 
 ### Fill Model Installation
-!!! success "Inpainting Model Setup"
+Inpainting Model Setup
 ```bash
   huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
 ```
