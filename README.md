@@ -122,8 +122,8 @@ for 24 GB GPU
 - mixed precision training, it is recommended to use bf16 on 3090. You could use fp8 on 40xx device.
 
 Flux Fill VRam Usage with bf16 blocks_to_swap 10
-<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="600" />
 <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="600" />
+<img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="600" />
 <!-- 
 - For hunyuandit 1.1:
   Modify `test.py` with `output_dir`, `lora_dir_name`, and prompt to generate images with lora.
