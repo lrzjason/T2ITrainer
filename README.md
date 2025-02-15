@@ -119,7 +119,7 @@ Inpainting Model Setup
 | Precision         | bf16 (3090) / fp8 (40xx)      |
 
 For more details (example dataset structure):
-https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
 
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
