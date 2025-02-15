@@ -195,7 +195,7 @@ As of 2024-07-08, Kolors inference is limited. Refer to [ComfyUI-KwaiKolorsWrapp
 - **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
 
 ## Sponsor:
-* Thanks to [@sourceful](https://www.sourceful.com/) for the sponsor to support me making flux fill lora training script.
+* Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
     
 
 
