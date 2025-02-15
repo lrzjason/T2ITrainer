@@ -102,7 +102,7 @@ Base Model Installation
 
 ## 🎨 Flux Fill Special Requirements
 Dependency Alert
-    **Mandatory:** `diffusers>=0.32.0`
+- **Mandatory:** `diffusers>=0.32.0`
 
 ### Fill Model Installation
 Inpainting Model Setup
