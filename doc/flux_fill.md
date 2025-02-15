@@ -12,7 +12,7 @@ it requires image pairs including
 
 Each pairs should be in the same folder. 
 But you could have multiple subfolders in one training. 
-For example:
+For example: 
 ```
 root/
 - man/
