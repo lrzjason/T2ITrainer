@@ -1363,10 +1363,10 @@ def main(args):
     ]
     
 
-    print("  Num examples = ", len(train_dataset))
-    print("  Num Epochs = ", args.num_train_epochs)
-    print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
-    print("  max_train_steps = ", max_train_steps)
+    # print("  Num examples = ", len(train_dataset))
+    # print("  Num Epochs = ", args.num_train_epochs)
+    # print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
+    # print("  max_train_steps = ", max_train_steps)
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
