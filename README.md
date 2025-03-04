@@ -16,7 +16,6 @@
 ## 💻 Supported Training Configurations
 | Model Type       | VRAM Requirements          | Status       |
 |------------------|----------------------------|--------------|
-| Hunyuandit 1.1   | >13GB GPU                  | ✅ Supported  |
 | Kolors           | 11GB GPU                   | ✅ Supported  |
 | SD3.5 (FP16 BS1) | 24GB GPU                   | ✅ Supported  |
 | Flux, Flux Fill  | 24GB GPU                   | ✅ Supported  |

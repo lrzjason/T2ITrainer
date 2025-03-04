@@ -826,16 +826,6 @@ def main(args):
             layer_order = name_split[1]
             if int(layer_order) in freezed_layers:
                 param.requires_grad = False
-        # freeze final layers, suggested by dev (lora not used, it might used in full fine tune)
-        # if "norm_out" in name:
-        #     param.requires_grad = False
-        # if "proj_out" in name:
-        #     param.requires_grad = False
-    # print(layer_names)
-    # layer_names = []
-    # for name, param in transformer.named_parameters():
-    #     print(f"name: {name} requires_grad:{param.requires_grad}")
-    #     layer_names.append(name)
     # print("debug")
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
