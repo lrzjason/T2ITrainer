@@ -542,6 +542,12 @@ def parse_args(input_args=None):
         default=10,
         help="Suggest to 10-20 depends on VRAM",
     )
+    parser.add_argument(
+        "--noise_offset",
+        type=float,
+        default=0.01,
+        help="noise offset in initial noise",
+    )
     
     
     
@@ -1490,7 +1496,9 @@ def main(args):
                     weight_dtype,
                 )
                 
-                noise = torch.randn_like(latents)
+                # noise = torch.randn_like(latents)
+                noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1)
+                
                 bsz = latents.shape[0]
                 
                 # Sample a random timestep for each image
