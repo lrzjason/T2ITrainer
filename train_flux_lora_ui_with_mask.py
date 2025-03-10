@@ -1755,7 +1755,7 @@ def main(args):
                                     weight_dtype,
                                 )
                                 
-                                noise = torch.randn_like(latents)
+                                noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
                                 bsz = latents.shape[0]
                                 
                                 # Sample a random timestep for each image

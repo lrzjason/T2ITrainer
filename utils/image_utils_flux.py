@@ -17,6 +17,7 @@ from utils.dist_utils import flush
 import numpy as np
 import pandas as pd
 from diffusers.image_processor import VaeImageProcessor
+from diffusers.utils import load_image
 
 
 # BASE_RESOLUTION = 1024
@@ -219,13 +220,19 @@ class CachedImageDataset(Dataset):
             txt_attention_mask = self.empty_txt_attention_mask
             # text_id = self.empty_text_id
 
-        return {
+        result = {
             "latent": latent,
             "prompt_embed": prompt_embed,
             "pooled_prompt_embed": pooled_prompt_embed,
             "txt_attention_mask": txt_attention_mask,
             # "text_id": text_id,
         }
+        
+        if "redux_prompt_embed" in cached_npz:
+            result["redux_prompt_embed"] = cached_npz['redux_prompt_embed']
+            result["redux_pooled_prompt_embed"] = cached_npz['redux_pooled_prompt_embed']
+            
+        return result
 
 class CachedMaskedPairsDataset(Dataset):
     def __init__(self, datarows,conditional_dropout_percent=0.1): 
@@ -275,7 +282,7 @@ class CachedMaskedPairsDataset(Dataset):
 # main idea is store all tensor related in .npz file
 # other information stored in .json
 @torch.no_grad()
-def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cache=False, metadata_path="metadata_sd35.json", resolution_config="1024"):
+def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cache=False, metadata_path="metadata_sd35.json", resolution_config="1024",pipe_prior_redux=None):
     create_empty_embedding(tokenizers,text_encoders)
     datarows = []
     embedding_objects = []
@@ -288,7 +295,8 @@ def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cach
         # for resolution in resolutions:
         json_obj = create_embedding(
             tokenizers,text_encoders,folder_path,file_name,
-            resolutions=resolutions,recreate_cache=recreate_cache)
+            resolutions=resolutions,recreate_cache=recreate_cache,
+            pipe_prior_redux=pipe_prior_redux)
         
         embedding_objects.append(json_obj)
     
@@ -312,7 +320,7 @@ def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cach
     return datarows
 
 @torch.no_grad()
-def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflux",resolutions=None,recreate_cache=False):
+def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflux",resolutions=None,recreate_cache=False,pipe_prior_redux=None):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -361,7 +369,6 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
     txt_attention_mask = txt_attention_masks.squeeze(0)
     # text_id = text_ids.squeeze(0)
     
-    
     # try:
     #     image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
     #     if image is not None:
@@ -384,6 +391,13 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
         # "time_id": time_id.cpu()
     }
     
+    if pipe_prior_redux is not None:
+        image = load_image(image_path)
+        pipe_prior_output = pipe_prior_redux(image)
+        redux_prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
+        redux_pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
+        npz_dict["redux_prompt_embed"] = redux_prompt_embed.cpu()
+        npz_dict["redux_pooled_prompt_embed"] = redux_pooled_prompt_embed.cpu()
     # save latent to cache file
     torch.save(npz_dict, npz_path)
     return json_obj

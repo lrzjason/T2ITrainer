@@ -84,7 +84,7 @@ from diffusers.utils import (
 from diffusers.loaders import LoraLoaderMixin
 # from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
-
+from diffusers import FluxPriorReduxPipeline
 # from diffusers import StableDiffusionXLPipeline
 # from kolors.pipelines.pipeline_stable_diffusion_xl_chatglm_256 import StableDiffusionXLPipeline
 from tqdm import tqdm 
@@ -630,25 +630,25 @@ def main(args):
     args.optimizer = "adamw"
     args.lr_warmup_steps = 0
     args.lr_scheduler = "constant"
-    args.save_model_epochs = 1
-    args.validation_epochs = 1
+    args.save_model_epochs = 10
+    args.validation_epochs = 10
     args.train_batch_size = 1
     args.repeats = 1
     args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 1
+    args.num_train_epochs = 200
     args.caption_dropout = 0
     args.allow_tf32 = True
-    args.blocks_to_swap = 10
+    args.blocks_to_swap = 13
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
     # F:\ImageSet\flux\cutecollage
-    args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
-    args.output_dir = 'F:/models/flux/token_route'
+    args.train_data_dir = "F:/ImageSet/flux/cutecollage/test" 
+    args.output_dir = 'F:/models/flux/redux_lora'
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
     args.resume_from_checkpoint = ""
     # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
     # normal case
-    args.save_name = "tr_cutecollage"
+    args.save_name = "four_panel_comic"
     # args.weighting_scheme = "logit_normal"
     # args.logit_mean = 0.0
     # args.logit_std = 1.0
@@ -661,9 +661,11 @@ def main(args):
     
     
     # args.save_name = "gogo"
-    # args.weighting_scheme = "logit_snr"
-    # args.logit_mean = -6.0
-    # args.logit_std = 2.0
+    args.weighting_scheme = "logit_snr"
+    args.logit_mean = -6.0
+    args.logit_std = 2.0
+    
+    redux_loss_scale = 0.5
 
     lr_num_cycles = args.cosine_restarts
     
@@ -1142,6 +1144,9 @@ def main(args):
             #             args.pretrained_model_name_or_path, variant=vae_variant
             #         )
             
+            repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
+            pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(repo_redux, torch_dtype=weight_dtype).to(accelerator.device)
+            
             # vae.requires_grad_(False)
             # text_encoder_one.requires_grad_(False)
             vae.requires_grad_(False)
@@ -1159,7 +1164,7 @@ def main(args):
             tokenizers = [tokenizer_one,tokenizer_two]
             text_encoders = [text_encoder_one,text_encoder_two]
             # create metadata and latent cache
-            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache, resolution_config=args.resolution)
+            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache, resolution_config=args.resolution,pipe_prior_redux=pipe_prior_redux)
             
             # merge newly cached datarows to full_datarows
             full_datarows += cached_datarows
@@ -1305,17 +1310,20 @@ def main(args):
         prompt_embeds = torch.stack([example["prompt_embed"] for example in examples])
         pooled_prompt_embeds = torch.stack([example["pooled_prompt_embed"] for example in examples])
         txt_attention_masks = torch.stack([example["txt_attention_mask"] for example in examples])
-        
-        # text_ids = torch.stack([example["text_id"] for example in examples])
-
-        return {
+        result = {
             "latents": latents,
             "prompt_embeds": prompt_embeds,
             "pooled_prompt_embeds": pooled_prompt_embeds,
             "txt_attention_masks": txt_attention_masks,
-            # "text_ids": text_ids,
-            # "time_ids": time_ids,
         }
+        
+        example = examples[0]
+        if "redux_prompt_embed" in example:
+            redux_prompt_embeds = torch.stack([example["redux_prompt_embed"] for example in examples])
+            result["redux_prompt_embeds"] = redux_prompt_embeds
+            redux_pooled_prompt_embeds = torch.stack([example["redux_pooled_prompt_embed"] for example in examples])
+            result["redux_pooled_prompt_embeds"] = redux_pooled_prompt_embeds
+        return result
     # create dataset based on input_dir
     train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=args.caption_dropout)
 
@@ -1707,9 +1715,16 @@ def main(args):
                                 prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                                 pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
                                 txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
-                                # text_ids = batch["text_ids"].to(accelerator.device)
                                 
                                 text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
+                                
+                                redux_prompt_embeds = None
+                                redux_pooled_prompt_embeds = None
+                                if "redux_prompt_embeds" in batch:
+                                    redux_prompt_embeds = batch["redux_prompt_embeds"].to(accelerator.device)
+                                    redux_pooled_prompt_embeds = batch["redux_pooled_prompt_embeds"].to(accelerator.device)
+                                    redux_text_ids = torch.zeros(redux_prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
+                                # text_ids = batch["text_ids"].to(accelerator.device)
                                 
                                 latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
                                 latents = latents.to(dtype=weight_dtype)
@@ -1780,6 +1795,32 @@ def main(args):
                                     width=latents.shape[3] * vae_scale_factor,
                                     vae_scale_factor=vae_scale_factor,
                                 )
+                                
+                                if redux_prompt_embeds is not None:
+                                    with accelerator.autocast():
+                                        accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+                                        accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+                                        flush()
+                                        # Predict the noise residual
+                                        redux_model_pred = transformer(
+                                            hidden_states=packed_noisy_latents,
+                                            # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
+                                            timestep=timesteps / 1000,
+                                            guidance=guidance,
+                                            pooled_projections=redux_pooled_prompt_embeds,
+                                            encoder_hidden_states=redux_prompt_embeds,
+                                            txt_ids=redux_text_ids,
+                                            img_ids=latent_image_ids,
+                                            return_dict=False,
+                                        )[0]
+                                    
+                                    
+                                    redux_model_pred = FluxPipeline._unpack_latents(
+                                        redux_model_pred,
+                                        height=latents.shape[2] * vae_scale_factor,
+                                        width=latents.shape[3] * vae_scale_factor,
+                                        vae_scale_factor=vae_scale_factor,
+                                    )
 
                                 # these weighting schemes use a uniform timestep sampling
                                 # and instead post-weight the loss
@@ -1813,7 +1854,16 @@ def main(args):
                                 )
                                 loss = loss.mean()
 
+                                
+                                # Compute redux loss.
+                                if redux_prompt_embeds is not None:
+                                    
+                                    regular_redux_mse_loss = F.mse_loss(model_pred, redux_model_pred)
+                                    
+                                    loss = (1 - redux_loss_scale) * loss + redux_loss_scale * regular_redux_mse_loss
+                                
                                 total_loss+=loss.detach()
+                                
                                 del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                                 gc.collect()
                                 torch.cuda.empty_cache()
