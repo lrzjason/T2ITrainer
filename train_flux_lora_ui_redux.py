@@ -626,29 +626,29 @@ def main(args):
     # args.train_data_dir = "F:/ImageSet/3dkitten_small"
     
     args.cosine_restarts = 1
-    args.learning_rate = 1e-4
+    args.learning_rate = 5e-4
     args.optimizer = "adamw"
     args.lr_warmup_steps = 0
     args.lr_scheduler = "constant"
-    args.save_model_epochs = 10
-    args.validation_epochs = 10
+    args.save_model_epochs = 50
+    args.validation_epochs = 50
     args.train_batch_size = 1
     args.repeats = 1
     args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 200
+    args.num_train_epochs = 500
     args.caption_dropout = 0
     args.allow_tf32 = True
     args.blocks_to_swap = 13
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
     # F:\ImageSet\flux\cutecollage
     args.train_data_dir = "F:/ImageSet/flux/cutecollage/test" 
-    args.output_dir = 'F:/models/flux/redux_lora'
+    args.output_dir = 'F:/models/flux/redux_lora_pure_redux'
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
     # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
     args.resume_from_checkpoint = ""
     # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
     # normal case
-    args.save_name = "four_panel_comic"
+    args.save_name = "four_panel_comic_learning_redux"
     # args.weighting_scheme = "logit_normal"
     # args.logit_mean = 0.0
     # args.logit_std = 1.0
@@ -1720,7 +1720,8 @@ def main(args):
                                 
                                 redux_prompt_embeds = None
                                 redux_pooled_prompt_embeds = None
-                                if "redux_prompt_embeds" in batch:
+                                redux_dropout = random.random() > 0.5
+                                if "redux_prompt_embeds" in batch and not redux_dropout:
                                     redux_prompt_embeds = batch["redux_prompt_embeds"].to(accelerator.device)
                                     redux_pooled_prompt_embeds = batch["redux_pooled_prompt_embeds"].to(accelerator.device)
                                     redux_text_ids = torch.zeros(redux_prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
@@ -1796,7 +1797,7 @@ def main(args):
                                     vae_scale_factor=vae_scale_factor,
                                 )
                                 
-                                if redux_prompt_embeds is not None:
+                                if redux_prompt_embeds is not None and not redux_dropout:
                                     with accelerator.autocast():
                                         accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
                                         accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
@@ -1856,11 +1857,19 @@ def main(args):
 
                                 
                                 # Compute redux loss.
-                                if redux_prompt_embeds is not None:
+                                if redux_prompt_embeds is not None and not redux_dropout:
                                     
-                                    regular_redux_mse_loss = F.mse_loss(model_pred, redux_model_pred)
+                                    weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                                     
-                                    loss = (1 - redux_loss_scale) * loss + redux_loss_scale * regular_redux_mse_loss
+                                    # Compute regular loss.
+                                    redux_loss = torch.mean(
+                                        (weighting.float() * (redux_model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                        1,
+                                    )
+                                    redux_loss = loss.mean()
+                                    
+                                    # random drop out redux loss
+                                    loss = (1 - redux_loss_scale) * loss + redux_loss_scale * redux_loss
                                 
                                 total_loss+=loss.detach()
                                 

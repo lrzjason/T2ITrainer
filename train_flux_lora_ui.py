@@ -605,50 +605,50 @@ def main(args):
     # test max_time_steps
     # args.max_time_steps = 600
     
-    args.seed = 4321
-    args.logging_dir = 'logs'
-    args.mixed_precision = "bf16"
-    args.report_to = "wandb"
+    # args.seed = 4321
+    # args.logging_dir = 'logs'
+    # args.mixed_precision = "bf16"
+    # args.report_to = "wandb"
     
-    args.rank = 32
-    args.skip_epoch = 0
-    args.break_epoch = 0
-    args.skip_step = 0
-    args.gradient_checkpointing = True
-    args.validation_ratio = 0.1
-    args.num_validation_images = 1
-    # args.pretrained_model_name_or_path = "F:/Kolors"
-    args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/dev"
-    args.model_path = None
-    # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
-    args.use_fp8 = True
+    # args.rank = 32
+    # args.skip_epoch = 0
+    # args.break_epoch = 0
+    # args.skip_step = 0
+    # args.gradient_checkpointing = True
+    # args.validation_ratio = 0.1
+    # args.num_validation_images = 1
+    # # args.pretrained_model_name_or_path = "F:/Kolors"
+    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/dev"
+    # args.model_path = None
+    # # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
+    # args.use_fp8 = True
     # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
     # args.train_data_dir = "F:/ImageSet/3dkitten_small"
     
-    args.cosine_restarts = 1
-    args.learning_rate = 1e-4
-    args.optimizer = "adamw"
-    args.lr_warmup_steps = 0
-    args.lr_scheduler = "constant"
-    args.save_model_epochs = 1
-    args.validation_epochs = 1
-    args.train_batch_size = 1
-    args.repeats = 1
-    args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 1
-    args.caption_dropout = 0
-    args.allow_tf32 = True
-    args.blocks_to_swap = 10
-    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
-    # F:\ImageSet\flux\cutecollage
-    args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
-    args.output_dir = 'F:/models/flux/token_route'
-    # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
-    # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
-    args.resume_from_checkpoint = ""
-    # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
-    # normal case
-    args.save_name = "tr_cutecollage"
+    # args.cosine_restarts = 1
+    # args.learning_rate = 1e-4
+    # args.optimizer = "adamw"
+    # args.lr_warmup_steps = 0
+    # args.lr_scheduler = "constant"
+    # args.save_model_epochs = 1
+    # args.validation_epochs = 1
+    # args.train_batch_size = 1
+    # args.repeats = 1
+    # args.gradient_accumulation_steps = 1
+    # args.num_train_epochs = 1
+    # args.caption_dropout = 0
+    # args.allow_tf32 = True
+    # args.blocks_to_swap = 10
+    # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
+    # # F:\ImageSet\flux\cutecollage
+    # args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
+    # args.output_dir = 'F:/models/flux/token_route'
+    # # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
+    # # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
+    # args.resume_from_checkpoint = ""
+    # # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
+    # # normal case
+    # args.save_name = "tr_cutecollage"
     # args.weighting_scheme = "logit_normal"
     # args.logit_mean = 0.0
     # args.logit_std = 1.0
