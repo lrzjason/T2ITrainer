@@ -153,8 +153,8 @@ For more details (example dataset structure):
 - 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
 - 📧 **Email**: [lrzjason@gmail.com](mailto:lrzjason@gmail.com)
 - 💬 **QQ Group**: 866612947
+- 💬 **WeChat ID**: fkdeai
 - 🎨 **CivitAI**: [xiaozhijason](https://civitai.com/user/xiaozhijason)
-
 
 ## Sponsors me for more open source projects:
 <div align="center">
