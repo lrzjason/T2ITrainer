@@ -1663,9 +1663,6 @@ def main(args):
                 
                 loss = loss.mean()
 
-                target = noise - ground_trues
-                # reg_loss
-
                 # Backpropagate
                 accelerator.backward(loss)
                 step_loss = loss.detach().item()
