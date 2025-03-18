@@ -550,12 +550,6 @@ def parse_args(input_args=None):
     )
     
     
-    parser.add_argument(
-        "--reg_ratio",
-        type=float,
-        default=0.7,
-        help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
-    )
     
     
     if input_args is not None:
@@ -614,48 +608,48 @@ def main(args):
     # test max_time_steps
     # args.max_time_steps = 600
     
-    # args.seed = 4321
-    # args.logging_dir = 'logs'
-    # args.mixed_precision = "bf16"
-    # args.report_to = "wandb"
+    args.seed = 4321
+    args.logging_dir = 'logs'
+    args.mixed_precision = "bf16"
+    args.report_to = "wandb"
     
-    # args.output_dir = 'F:/models/flux/recolor'
-    # args.rank = 32
-    # args.skip_epoch = 0
-    # args.break_epoch = 0
-    # args.skip_step = 0
-    # args.gradient_checkpointing = True
-    # args.validation_ratio = 0.1
-    # args.num_validation_images = 1
-    # # args.pretrained_model_name_or_path = "F:/Kolors"
-    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/fill"
-    # args.model_path = ""
-    # # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
-    # # args.use_fp8 = True
-    # args.resume_from_checkpoint = None
-    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
-    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
-    # # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
-    # args.train_data_dir = "F:/ImageSet/fashion_product_image_dataset/combined_test"
-    # # args.resume_from_checkpoint = "F:/models/flux/recolor/product_recolor_single-7632"
-    # args.learning_rate = 1e-4
-    # args.optimizer = "adamw"
-    # args.lr_warmup_steps = 1
-    # args.lr_scheduler = "constant"
-    # args.save_model_epochs = 1
-    # args.validation_epochs = 1
-    # args.train_batch_size = 1
-    # args.repeats = 2
-    # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 5
-    # args.caption_dropout = 0.1
-    # args.mask_dropout = 0.05 
-    # args.allow_tf32 = True
-    # args.blocks_to_swap = 10
-    # args.resolution = 512
-    # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+    args.output_dir = 'F:/models/flux/objectRemoval'
+    args.rank = 32
+    args.skip_epoch = 0
+    args.break_epoch = 0
+    args.skip_step = 0
+    args.gradient_checkpointing = True
+    args.validation_ratio = 0.1
+    args.num_validation_images = 1
+    # args.pretrained_model_name_or_path = "F:/Kolors"
+    args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/fill"
+    args.model_path = ""
+    # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
+    # args.use_fp8 = True
+    args.resume_from_checkpoint = None
+    # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
+    # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
+    # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
+    args.train_data_dir = "F:/ImageSet/ObjectRemoval/object_removal_alpha"
+    # args.resume_from_checkpoint = "F:/models/flux/recolor/product_recolor_single-7632"
+    args.learning_rate = 1e-4
+    args.optimizer = "adamw"
+    args.lr_warmup_steps = 1
+    args.lr_scheduler = "constant"
+    args.save_model_epochs = 1
+    args.validation_epochs = 1
+    args.train_batch_size = 1
+    args.repeats = 2
+    args.gradient_accumulation_steps = 1
+    args.num_train_epochs = 5
+    args.caption_dropout = 0.1
+    args.mask_dropout = 0.05 
+    args.allow_tf32 = True
+    args.blocks_to_swap = 10
+    args.resolution = 512
+    # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
-    # args.save_name = "product_recolor_ic"
+    args.save_name = "objectRemovalBeta_lbm"
     # args.recreate_cache = True
     # args.weighting_scheme = "logit_snr"
     # args.logit_mean = -6.0
@@ -1475,6 +1469,7 @@ def main(args):
                 factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
                 
                 latents = factual_images
+                # latents = ground_trues
                 latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
                 latents = latents.to(dtype=weight_dtype)
                                 
@@ -1522,7 +1517,16 @@ def main(args):
                 # Add noise according to flow matching.
                 # zt = (1 - texp) * x + texp * z1
                 sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                
+                # from paper LBM: Latent Bridge Matching for Fast Image-to-Image Translation
+                # https://arxiv.org/pdf/2503.07535
+                # eq 5
+                # latents = z0
+                # ground_trues = z1
+                # use ground trues instead of noise
+                # build a bridge between z0 and z1
+                noisy_model_input = (1.0 - sigmas) * latents + sigmas * ground_trues + sigmas * noise
+                # noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                 
                 # pack noisy latents
                 packed_noisy_latents = FluxPipeline._pack_latents(
@@ -1534,8 +1538,8 @@ def main(args):
                 )
                 
                 # implement mask dropout
-                if args.mask_dropout > random.random():
-                    factual_image_masks = torch.ones_like(factual_image_masks)
+                # if args.mask_dropout > random.random():
+                #     factual_image_masks = torch.ones_like(factual_image_masks)
                 
                 # pack factual_image
                 packed_factual_image_masks = FluxPipeline._pack_latents(
@@ -1608,6 +1612,12 @@ def main(args):
                 # learning forward to ground true
                 # training the model to predict the velocity of noise - ground_trues
                 # model predicted ~= noise - ground_trues
+                # target = noise - ground_trues
+                
+                # from paper LBM: Latent Bridge Matching for Fast Image-to-Image Translation
+                # https://arxiv.org/pdf/2503.07535
+                # refer to 
+                # noisy_model_input = (1.0 - sigmas) * latents + sigmas * ground_trues
                 target = noise - ground_trues
                 
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
@@ -1617,6 +1627,7 @@ def main(args):
                     (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                     1,
                 )
+                
                 loss = loss.mean()
 
                 # Backpropagate
@@ -1779,7 +1790,16 @@ def main(args):
                                 # Add noise according to flow matching.
                                 # zt = (1 - texp) * x + texp * z1
                                 sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                                
+                                # from paper LBM: Latent Bridge Matching for Fast Image-to-Image Translation
+                                # https://arxiv.org/pdf/2503.07535
+                                # eq 5
+                                # latents = z0
+                                # ground_trues = z1
+                                # when t = 0, it is factual
+                                # when t = 1, it is ground_trues
+                                noisy_model_input = (1.0 - sigmas) * latents + sigmas * ground_trues
+                                # noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                                 
                                 # pack noisy latents
                                 packed_noisy_latents = FluxPipeline._pack_latents(
@@ -1873,7 +1893,12 @@ def main(args):
                                 # learning forward to ground true
                                 # training the model to predict the velocity of noise - ground_trues
                                 # model predicted ~= noise - ground_trues
-                                target = noise - ground_trues
+                                # target = noise - ground_trues
+                                # from paper LBM: Latent Bridge Matching for Fast Image-to-Image Translation
+                                # https://arxiv.org/pdf/2503.07535
+                                # refer to 
+                                # noisy_model_input = (1.0 - sigmas) * latents + sigmas * ground_trues
+                                target = ground_trues - latents
                                 
                                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                                 

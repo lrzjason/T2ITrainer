@@ -547,6 +547,12 @@ def parse_args(input_args=None):
     )
     
     
+    parser.add_argument(
+        "--reg_ratio",
+        type=float,
+        default=1,
+        help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
+    )
     
     
     if input_args is not None:

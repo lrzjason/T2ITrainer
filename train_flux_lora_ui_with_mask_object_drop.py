@@ -639,9 +639,9 @@ def main(args):
     args.save_model_epochs = 1
     args.validation_epochs = 1
     args.train_batch_size = 1
-    args.repeats = 2
+    args.repeats = 20
     args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 5
+    args.num_train_epochs = 6
     args.caption_dropout = 0.1
     args.mask_dropout = 0.05 
     args.allow_tf32 = True
@@ -1529,8 +1529,8 @@ def main(args):
                 )
                 
                 # implement mask dropout
-                if args.mask_dropout > random.random():
-                    factual_image_masks = torch.ones_like(factual_image_masks)
+                # if args.mask_dropout > random.random():
+                #     factual_image_masks = torch.ones_like(factual_image_masks)
                 
                 # pack factual_image
                 packed_factual_image_masks = FluxPipeline._pack_latents(
@@ -1542,15 +1542,25 @@ def main(args):
                 )
                 
                 # pack factual_image
-                packed_factual_image_masked_images = FluxPipeline._pack_latents(
-                    factual_image_masked_images,
+                # packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                #     factual_image_masked_images,
+                #     batch_size=latents.shape[0],
+                #     num_channels_latents=latents.shape[1],
+                #     height=latents.shape[2],
+                #     width=latents.shape[3],
+                # )
+                
+                
+                # pack factual_image
+                packed_factual_images = FluxPipeline._pack_latents(
+                    factual_images,
                     batch_size=latents.shape[0],
                     num_channels_latents=latents.shape[1],
                     height=latents.shape[2],
                     width=latents.shape[3],
                 )
                 
-                masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                masked_image_latents = torch.cat((packed_factual_images, packed_factual_image_masks), dim=-1)
                 # print("masked_image_latents.shape")
                 # print(masked_image_latents.shape)
                 # concat noisy latents and masked image latents
