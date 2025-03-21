@@ -41,6 +41,8 @@ RESOLUTION_CONFIG = {
         (608, 512), # 1.5
         (608, 416), # 1.5
         (1024,512),
+        (1024,576),
+        (1024,640),
     ],
     1024: [
         # extra resolution for testing
@@ -320,7 +322,9 @@ def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cach
     return datarows
 
 @torch.no_grad()
-def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflux",resolutions=None,recreate_cache=False,pipe_prior_redux=None):
+def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflux",
+                    resolutions=None,recreate_cache=False,pipe_prior_redux=None,
+                    exist_npz_path=""):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -356,6 +360,8 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
 
     file_path = os.path.join(folder_path, filename)
     npz_path = f'{file_path}{cache_ext}'
+    if exist_npz_path != "" and os.path.exists(exist_npz_path):
+        npz_path = exist_npz_path
     json_obj["npz_path"] = npz_path
     
     if not recreate_cache and os.path.exists(npz_path):
@@ -521,6 +527,12 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npf
 def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npfluxlatent",recreate_cache=False):
     npz_path = json_obj["npz_path"]
     
+    # npz_dict = {}
+    # if os.path.exists(npz_path):
+    #     try:
+    #         npz_dict = torch.load(npz_path, weights_only=True)
+    #     except:
+    #         print(f"Failed to load {npz_path}")
     
     image_files = [ 
         ("ground_true", json_obj["ground_true_path"]),
@@ -592,13 +604,6 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         # json_obj["latent_path"] = latent_cache_path
         
         
-        npz_dict = {}
-        if os.path.exists(npz_path):
-            try:
-                npz_dict = torch.load(npz_path, weights_only=True)
-            except:
-                print(f"Failed to load {npz_path}")
-        
         # target_size = (image_height,image_width)
         ##############################################################################
         
@@ -615,6 +620,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
                 json_obj[image_class]['latent_path_md5'] = get_md5_by_path(latent_cache_path)
                 json_obj[image_class]['npz_path_md5'] = get_md5_by_path(npz_path)
             continue
+        
         
         train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
         image = train_transforms(image)
@@ -644,7 +650,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         }
         torch.save(latent_dict, latent_cache_path)
         json_obj[image_class]['latent_path_md5'] = get_md5_by_path(latent_cache_path)
-    del npz_dict
+    # del npz_dict
     flush()
     
     if "factual_image_masked_image" in json_obj and "factual_image_mask" in json_obj:

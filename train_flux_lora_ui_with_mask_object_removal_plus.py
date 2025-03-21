@@ -409,7 +409,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--save_model_steps",
         type=int,
-        default=500,
+        default=-1,
         help=("Save model when x steps"),
     )
     parser.add_argument(
@@ -613,8 +613,8 @@ def main(args):
     lr_power = 1
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
-    val_seed = random.randint(1, 100)
-    # val_seed = 42
+    # val_seed = random.randint(1, 100)
+    val_seed = 42
     
     # test max_time_steps
     # args.max_time_steps = 600
@@ -667,6 +667,15 @@ def main(args):
     # args.weighting_scheme = "logit_snr"
     # args.logit_mean = -6.0
     # args.logit_std = 2.0
+    
+    # stage two 0 inpaint
+    # reg_inpaint_ratio = 0
+    # stage two 1 inpaint
+    reg_inpaint_ratio = 0
+    
+    # to avoid cache mutiple times on same embedding
+    use_same_embedding = True
+    
     lr_num_cycles = args.cosine_restarts
     resolution = int(args.resolution)
     
@@ -922,77 +931,92 @@ def main(args):
         #         cache_list += corrupted_files
 
         if len(factual_pairs) > 0:
-            # Offload models to CPU and load necessary components
-            tokenizer_one = CLIPTokenizer.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="tokenizer",
-            )
-            tokenizer_two = T5TokenizerFast.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="tokenizer_2",
-            )
+            if os.path.exists(metadata_path) and os.path.exists(val_metadata_path):
+                with open(metadata_path, "r", encoding='utf-8') as readfile:
+                    metadata_datarows = json.loads(readfile.read())
+                    full_datarows += metadata_datarows
+                    
+                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                    val_metadata_datarows = json.loads(readfile.read())
+                    full_datarows += val_metadata_datarows
+            else:
+                # Offload models to CPU and load necessary components
+                tokenizer_one = CLIPTokenizer.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="tokenizer",
+                )
+                tokenizer_two = T5TokenizerFast.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="tokenizer_2",
+                )
 
-            # import correct text encoder classes
-            text_encoder_cls_one = import_model_class_from_model_name_or_path(
-                args.pretrained_model_name_or_path, 
-            )
-            text_encoder_cls_two = import_model_class_from_model_name_or_path(
-                args.pretrained_model_name_or_path,  subfolder="text_encoder_2"
-            )
-            text_encoder_one, text_encoder_two = load_text_encoders(
-                text_encoder_cls_one, text_encoder_cls_two
-            )
-            
-            vae = AutoencoderKL.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="vae",
-            )
-            
-            vae.requires_grad_(False)
-            text_encoder_one.requires_grad_(False)
-            text_encoder_two.requires_grad_(False)
-            
-            vae.to(accelerator.device, dtype=torch.float32)
-            text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-            text_encoder_two.to(accelerator.device, dtype=weight_dtype)
-            tokenizers = [tokenizer_one,tokenizer_two]
-            text_encoders = [text_encoder_one,text_encoder_two]
-            
-            create_empty_embedding(tokenizers,text_encoders)
-            embedding_objects = []
-            # resolutions = args.resolution_config.split(",")
-            # resolutions = [int(resolution) for resolution in resolutions]
-            for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
-            # for image_file in tqdm(image_files):
-                file_name = os.path.basename(factual_image_file)
-                folder_path = os.path.dirname(factual_image_file)
+                # import correct text encoder classes
+                text_encoder_cls_one = import_model_class_from_model_name_or_path(
+                    args.pretrained_model_name_or_path, 
+                )
+                text_encoder_cls_two = import_model_class_from_model_name_or_path(
+                    args.pretrained_model_name_or_path,  subfolder="text_encoder_2"
+                )
+                text_encoder_one, text_encoder_two = load_text_encoders(
+                    text_encoder_cls_one, text_encoder_cls_two
+                )
                 
-                # create text embedding based on factual_image
-                f_json = create_embedding(
-                    tokenizers,text_encoders,folder_path,file_name,recreate_cache=recreate_cache)
-                f_json["ground_true_path"] = gt_file
-                f_json["factual_image_path"] = factual_image_file
-                f_json["factual_image_mask_path"] = factual_image_mask
-                embedding_objects.append(f_json)
-            
-            # move glm to cpu to reduce vram memory
-            # text_encoders[0].to("cpu")
-            del text_encoders,tokenizers
-            flush()
-            metadata_datarows = []
-            # cache latent
-            print("Cache latent")
-            for json_obj in tqdm(embedding_objects):
-                full_obj = cache_multiple(vae,json_obj,recreate_cache=recreate_cache, resolution=resolution)
-                metadata_datarows.append(full_obj)
-            # Serializing json
-            json_object = json.dumps(metadata_datarows, indent=4)
-            
-            # Writing to metadata.json
-            with open(metadata_path, "w", encoding='utf-8') as outfile:
-                outfile.write(json_object)
+                vae = AutoencoderKL.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="vae",
+                )
                 
-            full_datarows += metadata_datarows
+                vae.requires_grad_(False)
+                text_encoder_one.requires_grad_(False)
+                text_encoder_two.requires_grad_(False)
+                
+                vae.to(accelerator.device, dtype=torch.float32)
+                text_encoder_one.to(accelerator.device, dtype=weight_dtype)
+                text_encoder_two.to(accelerator.device, dtype=weight_dtype)
+                tokenizers = [tokenizer_one,tokenizer_two]
+                text_encoders = [text_encoder_one,text_encoder_two]
+                
+                create_empty_embedding(tokenizers,text_encoders)
+                embedding_objects = []
+                # resolutions = args.resolution_config.split(",")
+                # resolutions = [int(resolution) for resolution in resolutions]
+                resolutions = [512]
+                exist_npz_path = ""
+                for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
+                # for image_file in tqdm(image_files):
+                    file_name = os.path.basename(factual_image_file)
+                    folder_path = os.path.dirname(factual_image_file)
+                    
+                    # create text embedding based on factual_image
+                    f_json = create_embedding(
+                        tokenizers,text_encoders,folder_path,file_name,
+                        recreate_cache=recreate_cache,
+                        exist_npz_path=exist_npz_path,
+                        resolutions=resolutions,
+                        )
+                    if use_same_embedding and exist_npz_path != "":
+                        exist_npz_path = f_json["npz_path"]
+                    f_json["ground_true_path"] = gt_file
+                    f_json["factual_image_path"] = factual_image_file
+                    f_json["factual_image_mask_path"] = factual_image_mask
+                    embedding_objects.append(f_json)
+                
+                # move glm to cpu to reduce vram memory
+                # text_encoders[0].to("cpu")
+                del text_encoders,tokenizers
+                flush()
+                metadata_datarows = []
+                # cache latent
+                print("Cache latent")
+                for json_obj in tqdm(embedding_objects):
+                    full_obj = cache_multiple(vae,json_obj,recreate_cache=recreate_cache, resolution=resolution)
+                    metadata_datarows.append(full_obj)
+                    
+                full_datarows += metadata_datarows
+                
+                text_encoder_one.to("cpu")
+                text_encoder_two.to("cpu")
+                del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
             
 
             # Handle validation split
@@ -1013,6 +1037,8 @@ def main(args):
                 if len(validation_datarows) > 0:
                     with open(val_metadata_path, "w", encoding='utf-8') as outfile:
                         outfile.write(json.dumps(validation_datarows))
+                # Clear memory
+                del validation_datarows
             else:
                 datarows = metadata_datarows
 
@@ -1020,11 +1046,6 @@ def main(args):
             with open(metadata_path, "w", encoding='utf-8') as outfile:
                 outfile.write(json.dumps(datarows))
 
-            # Clear memory
-            del validation_datarows
-            text_encoder_one.to("cpu")
-            text_encoder_two.to("cpu")
-            del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
     flush()
     
     # repeat_datarows = []
@@ -1084,7 +1105,6 @@ def main(args):
         unexpected_keys = load_model_dict_into_meta(
             transformer,
             state_dict,
-            device=offload_device,
             dtype=torch.float32,
             model_name_or_path=args.model_path,
         )
@@ -1512,10 +1532,23 @@ def main(args):
                 # random select factual_images and ground_trues
                 # ground_trues is a reg selection to prevent model degradation
                 # when latents set to factual_images which means the model learning objective is selected to learn to remove objects
-                if random.random() < args.reg_ratio:
-                    latents = ground_trues
-                else:
-                    latents = factual_images
+                r = random.random()
+                latents = factual_images
+                is_inpaint = False
+                if r < args.reg_ratio:
+                    # added reg_inpaint_ratio for prevent inpaint functionality
+                    # while training with empty object image could prevent the model degradation 
+                    # but the model seems to forget how to paint objects
+                    # so we added reg_inpaint_ratio to prevent inpaint functionality
+                    if random.random() < reg_inpaint_ratio:
+                        is_inpaint = True
+                        
+                        # set prompt_embeds to zero to avoid the effect from prompt embedding and pooled prompt embedding
+                        # when training with factual images
+                        prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                        pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                    else:
+                        latents = ground_trues
                     
                 # latents = ground_trues
                 latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
@@ -1651,7 +1684,18 @@ def main(args):
                 # learning forward to ground true
                 # training the model to predict the velocity of noise - ground_trues
                 # model predicted ~= noise - ground_trues
-                target = noise - ground_trues
+                
+                
+                # added reg_inpaint_ratio for prevent inpaint functionality
+                # while training with empty object image could prevent the model degradation 
+                # but the model seems to forget how to paint objects
+                # so we added reg_inpaint_ratio to prevent inpaint functionality
+                if is_inpaint:
+                    # when is_inpaint is true, learning towards to factual image from factual image
+                    # when is_inpaint is false, learning towards to ground_trues from factual image or grounc_trues.
+                    target = noise - latents
+                else:
+                    target = noise - ground_trues
                 
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
