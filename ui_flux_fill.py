@@ -11,8 +11,7 @@ default_config = {
     "script_choices": [
                         "train_flux_lora_ui.py",
                         "train_flux_lora_ui_with_mask.py",
-                        "train_flux_lora_ui_with_mask_object_removal_plus.py"
-                    #    "train_hunyuan_lora_ui.py","train_sd3_lora_ui.py"
+                        "train_flux_lora_ui_with_mask_concat.py"
                        ],
     "output_dir":"F:/models/flux",
     "save_name":"flux-lora",

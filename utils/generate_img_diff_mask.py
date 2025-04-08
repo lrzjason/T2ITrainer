@@ -41,16 +41,16 @@ def generate_masks(input_dir, output_dir, threshold=30, morph_ops=True):
     
     # 递归获取文件
     files = glob.glob(os.path.join(input_dir, '**'), recursive=True)
-    image_files = [f for f in files if os.path.splitext(f)[1].lower() in supported_image_types]
+    image_files = [f for f in files if os.path.splitext(f)[1].lower() in supported_image_types and "_F" in f]
 
     # 形态学参数配置
     morph_params = {
         'close_kernel': cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7)),  # 椭圆核更符合自然形状
-        'expand_kernel': cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (20,20)),
+        'expand_kernel': cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7)),
         'smooth_kernel': (9,9)  # 高斯模糊核大小（必须奇数）
     }
 
-    for file in [f for f in image_files if '_F' in os.path.basename(f)]:
+    for file in image_files:
         try:
             # 构建G文件路径
             basename = os.path.basename(file)
@@ -74,8 +74,10 @@ def generate_masks(input_dir, output_dir, threshold=30, morph_ops=True):
             # 计算差异
             diff = cv2.absdiff(img_f, img_g)
             gray_diff = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+            
             _, binary_mask = cv2.threshold(gray_diff, threshold, 255, cv2.THRESH_BINARY)
 
+            
             if morph_ops:
                 # 三阶段形态学优化
                 # 1. 初步闭运算连接区域
@@ -104,8 +106,8 @@ def generate_masks(input_dir, output_dir, threshold=30, morph_ops=True):
             print(f"处理 {file} 时出错：{str(e)}")
 
 if __name__ == "__main__":
-    input_dir = "F:/ImageSet/ObjectRemovalCloth/test_output"
-    output_dir = "F:/ImageSet/ObjectRemovalCloth/test_output"
+    input_dir = "F:/ImageSet/Anime/cloth_removal"
+    output_dir = "F:/ImageSet/Anime/cloth_removal"
     
     generate_masks(
         input_dir=input_dir,

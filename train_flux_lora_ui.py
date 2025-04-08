@@ -1616,7 +1616,7 @@ def main(args):
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 #post batch check for gradient updates
-                accelerator.wait_for_everyone()
+                # accelerator.wait_for_everyone()
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
@@ -1652,195 +1652,194 @@ def main(args):
         np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
         
-        if accelerator.is_main_process:
-            if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1:
-                accelerator.wait_for_everyone()
-                if accelerator.is_main_process:
-                    save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
-                    accelerator.save_state(save_path)
-                    logger.info(f"Saved state to {save_path}")
-            
-            # only execute when val_metadata_path exists
-            if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
-                with torch.no_grad():
-                    transformer = unwrap_model(transformer)
-                    # freeze rng
-                    np.random.seed(val_seed)
-                    torch.manual_seed(val_seed)
-                    dataloader_generator = torch.Generator()
-                    dataloader_generator.manual_seed(val_seed)
-                    torch.backends.cudnn.deterministic = True
+        if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1:
+            # accelerator.wait_for_everyone()
+            if accelerator.is_main_process:
+                save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
+                accelerator.save_state(save_path)
+                logger.info(f"Saved state to {save_path}")
+        
+        # only execute when val_metadata_path exists
+        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
+            with torch.no_grad():
+                transformer = unwrap_model(transformer)
+                # freeze rng
+                np.random.seed(val_seed)
+                torch.manual_seed(val_seed)
+                dataloader_generator = torch.Generator()
+                dataloader_generator.manual_seed(val_seed)
+                torch.backends.cudnn.deterministic = True
+                
+                validation_datarows = []
+                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                    validation_datarows = json.loads(readfile.read())
+                
+                if len(validation_datarows)>0:
+                    validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                     
-                    validation_datarows = []
-                    with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                        validation_datarows = json.loads(readfile.read())
+                    batch_size  = 1
+                    # batch_size = args.train_batch_size
+                    # handle batch size > validation dataset size
+                    # if batch_size > len(validation_datarows):
+                    #     batch_size = 1
                     
-                    if len(validation_datarows)>0:
-                        validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
-                        
-                        batch_size  = 1
-                        # batch_size = args.train_batch_size
-                        # handle batch size > validation dataset size
-                        # if batch_size > len(validation_datarows):
-                        #     batch_size = 1
-                        
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
 
-                        #initialize the DataLoader with the bucket batch sampler
-                        val_dataloader = torch.utils.data.DataLoader(
-                            validation_dataset,
-                            batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-                            collate_fn=collate_fn,
-                            num_workers=dataloader_num_workers,
-                        )
+                    #initialize the DataLoader with the bucket batch sampler
+                    val_dataloader = torch.utils.data.DataLoader(
+                        validation_dataset,
+                        batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                        collate_fn=collate_fn,
+                        num_workers=dataloader_num_workers,
+                    )
 
-                        print("\nStart val_loss\n")
-                        
-                        total_loss = 0.0
-                        num_batches = len(val_dataloader)
-                        # if no val data, skip the following 
-                        if num_batches == 0:
-                            print("No validation data, skip validation.")
-                        else:
-                            # basically the as same as the training loop
-                            enumerate_val_dataloader = enumerate(val_dataloader)
-                            for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                                accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
-                                accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
-                                flush()
-                                
-                                latents = batch["latents"].to(accelerator.device)
-                                prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                                txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
-                                # text_ids = batch["text_ids"].to(accelerator.device)
-                                
-                                text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
-                                
-                                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                                latents = latents.to(dtype=weight_dtype)
-
-                                vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
-
-                                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                                    latents.shape[0],
-                                    latents.shape[2] // 2,
-                                    latents.shape[3] // 2,
-                                    accelerator.device,
-                                    weight_dtype,
-                                )
-                                
-                                noise = torch.randn_like(latents)
-                                bsz = latents.shape[0]
-                                
-                                # Sample a random timestep for each image
-                                # for weighting schemes where we sample timesteps non-uniformly
-                                u = compute_density_for_timestep_sampling(
-                                    weighting_scheme=args.weighting_scheme,
-                                    batch_size=bsz,
-                                    logit_mean=args.logit_mean,
-                                    logit_std=args.logit_std,
-                                    mode_scale=args.mode_scale,
-                                )
-                                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                                timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
-                                
-                                # Add noise according to flow matching.
-                                # zt = (1 - texp) * x + texp * z1
-                                sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
-                                
-                                packed_noisy_latents = FluxPipeline._pack_latents(
-                                    noisy_model_input,
-                                    batch_size=latents.shape[0],
-                                    num_channels_latents=latents.shape[1],
-                                    height=latents.shape[2],
-                                    width=latents.shape[3],
-                                )
-                                
-                                if handle_guidance:
-                                    guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
-                                    guidance = guidance.expand(latents.shape[0])
-                                else:
-                                    guidance = None
-                                
-                                with accelerator.autocast():
-                                    # Predict the noise residual
-                                    model_pred = transformer(
-                                        hidden_states=packed_noisy_latents,
-                                        # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
-                                        timestep=timesteps / 1000,
-                                        guidance=guidance,
-                                        pooled_projections=pooled_prompt_embeds,
-                                        encoder_hidden_states=prompt_embeds,
-                                        txt_ids=text_ids,
-                                        img_ids=latent_image_ids,
-                                        return_dict=False,
-                                        joint_attention_kwargs = {'attention_mask': txt_attention_masks},
-                                    )[0]
-                                
-                                
-                                model_pred = FluxPipeline._unpack_latents(
-                                    model_pred,
-                                    height=latents.shape[2] * vae_scale_factor,
-                                    width=latents.shape[3] * vae_scale_factor,
-                                    vae_scale_factor=vae_scale_factor,
-                                )
-
-                                # these weighting schemes use a uniform timestep sampling
-                                # and instead post-weight the loss
-                                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-
-                                # ====================Debug latent====================
-                                # vae = AutoencoderKL.from_single_file(
-                                #     vae_path
-                                # )
-                                # vae.to(device=accelerator.device)
-                                # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-                                # with torch.no_grad():
-                                #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-                                # image = image_processor.postprocess(image, output_type="pil")[0]
-                                # image.save("model_pred.png")
-                                # ====================Debug latent====================
-                                
-                                
-                                # flow matching loss
-                                # if args.precondition_outputs:
-                                #     target = latents
-                                # else:
-                                target = noise - latents
-                                
-                                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-                                
-                                # Compute regular loss.
-                                loss = torch.mean(
-                                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                                    1,
-                                )
-                                loss = loss.mean()
-
-                                total_loss+=loss.detach()
-                                del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
-                                gc.collect()
-                                torch.cuda.empty_cache()
-                                
-                            avg_loss = total_loss / num_batches
+                    print("\nStart val_loss\n")
+                    
+                    total_loss = 0.0
+                    num_batches = len(val_dataloader)
+                    # if no val data, skip the following 
+                    if num_batches == 0:
+                        print("No validation data, skip validation.")
+                    else:
+                        # basically the as same as the training loop
+                        enumerate_val_dataloader = enumerate(val_dataloader)
+                        for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                            accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+                            accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+                            flush()
                             
-                            lr = lr_scheduler.get_last_lr()[0]
-                            lr_name = "val_lr"
-                            if args.optimizer == "prodigy":
-                                lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                                lr_name = "val_lr lr/d*lr"
-                            logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
-                            print(logs)
-                            progress_bar.set_postfix(**logs)
-                            accelerator.log(logs, step=global_step)
-                            del num_batches, avg_loss, total_loss
-                        del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        print("\nEnd val_loss\n")
-            
+                            latents = batch["latents"].to(accelerator.device)
+                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                            txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
+                            # text_ids = batch["text_ids"].to(accelerator.device)
+                            
+                            text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
+                            
+                            latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                            latents = latents.to(dtype=weight_dtype)
+
+                            vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+
+                            latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                                latents.shape[0],
+                                latents.shape[2] // 2,
+                                latents.shape[3] // 2,
+                                accelerator.device,
+                                weight_dtype,
+                            )
+                            
+                            noise = torch.randn_like(latents)
+                            bsz = latents.shape[0]
+                            
+                            # Sample a random timestep for each image
+                            # for weighting schemes where we sample timesteps non-uniformly
+                            u = compute_density_for_timestep_sampling(
+                                weighting_scheme=args.weighting_scheme,
+                                batch_size=bsz,
+                                logit_mean=args.logit_mean,
+                                logit_std=args.logit_std,
+                                mode_scale=args.mode_scale,
+                            )
+                            indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                            timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                            
+                            # Add noise according to flow matching.
+                            # zt = (1 - texp) * x + texp * z1
+                            sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                            noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                            
+                            packed_noisy_latents = FluxPipeline._pack_latents(
+                                noisy_model_input,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=latents.shape[1],
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            
+                            if handle_guidance:
+                                guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
+                                guidance = guidance.expand(latents.shape[0])
+                            else:
+                                guidance = None
+                            
+                            with accelerator.autocast():
+                                # Predict the noise residual
+                                model_pred = transformer(
+                                    hidden_states=packed_noisy_latents,
+                                    # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
+                                    timestep=timesteps / 1000,
+                                    guidance=guidance,
+                                    pooled_projections=pooled_prompt_embeds,
+                                    encoder_hidden_states=prompt_embeds,
+                                    txt_ids=text_ids,
+                                    img_ids=latent_image_ids,
+                                    return_dict=False,
+                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                )[0]
+                            
+                            
+                            model_pred = FluxPipeline._unpack_latents(
+                                model_pred,
+                                height=latents.shape[2] * vae_scale_factor,
+                                width=latents.shape[3] * vae_scale_factor,
+                                vae_scale_factor=vae_scale_factor,
+                            )
+
+                            # these weighting schemes use a uniform timestep sampling
+                            # and instead post-weight the loss
+                            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+
+                            # ====================Debug latent====================
+                            # vae = AutoencoderKL.from_single_file(
+                            #     vae_path
+                            # )
+                            # vae.to(device=accelerator.device)
+                            # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+                            # with torch.no_grad():
+                            #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
+                            # image = image_processor.postprocess(image, output_type="pil")[0]
+                            # image.save("model_pred.png")
+                            # ====================Debug latent====================
+                            
+                            
+                            # flow matching loss
+                            # if args.precondition_outputs:
+                            #     target = latents
+                            # else:
+                            target = noise - latents
+                            
+                            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+                            
+                            # Compute regular loss.
+                            loss = torch.mean(
+                                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                1,
+                            )
+                            loss = loss.mean()
+
+                            total_loss+=loss.detach()
+                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                            
+                        avg_loss = total_loss / num_batches
+                        
+                        lr = lr_scheduler.get_last_lr()[0]
+                        lr_name = "val_lr"
+                        if args.optimizer == "prodigy":
+                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                            lr_name = "val_lr lr/d*lr"
+                        logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
+                        print(logs)
+                        progress_bar.set_postfix(**logs)
+                        accelerator.log(logs, step=global_step)
+                        del num_batches, avg_loss, total_loss
+                    del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    print("\nEnd val_loss\n")
+        
         # restore rng before validation
         np.random.seed(np_seed)
         torch.random.set_rng_state(before_state)

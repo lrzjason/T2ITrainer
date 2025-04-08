@@ -630,7 +630,7 @@ def main(args):
     # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
     # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
     # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
-    args.train_data_dir = "F:/ImageSet/ObjectRemoval/object_removal_alpha"
+    args.train_data_dir = "F:/ImageSet/ObjectRemoval/object_removal_beta"
     # args.resume_from_checkpoint = "F:/models/flux/recolor/product_recolor_single-7632"
     args.learning_rate = 1e-4
     args.optimizer = "adamw"
@@ -639,9 +639,9 @@ def main(args):
     args.save_model_epochs = 1
     args.validation_epochs = 1
     args.train_batch_size = 1
-    args.repeats = 2
+    args.repeats = 20
     args.gradient_accumulation_steps = 1
-    args.num_train_epochs = 5
+    args.num_train_epochs = 6
     args.caption_dropout = 0.1
     args.mask_dropout = 0.05 
     args.allow_tf32 = True
@@ -649,7 +649,7 @@ def main(args):
     args.resolution = 512
     # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
-    args.save_name = "objectRemovalBeta_Alpha"
+    args.save_name = "objectRemovalBeta"
     # args.recreate_cache = True
     # args.weighting_scheme = "logit_snr"
     # args.logit_mean = -6.0
@@ -919,6 +919,7 @@ def main(args):
             
             create_empty_embedding(tokenizers,text_encoders)
             embedding_objects = []
+            resolutions = [args.resolution]
             # resolutions = args.resolution_config.split(",")
             # resolutions = [int(resolution) for resolution in resolutions]
             for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
@@ -928,7 +929,8 @@ def main(args):
                 
                 # create text embedding based on factual_image
                 f_json = create_embedding(
-                    tokenizers,text_encoders,folder_path,file_name,recreate_cache=recreate_cache)
+                    tokenizers,text_encoders,folder_path,file_name,
+                    recreate_cache=recreate_cache,resolutions=resolutions)
                 f_json["ground_true_path"] = gt_file
                 f_json["factual_image_path"] = factual_image_file
                 f_json["factual_image_mask_path"] = factual_image_mask
@@ -1468,8 +1470,8 @@ def main(args):
                 factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
                 factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
                 
-                latents = factual_images
-                # latents = ground_trues
+                # latents = factual_images
+                latents = ground_trues
                 latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
                 latents = latents.to(dtype=weight_dtype)
                                 
@@ -1529,8 +1531,8 @@ def main(args):
                 )
                 
                 # implement mask dropout
-                if args.mask_dropout > random.random():
-                    factual_image_masks = torch.ones_like(factual_image_masks)
+                # if args.mask_dropout > random.random():
+                #     factual_image_masks = torch.ones_like(factual_image_masks)
                 
                 # pack factual_image
                 packed_factual_image_masks = FluxPipeline._pack_latents(
@@ -1542,15 +1544,25 @@ def main(args):
                 )
                 
                 # pack factual_image
-                packed_factual_image_masked_images = FluxPipeline._pack_latents(
-                    factual_image_masked_images,
+                # packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                #     factual_image_masked_images,
+                #     batch_size=latents.shape[0],
+                #     num_channels_latents=latents.shape[1],
+                #     height=latents.shape[2],
+                #     width=latents.shape[3],
+                # )
+                
+                
+                # pack factual_image
+                packed_factual_images = FluxPipeline._pack_latents(
+                    factual_images,
                     batch_size=latents.shape[0],
                     num_channels_latents=latents.shape[1],
                     height=latents.shape[2],
                     width=latents.shape[3],
                 )
                 
-                masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                masked_image_latents = torch.cat((packed_factual_images, packed_factual_image_masks), dim=-1)
                 # print("masked_image_latents.shape")
                 # print(masked_image_latents.shape)
                 # concat noisy latents and masked image latents
@@ -1603,7 +1615,7 @@ def main(args):
                 # learning forward to ground true
                 # training the model to predict the velocity of noise - ground_trues
                 # model predicted ~= noise - ground_trues
-                target = noise - ground_trues
+                target = noise - latents
                 
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
@@ -1612,11 +1624,7 @@ def main(args):
                     (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                     1,
                 )
-                
                 loss = loss.mean()
-
-                target = noise - ground_trues
-                # reg_loss
 
                 # Backpropagate
                 accelerator.backward(loss)
@@ -1735,20 +1743,20 @@ def main(args):
                                 ground_trues = batch["ground_true"].to(accelerator.device)
                                 factual_images = batch["factual_image"].to(accelerator.device)
                                 factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
-                                factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                                # factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
                                 
-                                
-                                latents = factual_images
+                                # scale ground trues with vae factor
+                                factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                factual_images = factual_images.to(dtype=weight_dtype)
                                 
                                 # scale ground trues with vae factor
                                 ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
                                 ground_trues = ground_trues.to(dtype=weight_dtype)
                                 
+                                latents = ground_trues
                                 
                                 text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
                                 
-                                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                                latents = latents.to(dtype=weight_dtype)
 
                                 vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
 
@@ -1788,6 +1796,15 @@ def main(args):
                                     height=latents.shape[2],
                                     width=latents.shape[3],
                                 )
+                                
+                                packed_factual_images = FluxPipeline._pack_latents(
+                                    factual_images,
+                                    batch_size=latents.shape[0],
+                                    num_channels_latents=latents.shape[1],
+                                    height=latents.shape[2],
+                                    width=latents.shape[3],
+                                )
+                                
                                 # pack factual_image
                                 packed_factual_image_masks = FluxPipeline._pack_latents(
                                     factual_image_masks,
@@ -1797,18 +1814,19 @@ def main(args):
                                     width=latents.shape[3],
                                 )
                                 # pack factual_image
-                                packed_factual_image_masked_images = FluxPipeline._pack_latents(
-                                    factual_image_masked_images,
-                                    batch_size=latents.shape[0],
-                                    num_channels_latents=latents.shape[1],
-                                    height=latents.shape[2],
-                                    width=latents.shape[3],
-                                )
+                                # packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                                #     factual_image_masked_images,
+                                #     batch_size=latents.shape[0],
+                                #     num_channels_latents=latents.shape[1],
+                                #     height=latents.shape[2],
+                                #     width=latents.shape[3],
+                                # )
+                                
                                 # print("packed_factual_image_masked_images.shape")
                                 # print(packed_factual_image_masked_images.shape)
                                 # print("packed_factual_image_masks.shape")
                                 # print(packed_factual_image_masks.shape)
-                                masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                                masked_image_latents = torch.cat((packed_factual_images, packed_factual_image_masks), dim=-1)
                                 # print("masked_image_latents.shape")
                                 # print(masked_image_latents.shape)
                                 # concat noisy latents and masked image latents
@@ -1872,7 +1890,7 @@ def main(args):
                                 # learning forward to ground true
                                 # training the model to predict the velocity of noise - ground_trues
                                 # model predicted ~= noise - ground_trues
-                                target = noise - ground_trues
+                                target = noise - latents
                                 
                                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                                 

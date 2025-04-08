@@ -59,7 +59,7 @@ from diffusers import (
     AutoencoderKL,
     FlowMatchEulerDiscreteScheduler,
     FluxPipeline,
-    # FluxTransformer2DModel,
+    FluxTransformer2DModel,
 )
 
 from flux.transformer_flux_masked import MaskedFluxTransformer2DModel, compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
@@ -127,6 +127,7 @@ from collections import defaultdict
 
 from utils.image_utils_flux import create_empty_embedding, create_embedding, cache_file, cache_multiple
 
+from diffusers import FluxPriorReduxPipeline
 
 def load_text_encoders(class_one, class_two):
     text_encoder_one = class_one.from_pretrained(
@@ -375,7 +376,7 @@ def parse_args(input_args=None):
         "--mixed_precision",
         type=str,
         default=None,
-        choices=["bf16", "fp8"],
+        choices=["bf16", "fp8", "fp16"],
         help=(
             "Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
             " 1.10.and an Nvidia Ampere GPU.  Default to the value of accelerate config of the current system or the"
@@ -624,45 +625,41 @@ def main(args):
     # args.mixed_precision = "bf16"
     # args.report_to = "wandb"
     
-    # args.output_dir = 'F:/models/flux/objectRemoval'
+    # args.output_dir = '/root/autodl-tmp/output'
+    # args.pretrained_model_name_or_path = "/root/autodl-tmp/T2ITrainer/flux_models/fill"
+    # args.model_path = "/root/autodl-tmp/models/fill_color_fix_beta.safetensors"
+    # args.train_data_dir = "/root/autodl-tmp/recolor_world_new/recolor_sigma"
     # args.rank = 32
     # args.skip_epoch = 0
     # args.break_epoch = 0
     # args.skip_step = 0
     # args.gradient_checkpointing = True
-    # args.validation_ratio = 0.1
+    # args.validation_ratio = 0.05
     # args.num_validation_images = 1
     # # args.pretrained_model_name_or_path = "F:/Kolors"
-    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/fill"
-    # args.model_path = ""
-    # # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
-    # # args.use_fp8 = True
-    # args.resume_from_checkpoint = None
-    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
-    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
-    # # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
-    # args.train_data_dir = "F:/ImageSet/ObjectRemoval/object_removal_alpha"
-    # args.resume_from_checkpoint = "F:/models/flux/objectRemoval/objectRemovalBeta_AlphaRegR10-720"
-    # args.learning_rate = 1e-4
+    # args.resume_from_checkpoint = ""
+    # args.learning_rate = 5e-5
     # args.optimizer = "adamw"
     # args.lr_warmup_steps = 1
     # args.lr_scheduler = "constant"
     # args.save_model_epochs = 1
     # args.validation_epochs = 1
     # args.train_batch_size = 1
-    # args.repeats = 4
+    # args.repeats = 1
     # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 6
+    # args.num_train_epochs = 10
     # args.caption_dropout = 0.1
-    # args.mask_dropout = 0.05 
+    
+    # # drop out mask with half 
+    # args.mask_dropout = 0.3
     # args.allow_tf32 = True
     # args.blocks_to_swap = 10
-    # args.resolution = 512
+    # args.resolution = 256
     
-    # args.reg_ratio = 0.7
+    # args.reg_ratio = 0.5
     # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
 
-    # args.save_name = "objectRemovalBeta_AlphaRegR10"
+    # args.save_name = "recolor_world_omiga"
     # args.recreate_cache = True
     # args.weighting_scheme = "logit_snr"
     # args.logit_mean = -6.0
@@ -671,7 +668,11 @@ def main(args):
     # stage two 0 inpaint
     # reg_inpaint_ratio = 0
     # stage two 1 inpaint
-    reg_inpaint_ratio = 0
+    # reg_inpaint_ratio = 0
+    # balance_scale = 0.7
+    reg_ratio = args.reg_ratio
+    
+    
     
     # to avoid cache mutiple times on same embedding
     use_same_embedding = True
@@ -769,9 +770,11 @@ def main(args):
         gt_image_suffix = "_G"
         factual_image_suffix = "_F"
         factual_image_mask_suffix = "_M"
+        redux_suffix = "_R"
         gt_files = []
         factual_image_files = []
         factual_image_masks = []
+        redux_images = []
         factual_pairs = []
         
         def find_index_from_right(lst, value):
@@ -780,7 +783,6 @@ def main(args):
                 return len(lst) - 1 - reversed_index
             except:
                 return -1
-            
         
         # filter images with gt_image_suffix
         for f in image_files:
@@ -790,12 +792,15 @@ def main(args):
             gt_index = find_index_from_right(filename,gt_image_suffix)
             factual_index = find_index_from_right(filename,factual_image_suffix)
             mask_index = find_index_from_right(filename,factual_image_mask_suffix)
+            redux_index = find_index_from_right(filename,redux_suffix)
             if gt_index > 0:
                 gt_files.append(f)
             elif mask_index > 0 and mask_index > factual_index:
                 factual_image_masks.append(f)
             elif factual_index > 0:
                 factual_image_files.append(f)
+            elif redux_index > 0:
+                redux_images.append(f)
                 
         # Create a mapping from base filename (without suffix) to ground truth file
         
@@ -811,6 +816,20 @@ def main(args):
             mapping_key = f"{subdir}_{filename_without_suffix}"  # Remove '_G'
             gt_mapping[mapping_key] = gt_file
              
+        
+        redux_mapping = {}
+        for redux_image in redux_images:
+            base_name = os.path.basename(redux_image)
+            filename, _ = os.path.splitext(base_name)
+            
+            suffix_index = find_index_from_right(filename,redux_suffix)
+            filename_without_suffix = filename[:suffix_index]
+            
+            subdir = os.path.dirname(redux_image)
+            mapping_key = f"{subdir}_{filename_without_suffix}"  # Remove '_G'
+            redux_mapping[mapping_key] = redux_image
+             
+        
         # Create a mapping from base filename to mask file
         mask_mapping = {}
         for mask_file in factual_image_masks:
@@ -849,89 +868,12 @@ def main(args):
                 if mapping_key in mask_mapping:
                     mask_file = mask_mapping[mapping_key]
                     
-                    # Pair them together
-                    factual_pairs.append((gt_file, factual_file, mask_file))
-        # for gt_file in gt_files:
-        #     base_name = os.path.basename(gt_file)
-        #     filename, _ = os.path.splitext(base_name)
-        #     prefix = filename.split(gt_image_suffix)[0]
-        #     related_factual_image_files = [f for f in factual_image_files if prefix+factual_image_suffix in f]
-        #     related_factual_image_files = [f for f in factual_image_files if prefix+factual_image_suffix in f]
-            # for factual_image_file, factual_image_mask in zip(factual_image_files, factual_image_masks):
-            #     if prefix in factual_image_file:
-            #         factual_pairs.append((gt_file,factual_image_file,factual_image_mask))
-            #         break
-
-        # Align metadata with existing files
-        # def align_metadata(datarows, image_files, metadata_path):
-        #     existing_image_files = set(image_files)
-        #     new_datarows = []
-        #     for data_row in datarows:
-        #         if (data_row['image_path'] in existing_image_files and
-        #             data_row['mask_path'] in existing_image_files and
-        #             data_row['ground_truth_path'] in existing_image_files and
-        #             os.path.exists(data_row['text_path']) and
-        #             os.path.exists(data_row['npz_path']) and
-        #             os.path.exists(data_row['latent_path'])):
-        #             new_datarows.append(data_row)
-        #     with open(metadata_path, "w", encoding='utf-8') as writefile:
-        #         writefile.write(json.dumps(new_datarows))
-        #     return new_datarows
-
-        # Check MD5 integrity
-        # def check_md5(datarows, md5_pairs):
-        #     cache_list = []
-        #     new_datarows = []
-        #     for datarow in tqdm(datarows):
-        #         corrupted = False
-        #         for pair in md5_pairs:
-        #             path_name = pair['path']
-        #             md5_name = pair['md5']
-        #             if md5_name not in datarow:
-        #                 corrupted = True
-        #                 break
-        #             file_path = datarow[path_name]
-        #             if not os.path.exists(file_path):
-        #                 corrupted = True
-        #                 break
-        #             with open(file_path, 'rb') as f:
-        #                 file_md5 = md5(f.read()).hexdigest()
-        #             if file_md5 != datarow[md5_name]:
-        #                 corrupted = True
-        #                 break
-        #         if not corrupted:
-        #             new_datarows.append(datarow)
-        #         else:
-        #             cache_list.append(datarow['image_path'])
-        #     return cache_list, new_datarows
-
-        # # Define MD5 pairs
-        # md5_pairs = [
-        #     {"path": "image_path", "md5": "image_path_md5"},
-        #     {"path": "mask_path", "md5": "mask_path_md5"},
-        #     {"path": "ground_truth_path", "md5": "ground_truth_path_md5"},
-        #     {"path": "text_path", "md5": "text_path_md5"},
-        #     {"path": "npz_path", "md5": "npz_path_md5"},
-        #     {"path": "latent_path", "md5": "latent_path_md5"},
-        # ]
-
-        # Main code integration
-        # if os.path.exists(metadata_path):
-        #     with open(metadata_path, "r", encoding='utf-8') as readfile:
-        #         existing_metadata = json.loads(readfile.read())
-        #         # existing_metadata = align_metadata(existing_metadata, image_files, metadata_path)
-        #         # metadata_datarows = existing_metadata + metadata_datarows
-
-        # if recreate_cache:
-        #     cache_list = [row['image_path'] for row in metadata_datarows]
-        # else:
-        #     corrupted_files, new_datarows = check_md5(metadata_datarows, md5_pairs)
-        #     metadata_datarows = new_datarows
-        #     if len(corrupted_files) > 0:
-        #         cache_list += corrupted_files
-
+                    if mapping_key in redux_mapping:
+                        redux_file = redux_mapping[mapping_key]
+                        # Pair them together
+                        factual_pairs.append((gt_file, factual_file, mask_file, redux_file))
         if len(factual_pairs) > 0:
-            if os.path.exists(metadata_path) and os.path.exists(val_metadata_path):
+            if os.path.exists(metadata_path) and os.path.exists(val_metadata_path) and not args.recreate_cache:
                 with open(metadata_path, "r", encoding='utf-8') as readfile:
                     metadata_datarows = json.loads(readfile.read())
                     full_datarows += metadata_datarows
@@ -939,6 +881,8 @@ def main(args):
                 with open(val_metadata_path, "r", encoding='utf-8') as readfile:
                     val_metadata_datarows = json.loads(readfile.read())
                     full_datarows += val_metadata_datarows
+                    
+                datarows = full_datarows
             else:
                 # Offload models to CPU and load necessary components
                 tokenizer_one = CLIPTokenizer.from_pretrained(
@@ -964,7 +908,15 @@ def main(args):
                 vae = AutoencoderKL.from_pretrained(
                     args.pretrained_model_name_or_path,
                     subfolder="vae",
-                )
+                )                
+                repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
+                pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(
+                    repo_redux, 
+                    text_encoder_one=text_encoder_one,
+                    text_encoder_two=text_encoder_two,
+                    tokenizer_one=tokenizer_one,
+                    tokenizer_two=tokenizer_two,
+                    torch_dtype=weight_dtype).to(accelerator.device)
                 
                 vae.requires_grad_(False)
                 text_encoder_one.requires_grad_(False)
@@ -976,34 +928,40 @@ def main(args):
                 tokenizers = [tokenizer_one,tokenizer_two]
                 text_encoders = [text_encoder_one,text_encoder_two]
                 
+                
                 create_empty_embedding(tokenizers,text_encoders)
                 embedding_objects = []
-                # resolutions = args.resolution_config.split(",")
-                # resolutions = [int(resolution) for resolution in resolutions]
-                resolutions = [512]
-                exist_npz_path = ""
-                for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
-                # for image_file in tqdm(image_files):
-                    file_name = os.path.basename(factual_image_file)
-                    folder_path = os.path.dirname(factual_image_file)
-                    
-                    # create text embedding based on factual_image
-                    f_json = create_embedding(
-                        tokenizers,text_encoders,folder_path,file_name,
-                        recreate_cache=recreate_cache,
-                        exist_npz_path=exist_npz_path,
-                        resolutions=resolutions,
-                        )
-                    if use_same_embedding and exist_npz_path != "":
-                        exist_npz_path = f_json["npz_path"]
-                    f_json["ground_true_path"] = gt_file
-                    f_json["factual_image_path"] = factual_image_file
-                    f_json["factual_image_mask_path"] = factual_image_mask
-                    embedding_objects.append(f_json)
+                # resolutions = args.resolution
+                resolutions = [args.resolution]
                 
+                with torch.no_grad():
+                    # exist_npz_path = ""
+                    for gt_file,factual_image_file,factual_image_mask,redux_file in tqdm(factual_pairs):
+                    # for image_file in tqdm(image_files):
+                        file_name = os.path.basename(factual_image_file)
+                        folder_path = os.path.dirname(factual_image_file)
+                        
+                        # create text embedding based on factual_image
+                        f_json = create_embedding( tokenizers,text_encoders,folder_path,file_name,
+                            recreate_cache=recreate_cache,
+                            # exist_npz_path=exist_npz_path,
+                            resolutions=resolutions,
+                            pipe_prior_redux=pipe_prior_redux,
+                            redux_image_path=redux_file
+                        )
+                        # if use_same_embedding and exist_npz_path != "":
+                        #     exist_npz_path = f_json["npz_path"]
+                        f_json["redux_image_path"] = redux_file
+                        f_json["ground_true_path"] = gt_file
+                        f_json["factual_image_path"] = factual_image_file
+                        f_json["factual_image_mask_path"] = factual_image_mask
+                        embedding_objects.append(f_json)
+                    
                 # move glm to cpu to reduce vram memory
-                # text_encoders[0].to("cpu")
-                del text_encoders,tokenizers
+                text_encoder_one.to("cpu")
+                text_encoder_two.to("cpu")
+                pipe_prior_redux.to("cpu")
+                del text_encoders,tokenizers,pipe_prior_redux
                 flush()
                 metadata_datarows = []
                 # cache latent
@@ -1045,7 +1003,8 @@ def main(args):
             # Save updated metadata
             with open(metadata_path, "w", encoding='utf-8') as outfile:
                 outfile.write(json.dumps(datarows))
-
+    else:
+        print("Invalid metadata path")
     flush()
     
     # repeat_datarows = []
@@ -1068,55 +1027,43 @@ def main(args):
     #         args.pretrained_model_name_or_path, subfolder="transformer"
     #     ).to("cuda", dtype=torch.float8_e4m3fn)
     # # load from repo
-    # el
-    if args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
-        # transformer  = SD3Transformer2DModel.from_pretrained(
-        #         args.pretrained_model_name_or_path, subfolder="transformer"
-        #     ).to(offload_device, dtype=weight_dtype)
-        
-        transformer = MaskedFluxTransformer2DModel.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="transformer"
-        ).to(offload_device, dtype=weight_dtype)
-        flush()
-    else:
-        # load from repo
-        transformer_folder = os.path.join(args.pretrained_model_name_or_path, "transformer")
-        # weight_file = "diffusion_pytorch_model"
-        variant = None
-        # ext = ".safetensors"
-        # diffusion_pytorch_model.fp16.safetensors
-        # fp16_weight = os.path.join(transformer_folder, f"{weight_file}.fp16{ext}")
-        # fp32_weight = os.path.join(transformer_folder, f"{weight_file}{ext}")
-        # if os.path.exists(fp16_weight):
-        #     variant = "fp16"
-        # elif os.path.exists(fp32_weight):
-        #     variant = None
-        # else:
-        #     raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
-            
-        transformer = MaskedFluxTransformer2DModel.from_pretrained(
-                    transformer_folder, variant=variant
-                ).to(offload_device, dtype=weight_dtype)
-    
-        flush()
     if not (args.model_path is None or args.model_path == ""):
-        # load from file
-        state_dict = safetensors.torch.load_file(args.model_path, device="cpu")
-        unexpected_keys = load_model_dict_into_meta(
-            transformer,
-            state_dict,
-            dtype=torch.float32,
-            model_name_or_path=args.model_path,
-        )
-        # updated_state_dict = unet.state_dict()
-        if len(unexpected_keys) > 0:
-            print(f"Unexpected keys in state_dict: {unexpected_keys}")
-        transformer.to(offload_device, dtype=weight_dtype)
-        del state_dict,unexpected_keys
-        flush()
+        config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
+        transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, config=config,  torch_dtype=torch.float16).to(offload_device)
+    else:
+        if args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
+            # transformer  = SD3Transformer2DModel.from_pretrained(
+            #         args.pretrained_model_name_or_path, subfolder="transformer"
+            #     ).to(offload_device, dtype=weight_dtype)
+            
+            transformer = MaskedFluxTransformer2DModel.from_pretrained(
+                args.pretrained_model_name_or_path, subfolder="transformer"
+            ).to(offload_device, dtype=weight_dtype)
+            flush()
+        else:
+            # load from repo
+            transformer_folder = os.path.join(args.pretrained_model_name_or_path, "transformer")
+            # weight_file = "diffusion_pytorch_model"
+            variant = None
+            # ext = ".safetensors"
+            # diffusion_pytorch_model.fp16.safetensors
+            # fp16_weight = os.path.join(transformer_folder, f"{weight_file}.fp16{ext}")
+            # fp32_weight = os.path.join(transformer_folder, f"{weight_file}{ext}")
+            # if os.path.exists(fp16_weight):
+            #     variant = "fp16"
+            # elif os.path.exists(fp32_weight):
+            #     variant = None
+            # else:
+            #     raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+                
+            transformer = MaskedFluxTransformer2DModel.from_pretrained(
+                        transformer_folder, variant=variant
+                    ).to(offload_device, dtype=weight_dtype)
+        
+            flush()
 
     # load transformer to cpu
-    transformer.to("cpu")
+    # transformer.to("cpu")
     
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
@@ -1359,12 +1306,12 @@ def main(args):
             "txt_attention_masks": txt_attention_masks,
         }
         
-        image_classes = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image"]
+        image_classes = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image", "redux_image"]
         for image_class in image_classes:
             sample[image_class] = torch.stack([example[image_class]["latent"] for example in examples])
         return sample
     # create dataset based on input_dir
-    train_dataset = CachedMaskedPairsDataset(datarows,conditional_dropout_percent=args.caption_dropout)
+    train_dataset = CachedMaskedPairsDataset(datarows,conditional_dropout_percent=args.caption_dropout, has_redux=True)
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
@@ -1520,40 +1467,24 @@ def main(args):
                 flush()
                 
                 # latents = batch["latents"].to(accelerator.device)
-                prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
+                prompt_embeds = batch["prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device, dtype=weight_dtype)
                 
-                ground_trues = batch["ground_true"].to(accelerator.device)
-                factual_images = batch["factual_image"].to(accelerator.device)
-                factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
-                factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                ground_trues = batch["ground_true"].to(accelerator.device, dtype=weight_dtype)
+                factual_images = batch["factual_image"].to(accelerator.device, dtype=weight_dtype)
+                factual_image_masks = batch["factual_image_mask"].to(accelerator.device, dtype=weight_dtype)
+                factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device, dtype=weight_dtype)
                 
-                # random select factual_images and ground_trues
-                # ground_trues is a reg selection to prevent model degradation
-                # when latents set to factual_images which means the model learning objective is selected to learn to remove objects
-                r = random.random()
-                latents = factual_images
-                is_inpaint = False
-                if r < args.reg_ratio:
-                    # added reg_inpaint_ratio for prevent inpaint functionality
-                    # while training with empty object image could prevent the model degradation 
-                    # but the model seems to forget how to paint objects
-                    # so we added reg_inpaint_ratio to prevent inpaint functionality
-                    if random.random() < reg_inpaint_ratio:
-                        is_inpaint = True
-                        
-                        # set prompt_embeds to zero to avoid the effect from prompt embedding and pooled prompt embedding
-                        # when training with factual images
-                        prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
-                        pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
-                    else:
-                        latents = ground_trues
-                    
+                redux_images = batch["redux_image"].to(accelerator.device, dtype=weight_dtype)
+                redux_images = (redux_images - vae_config_shift_factor) * vae_config_scaling_factor
+                redux_images = redux_images.to(dtype=weight_dtype)
                 # latents = ground_trues
-                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                latents = latents.to(dtype=weight_dtype)
-                                
+                # latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                # latents = latents.to(dtype=weight_dtype)
+                factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                factual_images = factual_images.to(dtype=weight_dtype)
+                
                 # scale ground trues with vae factor
                 ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
                 ground_trues = ground_trues.to(dtype=weight_dtype)
@@ -1562,21 +1493,29 @@ def main(args):
                 factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
                 
                 # text_ids = batch["text_ids"].to(accelerator.device)
-                
                 text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
                 
-
                 vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
                 # print("vae_scale_factor")
                 # print(vae_scale_factor)
-
-                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                    latents.shape[0],
-                    latents.shape[2] // 2,
-                    latents.shape[3] // 2,
-                    accelerator.device,
-                    weight_dtype,
-                )
+                
+                # create white redux image to pad factual image
+                redux_images_one = torch.ones_like(redux_images)
+                
+                # create learning image
+                first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                second_row = torch.cat((factual_images, factual_images), dim=-1)
+                latents = torch.cat((first_row, second_row), dim=-2)
+                
+                
+                # create learning target
+                first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                second_row = torch.cat((factual_images, ground_trues), dim=-1)
+                learning_target = torch.cat((first_row, second_row), dim=-2)
+                
+                # if under reg ratio, use ground_true as training
+                if random.random() < reg_ratio:
+                    latents = learning_target
                 
                 # noise = torch.randn_like(latents)
                 noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
@@ -1600,6 +1539,40 @@ def main(args):
                 sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
                 noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                 
+                
+                # cat masks for recontruction loss
+                # factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                _,_,r_h,r_w = redux_images.shape
+                _,dim,_,_ = factual_image_masks.shape
+                
+                redux_images_mask = torch.zeros(bsz, dim, r_h, r_w)
+                # freeze left half and mask part of right
+                factual_image_masks_zero = torch.zeros_like(factual_image_masks)
+                m_first_row = torch.cat((redux_images_mask, redux_images_mask), dim=-1).to(accelerator.device, dtype=weight_dtype)
+                m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks), dim=-1)
+                # freeze left half and mask right
+                if args.mask_dropout > random.random():
+                    factual_image_masks_one = torch.ones_like(factual_image_masks)
+                    m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks_one), dim=-1)
+                mask = torch.cat((m_first_row, m_second_row), dim=-2)
+                
+                factual_image_masks = mask
+                
+                
+                # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                mi_first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                mi_second_row = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                factual_image_masked_images = torch.cat((mi_first_row, mi_second_row), dim=-2)
+                
+                
+                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                    latents.shape[0],
+                    latents.shape[2] // 2,
+                    latents.shape[3] // 2,
+                    accelerator.device,
+                    weight_dtype,
+                )
                 # pack noisy latents
                 packed_noisy_latents = FluxPipeline._pack_latents(
                     noisy_model_input,
@@ -1608,10 +1581,6 @@ def main(args):
                     height=latents.shape[2],
                     width=latents.shape[3],
                 )
-                
-                # implement mask dropout
-                if args.mask_dropout > random.random():
-                    factual_image_masks = torch.ones_like(factual_image_masks)
                 
                 # pack factual_image
                 packed_factual_image_masks = FluxPipeline._pack_latents(
@@ -1632,13 +1601,7 @@ def main(args):
                 )
                 
                 masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
-                # print("masked_image_latents.shape")
-                # print(masked_image_latents.shape)
-                # concat noisy latents and masked image latents
-                cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
-                # print("cat_model_input.shape")
-                # print(cat_model_input.shape)
-                
+                cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2).to(dtype=weight_dtype)
                 if handle_guidance:
                     guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
                     guidance = guidance.expand(latents.shape[0])
@@ -1668,44 +1631,18 @@ def main(args):
                     width=latents.shape[3] * vae_scale_factor,
                     vae_scale_factor=vae_scale_factor,
                 )
-
-                # ====================Debug latent====================
-                # vae = AutoencoderKL.from_single_file(
-                #     vae_path
-                # )
-                # vae.to(device=accelerator.device)
-                # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-                # with torch.no_grad():
-                #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-                # image = image_processor.postprocess(image, output_type="pil")[0]
-                # image.save("model_pred.png")
-                # ====================Debug latent====================
-                
-                # learning forward to ground true
-                # training the model to predict the velocity of noise - ground_trues
-                # model predicted ~= noise - ground_trues
-                
-                
-                # added reg_inpaint_ratio for prevent inpaint functionality
-                # while training with empty object image could prevent the model degradation 
-                # but the model seems to forget how to paint objects
-                # so we added reg_inpaint_ratio to prevent inpaint functionality
-                if is_inpaint:
-                    # when is_inpaint is true, learning towards to factual image from factual image
-                    # when is_inpaint is false, learning towards to ground_trues from factual image or grounc_trues.
-                    target = noise - latents
-                else:
-                    target = noise - ground_trues
-                
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
+                target = noise - learning_target
                 # Compute regular loss.
+                
                 loss = torch.mean(
-                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(factual_images.shape[0], -1),
                     1,
                 )
                 
                 loss = loss.mean()
+                
 
                 # Backpropagate
                 accelerator.backward(loss)
@@ -1723,7 +1660,7 @@ def main(args):
 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 #post batch check for gradient updates
-                accelerator.wait_for_everyone()
+                # accelerator.wait_for_everyone()
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
@@ -1748,7 +1685,7 @@ def main(args):
                 
                 
                 if global_step % args.save_model_steps == 0 and args.save_model_steps > 0:
-                    accelerator.wait_for_everyone()
+                    # accelerator.wait_for_everyone()
                     if accelerator.is_main_process:
                         save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
                         accelerator.save_state(save_path)
@@ -1773,7 +1710,7 @@ def main(args):
                             validation_datarows = json.loads(readfile.read())
                         
                         if len(validation_datarows)>0:
-                            validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0)
+                            validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0, has_redux=True)
                             
                             batch_size  = 1
                             # batch_size = args.train_batch_size
@@ -1805,41 +1742,57 @@ def main(args):
                                     accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
                                     accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
                                     flush()
-                                    
+                                               
                                     # latents = batch["latents"].to(accelerator.device)
-                                    prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                                    pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                                    txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
-                                    # text_ids = batch["text_ids"].to(accelerator.device)
-                                    ground_trues = batch["ground_true"].to(accelerator.device)
-                                    factual_images = batch["factual_image"].to(accelerator.device)
-                                    factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
-                                    factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                                    prompt_embeds = batch["prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                                    pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                                    txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device, dtype=weight_dtype)
                                     
+                                    ground_trues = batch["ground_true"].to(accelerator.device, dtype=weight_dtype)
+                                    factual_images = batch["factual_image"].to(accelerator.device, dtype=weight_dtype)
+                                    factual_image_masks = batch["factual_image_mask"].to(accelerator.device, dtype=weight_dtype)
+                                    factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device, dtype=weight_dtype)
                                     
-                                    latents = factual_images
+                                    redux_images = batch["redux_image"].to(accelerator.device, dtype=weight_dtype)
+                                    redux_images = (redux_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                    redux_images = redux_images.to(dtype=weight_dtype)
+                                    # latents = ground_trues
+                                    # latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                                    # latents = latents.to(dtype=weight_dtype)
+                                    factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                    factual_images = factual_images.to(dtype=weight_dtype)
                                     
                                     # scale ground trues with vae factor
                                     ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
                                     ground_trues = ground_trues.to(dtype=weight_dtype)
                                     
+                                    factual_image_masked_images = (factual_image_masked_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                    factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
                                     
+                                    # text_ids = batch["text_ids"].to(accelerator.device)
                                     text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
                                     
-                                    latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                                    latents = latents.to(dtype=weight_dtype)
-
                                     vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
-
-                                    latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                                        latents.shape[0],
-                                        latents.shape[2] // 2,
-                                        latents.shape[3] // 2,
-                                        accelerator.device,
-                                        weight_dtype,
-                                    )
+                                    # print("vae_scale_factor")
+                                    # print(vae_scale_factor)
                                     
+                                    # create white redux image to pad factual image
+                                    redux_images_one = torch.ones_like(redux_images)
+                                    
+                                    # create learning image
+                                    first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                                    second_row = torch.cat((factual_images, factual_images), dim=-1)
+                                    latents = torch.cat((first_row, second_row), dim=-2)
+                                    
+                                    
+                                    # create learning target
+                                    first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                                    second_row = torch.cat((factual_images, ground_trues), dim=-1)
+                                    learning_target = torch.cat((first_row, second_row), dim=-2)
+                                    
+                                    # noise = torch.randn_like(latents)
                                     noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
+                                    
                                     bsz = latents.shape[0]
                                     
                                     # Sample a random timestep for each image
@@ -1859,6 +1812,40 @@ def main(args):
                                     sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
                                     noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                                     
+                                    
+                                    # cat masks for recontruction loss
+                                    # factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                                    _,_,r_h,r_w = redux_images.shape
+                                    _,dim,_,_ = factual_image_masks.shape
+                                    
+                                    redux_images_mask = torch.zeros(bsz, dim, r_h, r_w)
+                                    # freeze left half and mask part of right
+                                    factual_image_masks_zero = torch.zeros_like(factual_image_masks)
+                                    m_first_row = torch.cat((redux_images_mask, redux_images_mask), dim=-1).to(accelerator.device, dtype=weight_dtype)
+                                    m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks), dim=-1)
+                                    # freeze left half and mask right
+                                    if args.mask_dropout > random.random():
+                                        factual_image_masks_one = torch.ones_like(factual_image_masks)
+                                        m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks_one), dim=-1)
+                                    mask = torch.cat((m_first_row, m_second_row), dim=-2)
+                                    
+                                    factual_image_masks = mask
+                                    
+                                    
+                                    # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                                    # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                                    mi_first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                                    mi_second_row = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                                    factual_image_masked_images = torch.cat((mi_first_row, mi_second_row), dim=-2)
+                                    
+                                    
+                                    latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                                        latents.shape[0],
+                                        latents.shape[2] // 2,
+                                        latents.shape[3] // 2,
+                                        accelerator.device,
+                                        weight_dtype,
+                                    )
                                     # pack noisy latents
                                     packed_noisy_latents = FluxPipeline._pack_latents(
                                         noisy_model_input,
@@ -1867,6 +1854,7 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
+                                    
                                     # pack factual_image
                                     packed_factual_image_masks = FluxPipeline._pack_latents(
                                         factual_image_masks,
@@ -1875,6 +1863,7 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
+                                    
                                     # pack factual_image
                                     packed_factual_image_masked_images = FluxPipeline._pack_latents(
                                         factual_image_masked_images,
@@ -1883,19 +1872,9 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
-                                    # print("packed_factual_image_masked_images.shape")
-                                    # print(packed_factual_image_masked_images.shape)
-                                    # print("packed_factual_image_masks.shape")
-                                    # print(packed_factual_image_masks.shape)
+                                    
                                     masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
-                                    # print("masked_image_latents.shape")
-                                    # print(masked_image_latents.shape)
-                                    # concat noisy latents and masked image latents
-                                    cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
-                                    # print("cat_model_input.shape")
-                                    # print(cat_model_input.shape)
-                                    
-                                    
+                                    cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2).to(dtype=weight_dtype)
                                     if handle_guidance:
                                         guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
                                         guidance = guidance.expand(latents.shape[0])
@@ -1906,15 +1885,16 @@ def main(args):
                                         # Predict the noise residual
                                         model_pred = transformer(
                                             hidden_states=cat_model_input,
+                                            encoder_hidden_states=prompt_embeds,
+                                            joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                            # txt_attention_masks=txt_attention_masks,
+                                            pooled_projections=pooled_prompt_embeds,
                                             # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
                                             timestep=timesteps / 1000,
-                                            guidance=guidance,
-                                            pooled_projections=pooled_prompt_embeds,
-                                            encoder_hidden_states=prompt_embeds,
-                                            txt_ids=text_ids,
                                             img_ids=latent_image_ids,
-                                            return_dict=False,
-                                            joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                            txt_ids=text_ids,
+                                            guidance=guidance,
+                                            return_dict=False
                                         )[0]
                                     
                                     
@@ -1924,44 +1904,19 @@ def main(args):
                                         width=latents.shape[3] * vae_scale_factor,
                                         vae_scale_factor=vae_scale_factor,
                                     )
-
-                                    # these weighting schemes use a uniform timestep sampling
-                                    # and instead post-weight the loss
-                                    weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-
-                                    # ====================Debug latent====================
-                                    # vae = AutoencoderKL.from_single_file(
-                                    #     vae_path
-                                    # )
-                                    # vae.to(device=accelerator.device)
-                                    # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-                                    # with torch.no_grad():
-                                    #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-                                    # image = image_processor.postprocess(image, output_type="pil")[0]
-                                    # image.save("model_pred.png")
-                                    # ====================Debug latent====================
-                                    
-                                    
-                                    # flow matching loss
-                                    # if args.precondition_outputs:
-                                    #     target = latents
-                                    # else:
-                                    # target = noise - latents
-                                    
-                                    # learning forward to ground true
-                                    # training the model to predict the velocity of noise - ground_trues
-                                    # model predicted ~= noise - ground_trues
-                                    target = noise - ground_trues
-                                    
                                     weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                                     
+                                    target = noise - learning_target
                                     # Compute regular loss.
+                                    
                                     loss = torch.mean(
-                                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(factual_images.shape[0], -1),
                                         1,
                                     )
+                                    
                                     loss = loss.mean()
-
+                                    
+                                    
                                     total_loss+=loss.detach()
                                     del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                                     gc.collect()
@@ -2007,242 +1962,257 @@ def main(args):
         before_state = torch.random.get_rng_state()
         np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
+    
+        if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
+            # accelerator.wait_for_everyone()
+            if accelerator.is_main_process:
+                save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
+                accelerator.save_state(save_path)
+                logger.info(f"Saved state to {save_path}")
         
-        if accelerator.is_main_process:
-            if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
-                accelerator.wait_for_everyone()
-                if accelerator.is_main_process:
-                    save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
-                    accelerator.save_state(save_path)
-                    logger.info(f"Saved state to {save_path}")
-            
-            # only execute when val_metadata_path exists
-            if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
-                with torch.no_grad():
-                    transformer = unwrap_model(transformer)
-                    # freeze rng
-                    np.random.seed(val_seed)
-                    torch.manual_seed(val_seed)
-                    dataloader_generator = torch.Generator()
-                    dataloader_generator.manual_seed(val_seed)
-                    torch.backends.cudnn.deterministic = True
+        # only execute when val_metadata_path exists
+        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
+            with torch.no_grad():
+                transformer = unwrap_model(transformer)
+                # freeze rng
+                np.random.seed(val_seed)
+                torch.manual_seed(val_seed)
+                dataloader_generator = torch.Generator()
+                dataloader_generator.manual_seed(val_seed)
+                torch.backends.cudnn.deterministic = True
+                
+                validation_datarows = []
+                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                    validation_datarows = json.loads(readfile.read())
+                
+                if len(validation_datarows)>0:
+                    validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0, has_redux=True)
                     
-                    validation_datarows = []
-                    with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                        validation_datarows = json.loads(readfile.read())
+                    batch_size  = 1
+                    # batch_size = args.train_batch_size
+                    # handle batch size > validation dataset size
+                    # if batch_size > len(validation_datarows):
+                    #     batch_size = 1
                     
-                    if len(validation_datarows)>0:
-                        validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0)
-                        
-                        batch_size  = 1
-                        # batch_size = args.train_batch_size
-                        # handle batch size > validation dataset size
-                        # if batch_size > len(validation_datarows):
-                        #     batch_size = 1
-                        
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
 
-                        #initialize the DataLoader with the bucket batch sampler
-                        val_dataloader = torch.utils.data.DataLoader(
-                            validation_dataset,
-                            batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-                            collate_fn=collate_fn,
-                            num_workers=dataloader_num_workers,
-                        )
+                    #initialize the DataLoader with the bucket batch sampler
+                    val_dataloader = torch.utils.data.DataLoader(
+                        validation_dataset,
+                        batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                        collate_fn=collate_fn,
+                        num_workers=dataloader_num_workers,
+                    )
 
-                        print("\nStart val_loss\n")
-                        
-                        total_loss = 0.0
-                        num_batches = len(val_dataloader)
-                        # if no val data, skip the following 
-                        if num_batches == 0:
-                            print("No validation data, skip validation.")
-                        else:
-                            # basically the as same as the training loop
-                            enumerate_val_dataloader = enumerate(val_dataloader)
-                            for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                                accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
-                                accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
-                                flush()
-                                
-                                # latents = batch["latents"].to(accelerator.device)
-                                prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
-                                pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
-                                txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
-                                # text_ids = batch["text_ids"].to(accelerator.device)
-                                ground_trues = batch["ground_true"].to(accelerator.device)
-                                factual_images = batch["factual_image"].to(accelerator.device)
-                                factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
-                                factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
-                                
-                                
-                                latents = factual_images
-                                
-                                # scale ground trues with vae factor
-                                ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
-                                ground_trues = ground_trues.to(dtype=weight_dtype)
-                                
-                                
-                                text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
-                                
-                                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                                latents = latents.to(dtype=weight_dtype)
-
-                                vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
-
-                                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                                    latents.shape[0],
-                                    latents.shape[2] // 2,
-                                    latents.shape[3] // 2,
-                                    accelerator.device,
-                                    weight_dtype,
-                                )
-                                
-                                noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
-                                bsz = latents.shape[0]
-                                
-                                # Sample a random timestep for each image
-                                # for weighting schemes where we sample timesteps non-uniformly
-                                u = compute_density_for_timestep_sampling(
-                                    weighting_scheme=args.weighting_scheme,
-                                    batch_size=bsz,
-                                    logit_mean=args.logit_mean,
-                                    logit_std=args.logit_std,
-                                    mode_scale=args.mode_scale,
-                                )
-                                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                                timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
-                                
-                                # Add noise according to flow matching.
-                                # zt = (1 - texp) * x + texp * z1
-                                sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
-                                
-                                # pack noisy latents
-                                packed_noisy_latents = FluxPipeline._pack_latents(
-                                    noisy_model_input,
-                                    batch_size=latents.shape[0],
-                                    num_channels_latents=latents.shape[1],
-                                    height=latents.shape[2],
-                                    width=latents.shape[3],
-                                )
-                                # pack factual_image
-                                packed_factual_image_masks = FluxPipeline._pack_latents(
-                                    factual_image_masks,
-                                    batch_size=latents.shape[0],
-                                    num_channels_latents=vae_scale_factor * vae_scale_factor,
-                                    height=latents.shape[2],
-                                    width=latents.shape[3],
-                                )
-                                # pack factual_image
-                                packed_factual_image_masked_images = FluxPipeline._pack_latents(
-                                    factual_image_masked_images,
-                                    batch_size=latents.shape[0],
-                                    num_channels_latents=latents.shape[1],
-                                    height=latents.shape[2],
-                                    width=latents.shape[3],
-                                )
-                                # print("packed_factual_image_masked_images.shape")
-                                # print(packed_factual_image_masked_images.shape)
-                                # print("packed_factual_image_masks.shape")
-                                # print(packed_factual_image_masks.shape)
-                                masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
-                                # print("masked_image_latents.shape")
-                                # print(masked_image_latents.shape)
-                                # concat noisy latents and masked image latents
-                                cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
-                                # print("cat_model_input.shape")
-                                # print(cat_model_input.shape)
-                                
-                                
-                                if handle_guidance:
-                                    guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
-                                    guidance = guidance.expand(latents.shape[0])
-                                else:
-                                    guidance = None
-                                
-                                with accelerator.autocast():
-                                    # Predict the noise residual
-                                    model_pred = transformer(
-                                        hidden_states=cat_model_input,
-                                        # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
-                                        timestep=timesteps / 1000,
-                                        guidance=guidance,
-                                        pooled_projections=pooled_prompt_embeds,
-                                        encoder_hidden_states=prompt_embeds,
-                                        txt_ids=text_ids,
-                                        img_ids=latent_image_ids,
-                                        return_dict=False,
-                                        joint_attention_kwargs = {'attention_mask': txt_attention_masks},
-                                    )[0]
-                                
-                                
-                                model_pred = FluxPipeline._unpack_latents(
-                                    model_pred,
-                                    height=latents.shape[2] * vae_scale_factor,
-                                    width=latents.shape[3] * vae_scale_factor,
-                                    vae_scale_factor=vae_scale_factor,
-                                )
-
-                                # these weighting schemes use a uniform timestep sampling
-                                # and instead post-weight the loss
-                                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-
-                                # ====================Debug latent====================
-                                # vae = AutoencoderKL.from_single_file(
-                                #     vae_path
-                                # )
-                                # vae.to(device=accelerator.device)
-                                # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-                                # with torch.no_grad():
-                                #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-                                # image = image_processor.postprocess(image, output_type="pil")[0]
-                                # image.save("model_pred.png")
-                                # ====================Debug latent====================
-                                
-                                
-                                # flow matching loss
-                                # if args.precondition_outputs:
-                                #     target = latents
-                                # else:
-                                # target = noise - latents
-                                
-                                # learning forward to ground true
-                                # training the model to predict the velocity of noise - ground_trues
-                                # model predicted ~= noise - ground_trues
-                                target = noise - ground_trues
-                                
-                                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-                                
-                                # Compute regular loss.
-                                loss = torch.mean(
-                                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                                    1,
-                                )
-                                loss = loss.mean()
-
-                                total_loss+=loss.detach()
-                                del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
-                                gc.collect()
-                                torch.cuda.empty_cache()
-                                
-                            avg_loss = total_loss / num_batches
+                    print("\nStart val_loss\n")
+                    
+                    total_loss = 0.0
+                    num_batches = len(val_dataloader)
+                    # if no val data, skip the following 
+                    if num_batches == 0:
+                        print("No validation data, skip validation.")
+                    else:
+                        # basically the as same as the training loop
+                        enumerate_val_dataloader = enumerate(val_dataloader)
+                        for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                            accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+                            accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+                            flush()
+                            # latents = batch["latents"].to(accelerator.device)
+                            prompt_embeds = batch["prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                            pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device, dtype=weight_dtype)
+                            txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device, dtype=weight_dtype)
                             
-                            lr = lr_scheduler.get_last_lr()[0]
-                            lr_name = "val_lr"
-                            if args.optimizer == "prodigy":
-                                lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                                lr_name = "val_lr lr/d*lr"
-                            logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
-                            print(logs)
-                            progress_bar.set_postfix(**logs)
-                            accelerator.log(logs, step=global_step)
-                            del num_batches, avg_loss, total_loss
-                        del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        print("\nEnd val_loss\n")
-            
+                            ground_trues = batch["ground_true"].to(accelerator.device, dtype=weight_dtype)
+                            factual_images = batch["factual_image"].to(accelerator.device, dtype=weight_dtype)
+                            factual_image_masks = batch["factual_image_mask"].to(accelerator.device, dtype=weight_dtype)
+                            factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device, dtype=weight_dtype)
+                            
+                            redux_images = batch["redux_image"].to(accelerator.device, dtype=weight_dtype)
+                            redux_images = (redux_images - vae_config_shift_factor) * vae_config_scaling_factor
+                            redux_images = redux_images.to(dtype=weight_dtype)
+                            # latents = ground_trues
+                            # latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                            # latents = latents.to(dtype=weight_dtype)
+                            factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                            factual_images = factual_images.to(dtype=weight_dtype)
+                            
+                            # scale ground trues with vae factor
+                            ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
+                            ground_trues = ground_trues.to(dtype=weight_dtype)
+                            
+                            factual_image_masked_images = (factual_image_masked_images - vae_config_shift_factor) * vae_config_scaling_factor
+                            factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
+                            
+                            # text_ids = batch["text_ids"].to(accelerator.device)
+                            text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
+                            
+                            vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+                            # print("vae_scale_factor")
+                            # print(vae_scale_factor)
+                            
+                            # create white redux image to pad factual image
+                            redux_images_one = torch.ones_like(redux_images)
+                            
+                            # create learning image
+                            first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                            second_row = torch.cat((factual_images, factual_images), dim=-1)
+                            latents = torch.cat((first_row, second_row), dim=-2)
+                            
+                            
+                            # create learning target
+                            first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                            second_row = torch.cat((factual_images, ground_trues), dim=-1)
+                            learning_target = torch.cat((first_row, second_row), dim=-2)
+                            
+                            # noise = torch.randn_like(latents)
+                            noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
+                            
+                            bsz = latents.shape[0]
+                            
+                            # Sample a random timestep for each image
+                            # for weighting schemes where we sample timesteps non-uniformly
+                            u = compute_density_for_timestep_sampling(
+                                weighting_scheme=args.weighting_scheme,
+                                batch_size=bsz,
+                                logit_mean=args.logit_mean,
+                                logit_std=args.logit_std,
+                                mode_scale=args.mode_scale,
+                            )
+                            indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                            timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                            
+                            # Add noise according to flow matching.
+                            # zt = (1 - texp) * x + texp * z1
+                            sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                            noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                            
+                            # cat masks for recontruction loss
+                            # factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                            _,_,r_h,r_w = redux_images.shape
+                            _,dim,_,_ = factual_image_masks.shape
+                            
+                            redux_images_mask = torch.zeros(bsz, dim, r_h, r_w)
+                            # freeze left half and mask part of right
+                            factual_image_masks_zero = torch.zeros_like(factual_image_masks)
+                            m_first_row = torch.cat((redux_images_mask, redux_images_mask), dim=-1).to(accelerator.device, dtype=weight_dtype)
+                            m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks), dim=-1)
+                            # freeze left half and mask right
+                            if args.mask_dropout > random.random():
+                                factual_image_masks_one = torch.ones_like(factual_image_masks)
+                                m_second_row = torch.cat((factual_image_masks_zero, factual_image_masks_one), dim=-1)
+                            mask = torch.cat((m_first_row, m_second_row), dim=-2)
+                            
+                            factual_image_masks = mask
+        
+                            
+                            # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                            # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                            mi_first_row = torch.cat((redux_images_one, redux_images), dim=-1)
+                            mi_second_row = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                            factual_image_masked_images = torch.cat((mi_first_row, mi_second_row), dim=-2)
+                            
+                            
+                            latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                                latents.shape[0],
+                                latents.shape[2] // 2,
+                                latents.shape[3] // 2,
+                                accelerator.device,
+                                weight_dtype,
+                            )
+                            # pack noisy latents
+                            packed_noisy_latents = FluxPipeline._pack_latents(
+                                noisy_model_input,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=latents.shape[1],
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            
+                            # pack factual_image
+                            packed_factual_image_masks = FluxPipeline._pack_latents(
+                                factual_image_masks,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=vae_scale_factor * vae_scale_factor,
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            
+                            # pack factual_image
+                            packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                                factual_image_masked_images,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=latents.shape[1],
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            
+                            masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                            cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2).to(dtype=weight_dtype)
+                            if handle_guidance:
+                                guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
+                                guidance = guidance.expand(latents.shape[0])
+                            else:
+                                guidance = None
+                            
+                            with accelerator.autocast():
+                                # Predict the noise residual
+                                model_pred = transformer(
+                                    hidden_states=cat_model_input,
+                                    encoder_hidden_states=prompt_embeds,
+                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                    # txt_attention_masks=txt_attention_masks,
+                                    pooled_projections=pooled_prompt_embeds,
+                                    # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
+                                    timestep=timesteps / 1000,
+                                    img_ids=latent_image_ids,
+                                    txt_ids=text_ids,
+                                    guidance=guidance,
+                                    return_dict=False
+                                )[0]
+                            
+                            
+                            model_pred = FluxPipeline._unpack_latents(
+                                model_pred,
+                                height=latents.shape[2] * vae_scale_factor,
+                                width=latents.shape[3] * vae_scale_factor,
+                                vae_scale_factor=vae_scale_factor,
+                            )
+                            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+                            
+                            target = noise - learning_target
+                            # Compute regular loss.
+                            
+                            loss = torch.mean(
+                                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(factual_images.shape[0], -1),
+                                1,
+                            )
+                            
+                            loss = loss.mean()
+        
+        
+                            total_loss+=loss.detach()
+                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                            
+                        avg_loss = total_loss / num_batches
+                        
+                        lr = lr_scheduler.get_last_lr()[0]
+                        lr_name = "val_lr"
+                        if args.optimizer == "prodigy":
+                            lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                            lr_name = "val_lr lr/d*lr"
+                        logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
+                        print(logs)
+                        progress_bar.set_postfix(**logs)
+                        accelerator.log(logs, step=global_step)
+                        del num_batches, avg_loss, total_loss
+                    del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    print("\nEnd val_loss\n")
+        
         # restore rng before validation
         np.random.seed(np_seed)
         torch.random.set_rng_state(before_state)

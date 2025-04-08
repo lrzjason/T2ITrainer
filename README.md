@@ -4,8 +4,22 @@
 ---
 
 ## 📅 Recent Updates
-- **2025-02-15:** 🎨 Launched Flux Fill Training script for LoRA-based inpainting
+- **2025-03-25:** 🎨 Update train_flux_lora_ui_with_mask_cat script
+```
+train_flux_lora_ui_with_mask_cat is the latest attempt on training state transfer training.
+for usually inpaint training, the training is a reconstruction training.
+from a to a hat. a hat ideally would close to a distribution.
 
+for state transfer training, the training is a transport training.
+from a to b. a would close to b distribution.
+at this update, the training would be a reconstruction training + transport training.
+using hyper parameter reg_ratio, it would determine the ratio of reconstruction training and transport training.
+
+The loss of _cat script would be (1-reg_ratio) * reconstruction loss + reg_ratio * transport loss.
+It might have a more detailed article to describe the training in the future.
+
+Please note that, when using _cat script, you need more block_swaps to handle duel image training at the same time.
+```
 ---
 
 ## 🛡️ Prerequisites

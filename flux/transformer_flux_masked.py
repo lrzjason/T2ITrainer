@@ -13,7 +13,15 @@ import numpy as np
 import torch.nn as nn
 from diffusers.utils.torch_utils import maybe_allow_in_graph
 
-from diffusers.models.transformers.transformer_flux import FluxTransformer2DModel,FluxSingleTransformerBlock,FluxTransformerBlock
+from diffusers.models.transformers.transformer_flux import FluxSingleTransformerBlock,FluxTransformerBlock
+
+# from diffusers.models.transformers.transformer_flux import FluxSingleTransformerBlock,FluxTransformerBlock
+
+from diffusers import (
+    # FluxTransformerBlock,
+    # FluxSingleTransformerBlock,
+    FluxTransformer2DModel,
+)
 
 from diffusers.models.embeddings import apply_rotary_emb
 import torch.nn.functional as F

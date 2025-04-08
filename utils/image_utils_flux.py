@@ -31,6 +31,19 @@ from diffusers.utils import load_image
 # ]
 
 RESOLUTION_CONFIG = {
+    256: [
+        # extra resolution for testing
+        # (1536, 1536),
+        # (672, 672),
+        (256, 256),
+        (384, 256), # 1.5
+        (288, 224), # 1.5
+        (304, 256), # 1.5
+        (304, 208), # 1.5
+        (512,256),
+        (512,288),
+        (512,320),
+    ],
     512: [
         # extra resolution for testing
         # (1536, 1536),
@@ -237,7 +250,8 @@ class CachedImageDataset(Dataset):
         return result
 
 class CachedMaskedPairsDataset(Dataset):
-    def __init__(self, datarows,conditional_dropout_percent=0.1): 
+    def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False): 
+        self.has_redux = has_redux
         self.datarows = datarows
         self.leftover_indices = []  #initialize an empty list to store indices of leftover items
         #for conditional_dropout
@@ -272,8 +286,10 @@ class CachedMaskedPairsDataset(Dataset):
             "txt_attention_mask": txt_attention_mask,
             # "text_id": text_id,
         }
-        
         cached_latent_names = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image"]
+        if self.has_redux:
+            cached_latent_names = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image", "redux_image"]
+            
         for cached_latent_name in cached_latent_names:
             if not "latent_path" in metadata[cached_latent_name]:
                 raise ValueError(f"{cached_latent_name} is not in metadata")
@@ -324,7 +340,7 @@ def create_metadata_cache(tokenizers,text_encoders,vae,image_files,recreate_cach
 @torch.no_grad()
 def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflux",
                     resolutions=None,recreate_cache=False,pipe_prior_redux=None,
-                    exist_npz_path=""):
+                    exist_npz_path="",redux_image_path=""):
     # get filename and ext from file
     filename, _ = os.path.splitext(file)
     image_path = os.path.join(folder_path, file)
@@ -389,6 +405,7 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
     # original_size = (height, width)
     # crops_coords_top_left = (0,0)
     # time_id = torch.tensor(list(original_size + crops_coords_top_left + original_size)).to(text_encoders[0].device, dtype=text_encoders[0].dtype)
+    
     npz_dict = {
         "prompt_embed": prompt_embed.cpu(), 
         "pooled_prompt_embed": pooled_prompt_embed.cpu(),
@@ -398,12 +415,18 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
     }
     
     if pipe_prior_redux is not None:
+        if redux_image_path !="":
+            image_path = redux_image_path
         image = load_image(image_path)
-        pipe_prior_output = pipe_prior_redux(image)
-        redux_prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
-        redux_pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
-        npz_dict["redux_prompt_embed"] = redux_prompt_embed.cpu()
-        npz_dict["redux_pooled_prompt_embed"] = redux_pooled_prompt_embed.cpu()
+        pipe_prior_output = pipe_prior_redux(image,prompt_embeds=prompt_embeds,pooled_prompt_embeds=pooled_prompt_embeds)
+        prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
+        pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
+        npz_dict["prompt_embed"] = prompt_embed.cpu()
+        npz_dict["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
+        
+        # extend txt_attention_mask dim as 1 to match prompt_embed
+        # npz_dict["txt_attention_mask"] = torch.ones_like(prompt_embed)
+    
     # save latent to cache file
     torch.save(npz_dict, npz_path)
     return json_obj
@@ -535,8 +558,8 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     #         print(f"Failed to load {npz_path}")
     
     image_files = [ 
-        ("ground_true", json_obj["ground_true_path"]),
         ("factual_image", json_obj["factual_image_path"]),
+        ("ground_true", json_obj["ground_true_path"])
         # ("factual_image_mask", json_obj["factual_image_mask_path"])
     ]
     # factual_image_file = json_obj["factual_image_file"]
@@ -547,8 +570,24 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     factual_image = None
     f_height = 0
     f_width = 0
-    def crop_image(image_path):
-                
+    
+    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    def vae_encode(image):
+        
+        # create tensor latent
+        pixel_values = []
+        pixel_values.append(image)
+        pixel_values = torch.stack(pixel_values).to(vae.device)
+        # del image
+        
+        with torch.no_grad():
+            latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+            del pixel_values
+        latent_dict = {
+            'latent': latent.cpu()
+        }
+        return latent_dict
+    def read_image(image_path):
         try:
             image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
             if image is not None:
@@ -558,7 +597,9 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
                 print(f"Failed to open {image_path}.")
         except Exception as e:
             print(f"An error occurred while processing {image_path}: {e}")
-
+        return image
+    def crop_image(image_path):
+        image = read_image(image_path)
         ##############################################################################
         # Simple center crop for others
         ##############################################################################
@@ -608,8 +649,13 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         ##############################################################################
         
         image = crop_image(image_path)
-        
         image_height, image_width, _ = image.shape
+        
+        # if cache_ratio !=1:
+        #     # resize image with cache_ratio
+        #     image = cv2.resize(image, (int(image_width*cache_ratio), int(image_height*cache_ratio)), interpolation=cv2.INTER_LINEAR)
+        #     image_height, image_width, _ = image.shape
+        
         json_obj['bucket'] = f"{image_width}x{image_height}"
         
         # time_id = torch.tensor(list(original_size + crops_coords_top_left + target_size)).to(vae.device, dtype=vae.dtype)
@@ -621,42 +667,46 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
                 json_obj[image_class]['npz_path_md5'] = get_md5_by_path(npz_path)
             continue
         
-        
-        train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
         image = train_transforms(image)
         if image_class == "factual_image":
-            factual_image = image
+            factual_image = image.unsqueeze(0)
             f_height = image_height
             f_width = image_width
             
-        
-        # create tensor latent
-        pixel_values = []
-        pixel_values.append(image)
-        pixel_values = torch.stack(pixel_values).to(vae.device)
-        del image
-        
-        with torch.no_grad():
-            #contiguous_format = (contiguous memory block), unsqueeze(0) adds bsz 1 dimension, else error: but got weight of shape [128] and input of shape [128, 512, 512]
-            latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
-            # .squeeze(0) #squeeze to remove bsz dimension
-            # latent = latent * vae.config.scaling_factor
-            
-            del pixel_values
-            # print(latent.shape) torch.Size([4, 144, 112])
-
-        latent_dict = {
-            'latent': latent.cpu()
-        }
+        latent_dict = vae_encode(image)
         torch.save(latent_dict, latent_cache_path)
         json_obj[image_class]['latent_path_md5'] = get_md5_by_path(latent_cache_path)
     # del npz_dict
     flush()
     
-    if "factual_image_masked_image" in json_obj and "factual_image_mask" in json_obj:
+    if "factual_image_masked_image" in json_obj and "factual_image_mask" in json_obj and not recreate_cache:
         return json_obj
     
+    # prepare mask latent
+    vae_scale_factor = (
+        2 ** (len(vae.config.block_out_channels) - 1)
+    )
     
+    if "redux_image_path" in json_obj and "redux_image" not in json_obj:
+        redux_image_path = json_obj["redux_image_path"]
+        filename, _ = os.path.splitext(redux_image_path)
+        redux_cache_path = f"{filename}{latent_ext}"
+        
+        redux_image = read_image(redux_image_path)
+        # if cache_ratio !=1:
+            # resize image with cache_ratio
+        redux_image = cv2.resize(redux_image, (int(f_width), int(f_height)), interpolation=cv2.INTER_LANCZOS4)
+            
+        redux_image = train_transforms(redux_image)
+        latent_dict = vae_encode(redux_image)
+        torch.save(latent_dict, redux_cache_path)
+        json_obj["redux_image"] = {}
+        json_obj["redux_image"]["latent_path"] = redux_cache_path
+        json_obj["redux_image"]['latent_path_md5'] = get_md5_by_path(redux_cache_path)
+    else:
+        json_obj["redux_image"] = {}
+        json_obj["redux_image"]["latent_path"] = ""
+        
     mask_path = json_obj["factual_image_mask_path"]
     filename, _ = os.path.splitext(mask_path)
     masked_image_latent_cache_path = f"{filename}_masked_image{latent_ext}"
@@ -670,20 +720,22 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     if os.path.exists(masked_image_latent_cache_path) and os.path.exists(mask_cache_path) and not recreate_cache:
         return json_obj
     
-    # prepare mask latent
-    vae_scale_factor = (
-        2 ** (len(vae.config.block_out_channels) - 1)
-    )
     mask_processor = VaeImageProcessor(
         vae_scale_factor=vae_scale_factor * 2,
         vae_latent_channels=vae.config.latent_channels,
         do_normalize=False,
         do_binarize=True,
         do_convert_grayscale=True,
+        do_resize=False
     )
     
     mask_image = crop_image(mask_path)
     mask_image = cv2.cvtColor(mask_image, cv2.COLOR_RGB2GRAY)
+    
+    # if cache_ratio !=1:
+    #     # resize image with cache_ratio
+    #     mask_image = cv2.resize(mask_image, (int(f_width), int(f_height)), interpolation=cv2.INTER_LINEAR)
+    
     mask_image = mask_processor.preprocess(mask_image, height=f_height, width=f_width)
 
     masked_image = factual_image * (1 - mask_image)
@@ -727,10 +779,13 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     latent_cache_path = f"{filename}{latent_ext}"
     json_obj["factual_image_mask"]["latent_path"] = latent_cache_path
     latent_dict = {
-        'latent': mask_image.cpu()
+        'latent': mask_image.squeeze().cpu()
     }
     torch.save(latent_dict, latent_cache_path)
     json_obj["factual_image_mask"]['latent_path_md5'] = get_md5_by_path(latent_cache_path)
+    
+    
+    
     return json_obj
 
 def compute_text_embeddings(text_encoders, tokenizers, prompt, device):

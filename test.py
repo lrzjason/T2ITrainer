@@ -1,5 +1,13 @@
 import torch
+from diffusers import (
+    AutoencoderKL,
+    FlowMatchEulerDiscreteScheduler,
+    FluxPipeline,
+    FluxTransformer2DModel,
+)
 
-device = torch.cuda.get_device_capability(0)
-print("device:")
-print(device)
+file = "F:/models/unet/fill_color_fix_beta.safetensors"
+config = "F:/T2ITrainer/flux_models/fill/transformer/config.json"
+transformer = FluxTransformer2DModel.from_single_file(file, config=config,  torch_dtype=torch.float16)
+
+print("file loaded")

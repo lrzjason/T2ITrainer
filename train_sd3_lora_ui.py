@@ -1429,7 +1429,7 @@ def main(args):
                     # Follow: Section 5 of https://arxiv.org/abs/2206.00364.
                     # Preconditioning of the model outputs.
                     if args.precondition_outputs:
-                        model_pred = model_pred * (-sigmas) + noisy_model_input
+                        model_pred = model_pred * (-sigmas) + (1.0 - sigmas) * latents + sigmas * noise
 
                     
                     # ====================Debug latent====================
@@ -1474,7 +1474,7 @@ def main(args):
 
                     # Checks if the accelerator has performed an optimization step behind the scenes
                     #post batch check for gradient updates
-                    accelerator.wait_for_everyone()
+                    # accelerator.wait_for_everyone()
                     if accelerator.sync_gradients:
                         progress_bar.update(1)
                         global_step += 1
@@ -1512,7 +1512,7 @@ def main(args):
         
         if accelerator.is_main_process:
             if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1:
-                accelerator.wait_for_everyone()
+                # accelerator.wait_for_everyone()
                 if accelerator.is_main_process:
                     save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
                     accelerator.save_state(save_path)

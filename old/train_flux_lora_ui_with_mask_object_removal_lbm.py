@@ -919,6 +919,7 @@ def main(args):
             
             create_empty_embedding(tokenizers,text_encoders)
             embedding_objects = []
+            resolutions = [args.resolution]
             # resolutions = args.resolution_config.split(",")
             # resolutions = [int(resolution) for resolution in resolutions]
             for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
@@ -928,7 +929,9 @@ def main(args):
                 
                 # create text embedding based on factual_image
                 f_json = create_embedding(
-                    tokenizers,text_encoders,folder_path,file_name,recreate_cache=recreate_cache)
+                    tokenizers,text_encoders,folder_path,file_name,
+                    recreate_cache=recreate_cache,
+                    resolutions=resolutions)
                 f_json["ground_true_path"] = gt_file
                 f_json["factual_image_path"] = factual_image_file
                 f_json["factual_image_mask_path"] = factual_image_mask
