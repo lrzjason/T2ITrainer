@@ -97,7 +97,7 @@ import json
 
 # import sys
 # from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
-from utils.image_utils_flux import BucketBatchSampler, CachedImageDataset, create_metadata_cache
+from utils.image_utils_flux import BucketBatchSampler, CachedMaskedPairsDataset
 
 # from prodigyopt import Prodigy
 
@@ -123,6 +123,9 @@ from utils.dist_utils import flush
 from hashlib import md5
 import glob
 import shutil
+from collections import defaultdict
+
+from utils.image_utils_flux import create_empty_embedding, create_embedding, cache_file, cache_multiple
 
 
 def load_text_encoders(class_one, class_two):
@@ -404,6 +407,12 @@ def parse_args(input_args=None):
         help=("Save model when x epochs"),
     )
     parser.add_argument(
+        "--save_model_steps",
+        type=int,
+        default=-1,
+        help=("Save model when x steps"),
+    )
+    parser.add_argument(
         "--skip_epoch",
         type=int,
         default=0,
@@ -525,8 +534,8 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--guidance_scale",
         type=float,
-        default=3.5,
-        help="the FLUX.1 dev variant is a guidance distilled model",
+        default=1,
+        help="the FLUX.1 dev variant is a guidance distilled model. default 1 to preserve distillation.",
     )
     # parser.add_argument(
     #     "--use_fp8",
@@ -545,12 +554,10 @@ def parse_args(input_args=None):
         default=0.01,
         help="noise offset in initial noise",
     )
-    
-    
     parser.add_argument(
         "--reg_ratio",
         type=float,
-        default=1,
+        default=0.7,
         help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
     )
     
@@ -602,6 +609,7 @@ def main(args):
     prodigy_d_coef = 2
     
     
+    # lr_num_cycles = args.cosine_restarts
     lr_power = 1
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
@@ -616,6 +624,7 @@ def main(args):
     # args.mixed_precision = "bf16"
     # args.report_to = "wandb"
     
+    # args.output_dir = 'F:/models/flux/objectRemoval'
     # args.rank = 32
     # args.skip_epoch = 0
     # args.break_epoch = 0
@@ -624,54 +633,47 @@ def main(args):
     # args.validation_ratio = 0.1
     # args.num_validation_images = 1
     # # args.pretrained_model_name_or_path = "F:/Kolors"
-    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/dev"
-    # args.model_path = None
+    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/fill"
+    # args.model_path = ""
     # # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
-    # args.use_fp8 = True
-    # args.resume_from_checkpoint = "F:/models/hy/hy_test-1600"
-    # args.train_data_dir = "F:/ImageSet/3dkitten_small"
-    
-    # args.cosine_restarts = 1
+    # # args.use_fp8 = True
+    # args.resume_from_checkpoint = None
+    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
+    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
+    # # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
+    # args.train_data_dir = "F:/ImageSet/ObjectRemoval/object_removal_alpha"
+    # args.resume_from_checkpoint = "F:/models/flux/objectRemoval/objectRemovalBeta_AlphaRegR10-720"
     # args.learning_rate = 1e-4
     # args.optimizer = "adamw"
-    # args.lr_warmup_steps = 0
+    # args.lr_warmup_steps = 1
     # args.lr_scheduler = "constant"
     # args.save_model_epochs = 1
     # args.validation_epochs = 1
     # args.train_batch_size = 1
-    # args.repeats = 1
+    # args.repeats = 4
     # args.gradient_accumulation_steps = 1
-    # args.num_train_epochs = 1
-    # args.caption_dropout = 0
+    # args.num_train_epochs = 6
+    # args.caption_dropout = 0.1
+    # args.mask_dropout = 0.05 
     # args.allow_tf32 = True
     # args.blocks_to_swap = 10
-    # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors" F:\ImageSet\flux\gogo F:\ImageSet\flux\gogo_single
-    # # F:\ImageSet\flux\cutecollage
-    # args.train_data_dir = "F:/ImageSet/flux/cutecollage" 
-    # args.output_dir = 'F:/models/flux/token_route'
-    # # args.resume_from_checkpoint = "F:/models/flux/cutecollage/cutecollage_caption_logsnr-12250"
-    # # args.resume_from_checkpoint = "F:/models/flux/cutecollage_caption/cutecollage_logsnr-4500"
-    # args.resume_from_checkpoint = ""
-    # # args.model_path = "F:/models/unet/flux_cutecollage_prodigy_4500_00001_.safetensors"
-    # # normal case
-    # args.save_name = "tr_cutecollage"
-    # args.weighting_scheme = "logit_normal"
-    # args.logit_mean = 0.0
-    # args.logit_std = 1.0
+    # args.resolution = 512
     
-    
-    # args.save_name = "flux_3dkitten_31_lognor"
-    # args.weighting_scheme = "logit_normal"
-    # args.logit_mean = 3.0
-    # args.logit_std = 1.0
-    
-    
-    # args.save_name = "gogo"
+    # args.reg_ratio = 0.7
+    # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+
+    # args.save_name = "objectRemovalBeta_AlphaRegR10"
+    # args.recreate_cache = True
     # args.weighting_scheme = "logit_snr"
     # args.logit_mean = -6.0
     # args.logit_std = 2.0
-
+    
+    # to avoid cache mutiple times on same embedding
+    use_same_embedding = True
+    
     lr_num_cycles = args.cosine_restarts
+    resolution = int(args.resolution)
+    
     
     if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
     if not os.path.exists(args.logging_dir): os.makedirs(args.logging_dir)
@@ -742,17 +744,235 @@ def main(args):
             # "ff_context.net.2",
         ]
     
+    # Make sure the trainable params are in float32.
+    # if args.mixed_precision == "fp16":
+    #     models = [transformer]
+    #     if args.train_text_encoder:
+    #         models.extend([text_encoder_one])
+    #     # only upcast trainable parameters (LoRA) into fp32
+    #     cast_training_params(models, dtype=torch.float32)
+        # Define suffixes and base name extraction function
+    if args.train_data_dir is not None:
+        input_dir = args.train_data_dir
+        recreate_cache = args.recreate_cache
+
+        supported_image_types = ['.jpg','.jpeg','.png','.webp']
+        files = glob.glob(f"{input_dir}/**", recursive=True)
+        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
+
+        full_datarows = []
+        gt_image_suffix = "_G"
+        factual_image_suffix = "_F"
+        factual_image_mask_suffix = "_M"
+        gt_files = []
+        factual_image_files = []
+        factual_image_masks = []
+        factual_pairs = []
+        
+        def find_index_from_right(lst, value):
+            try:
+                reversed_index = lst[::-1].index(value[::-1])
+                return len(lst) - 1 - reversed_index
+            except:
+                return -1
+            
+        
+        # filter images with gt_image_suffix
+        for f in image_files:
+            base_name = os.path.basename(f)
+            filename, _ = os.path.splitext(base_name)
+            
+            gt_index = find_index_from_right(filename,gt_image_suffix)
+            factual_index = find_index_from_right(filename,factual_image_suffix)
+            mask_index = find_index_from_right(filename,factual_image_mask_suffix)
+            if gt_index > 0:
+                gt_files.append(f)
+            elif mask_index > 0 and mask_index > factual_index:
+                factual_image_masks.append(f)
+            elif factual_index > 0:
+                factual_image_files.append(f)
+                
+        # Create a mapping from base filename (without suffix) to ground truth file
+        
+        gt_mapping = {}
+        for gt_file in gt_files:
+            base_name = os.path.basename(gt_file)
+            filename, _ = os.path.splitext(base_name)
+            
+            suffix_index = find_index_from_right(filename,gt_image_suffix)
+            filename_without_suffix = filename[:suffix_index]
+            
+            subdir = os.path.dirname(gt_file)
+            mapping_key = f"{subdir}_{filename_without_suffix}"  # Remove '_G'
+            gt_mapping[mapping_key] = gt_file
+             
+        # Create a mapping from base filename to mask file
+        mask_mapping = {}
+        for mask_file in factual_image_masks:
+            base_name = os.path.basename(mask_file)
+            filename, _ = os.path.splitext(base_name)
+            
+            mask_index = find_index_from_right(filename,factual_image_mask_suffix)
+            filename_without_suffix = filename[:mask_index]
+            
+            factual_index = find_index_from_right(filename_without_suffix,factual_image_suffix)
+            
+            if factual_index > 0:
+                filename_without_suffix = filename[:factual_index]
+            
+            subdir = os.path.dirname(mask_file)
+            mapping_key = f"{subdir}_{filename_without_suffix}"  # Remove '_G'
+            # base_filename = filename[:-len(factual_image_mask_suffix)]  # Remove '_M'
+            mask_mapping[mapping_key] = mask_file
+            
+        for factual_file in factual_image_files:
+            base_name = os.path.basename(factual_file)
+            filename, _ = os.path.splitext(base_name)
+            # base_filename = filename[:-len(factual_image_suffix)]  # Remove '_F'
+            
+            suffix_index = find_index_from_right(filename,factual_image_suffix)
+            filename_without_suffix = filename[:suffix_index]
+            
+            subdir = os.path.dirname(factual_file)
+            mapping_key = f"{subdir}_{filename_without_suffix}"  # Remove '_G'
+            
+            # Find the corresponding ground truth image based on base_filename
+            if mapping_key in gt_mapping:
+                gt_file = gt_mapping[mapping_key]
+                
+                # Find the corresponding mask
+                if mapping_key in mask_mapping:
+                    mask_file = mask_mapping[mapping_key]
+                    
+                    # Pair them together
+                    factual_pairs.append((gt_file, factual_file, mask_file))
+                    
+        if len(factual_pairs) > 0:
+            if os.path.exists(metadata_path) and os.path.exists(val_metadata_path):
+                with open(metadata_path, "r", encoding='utf-8') as readfile:
+                    metadata_datarows = json.loads(readfile.read())
+                    full_datarows += metadata_datarows
+                    
+                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                    val_metadata_datarows = json.loads(readfile.read())
+                    full_datarows += val_metadata_datarows
+            else:
+                # Offload models to CPU and load necessary components
+                tokenizer_one = CLIPTokenizer.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="tokenizer",
+                )
+                tokenizer_two = T5TokenizerFast.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="tokenizer_2",
+                )
+
+                # import correct text encoder classes
+                text_encoder_cls_one = import_model_class_from_model_name_or_path(
+                    args.pretrained_model_name_or_path, 
+                )
+                text_encoder_cls_two = import_model_class_from_model_name_or_path(
+                    args.pretrained_model_name_or_path,  subfolder="text_encoder_2"
+                )
+                text_encoder_one, text_encoder_two = load_text_encoders(
+                    text_encoder_cls_one, text_encoder_cls_two
+                )
+                
+                vae = AutoencoderKL.from_pretrained(
+                    args.pretrained_model_name_or_path,
+                    subfolder="vae",
+                )
+                
+                vae.requires_grad_(False)
+                text_encoder_one.requires_grad_(False)
+                text_encoder_two.requires_grad_(False)
+                
+                vae.to(accelerator.device, dtype=torch.float32)
+                text_encoder_one.to(accelerator.device, dtype=weight_dtype)
+                text_encoder_two.to(accelerator.device, dtype=weight_dtype)
+                tokenizers = [tokenizer_one,tokenizer_two]
+                text_encoders = [text_encoder_one,text_encoder_two]
+                
+                create_empty_embedding(tokenizers,text_encoders)
+                embedding_objects = []
+                resolutions = [args.resolution]
+                # exist_npz_path = ""
+                for gt_file,factual_image_file,factual_image_mask in tqdm(factual_pairs):
+                # for image_file in tqdm(image_files):
+                    file_name = os.path.basename(factual_image_file)
+                    folder_path = os.path.dirname(factual_image_file)
+                    
+                    # create text embedding based on factual_image
+                    f_json = create_embedding( tokenizers,text_encoders,folder_path,file_name,
+                        recreate_cache=recreate_cache,
+                        # exist_npz_path=exist_npz_path,
+                        resolutions=resolutions,
+                        )
+                    # if use_same_embedding and exist_npz_path != "":
+                    #     exist_npz_path = f_json["npz_path"]
+                    f_json["ground_true_path"] = gt_file
+                    f_json["factual_image_path"] = factual_image_file
+                    f_json["factual_image_mask_path"] = factual_image_mask
+                    embedding_objects.append(f_json)
+                
+                # move glm to cpu to reduce vram memory
+                # text_encoders[0].to("cpu")
+                del text_encoders,tokenizers
+                flush()
+                metadata_datarows = []
+                # cache latent
+                print("Cache latent")
+                for json_obj in tqdm(embedding_objects):
+                    full_obj = cache_multiple(vae,json_obj,recreate_cache=recreate_cache, resolution=resolution)
+                    metadata_datarows.append(full_obj)
+                    
+                full_datarows += metadata_datarows
+                
+                text_encoder_one.to("cpu")
+                text_encoder_two.to("cpu")
+                del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
+            
+
+            # Handle validation split
+            if args.validation_ratio > 0:
+                train_ratio = 1 - args.validation_ratio
+                validation_ratio = args.validation_ratio
+                if len(full_datarows) == 1:
+                    full_datarows = full_datarows + full_datarows.copy()
+                    validation_ratio = 0.5
+                    train_ratio = 0.5
+                training_datarows, validation_datarows = train_test_split(
+                    full_datarows,
+                    train_size=train_ratio,
+                    test_size=validation_ratio
+                )
+                datarows = training_datarows
+                # Save validation metadata
+                if len(validation_datarows) > 0:
+                    with open(val_metadata_path, "w", encoding='utf-8') as outfile:
+                        outfile.write(json.dumps(validation_datarows))
+                # Clear memory
+                del validation_datarows
+            else:
+                datarows = metadata_datarows
+
+            # Save updated metadata
+            with open(metadata_path, "w", encoding='utf-8') as outfile:
+                outfile.write(json.dumps(datarows))
+
+    flush()
+    
+    # repeat_datarows = []
+    # for datarow in datarows:
+    #     for i in range(args.repeats):
+    #         repeat_datarows.append(datarow)
+    # datarows = repeat_datarows
+    
+    datarows = datarows * args.repeats
+    
+    
+    
     offload_device = accelerator.device
-    
-    if not os.path.exists(metadata_path) or not os.path.exists(val_metadata_path):
-        offload_device = torch.device("cpu")
-    
-    # if args.use_fp8:
-    #     transformer = MaskedFluxTransformer2DModel.from_pretrained(
-    #         args.pretrained_model_name_or_path, subfolder="transformer"
-    #     ).to("cuda", dtype=torch.float8_e4m3fn)
-    # # load from repo
-    # el
     if not (args.model_path is None or args.model_path == ""):
         config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
         transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, config=config,  torch_dtype=torch.float16).to(offload_device)
@@ -769,12 +989,27 @@ def main(args):
         else:
             # load from repo
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, "transformer")
+            # weight_file = "diffusion_pytorch_model"
             variant = None
+            # ext = ".safetensors"
+            # diffusion_pytorch_model.fp16.safetensors
+            # fp16_weight = os.path.join(transformer_folder, f"{weight_file}.fp16{ext}")
+            # fp32_weight = os.path.join(transformer_folder, f"{weight_file}{ext}")
+            # if os.path.exists(fp16_weight):
+            #     variant = "fp16"
+            # elif os.path.exists(fp32_weight):
+            #     variant = None
+            # else:
+            #     raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
+                
             transformer = MaskedFluxTransformer2DModel.from_pretrained(
                         transformer_folder, variant=variant
                     ).to(offload_device, dtype=weight_dtype)
         
             flush()
+
+    # load transformer to cpu
+    # transformer.to("cpu")
     
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
@@ -813,6 +1048,16 @@ def main(args):
             layer_order = name_split[1]
             if int(layer_order) in freezed_layers:
                 param.requires_grad = False
+        # freeze final layers, suggested by dev (lora not used, it might used in full fine tune)
+        # if "norm_out" in name:
+        #     param.requires_grad = False
+        # if "proj_out" in name:
+        #     param.requires_grad = False
+    # print(layer_names)
+    # layer_names = []
+    # for name, param in transformer.named_parameters():
+    #     print(f"name: {name} requires_grad:{param.requires_grad}")
+    #     layer_names.append(name)
     # print("debug")
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
@@ -905,295 +1150,9 @@ def main(args):
         torch.backends.cuda.matmul.allow_tf32 = True
 
 
-    # Make sure the trainable params are in float32.
-    # if args.mixed_precision == "fp16":
-    #     models = [transformer]
-    #     if args.train_text_encoder:
-    #         models.extend([text_encoder_one])
-    #     # only upcast trainable parameters (LoRA) into fp32
-    #     cast_training_params(models, dtype=torch.float32)
-
-    # ==========================================================
-    # Create train dataset
-    # ==========================================================
-    # data_files = {}
-    # this part need more work afterward, you need to prepare 
-    # the train files and val files split first before the training
-    if args.train_data_dir is not None:
-        input_dir = args.train_data_dir
-        datarows = []
-        cache_list = []
-        recreate_cache = args.recreate_cache
-        # resolution = args.resolution_config.split(",")
-        
-        supported_image_types = ['.jpg','.jpeg','.png','.webp']
-        files = glob.glob(f"{input_dir}/**", recursive=True)
-        image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
-        
-        # function to remove metadata datarows which in not exist in directory
-        def align_metadata(datarows,image_files,metadata_path):
-            new_metadatarows = []
-            for metadata_datarow in datarows:
-                # if some row not in current image_files, ignore it
-                if metadata_datarow['image_path'] in image_files:
-                    new_metadatarows.append(metadata_datarow)
-            # save new_metadatarows at metadata_path
-            with open(metadata_path, "w", encoding='utf-8') as writefile:
-                writefile.write(json.dumps(new_metadatarows))
-            return new_metadatarows
-        
-        metadata_datarows = []
-        # single_image_training = False
-        if os.path.exists(metadata_path):
-            with open(metadata_path, "r", encoding='utf-8') as readfile:
-                metadata_datarows = json.loads(readfile.read())
-                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
-                metadata_datarows = align_metadata(metadata_datarows,image_files,metadata_path)
-        # else:
-        #     single_image_training = len(image_files) == 1
-        
-        val_metadata_datarows = []
-        if os.path.exists(val_metadata_path):
-            with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                val_metadata_datarows = json.loads(readfile.read())
-                # remove images in metadata_datarows or val_metadata_datarows but not in image_files, handle deleted images
-                val_metadata_datarows = align_metadata(val_metadata_datarows,image_files,val_metadata_path)
-        
-        # full datarows is aligned, all datarows conatins exists image
-        if len(metadata_datarows) == 1:
-            full_datarows = metadata_datarows
-            # single_image_training = True
-        else:
-            full_datarows = metadata_datarows + val_metadata_datarows
-            
-        datarows = full_datarows
-        # if not single_image_training:
-        #     single_image_training = (len(resolution) > 1 and len(full_datarows) == len(resolution)) or len(full_datarows) == len(resolution)
-        # no metadata file, all files should be cached
-        cache_list = []
-        if (len(datarows) == 0) or recreate_cache:
-            cache_list = image_files
-        else:
-            md5_pairs = [
-                {
-                    "path":"image_path",
-                    "md5": "image_path_md5"
-                },
-                {
-                    "path":"text_path",
-                    "md5": "text_path_md5"
-                },
-                {
-                    "path":"npz_path",
-                    "md5": "npz_path_md5"
-                },
-                {
-                    "path":"latent_path",
-                    "md5": "latent_path_md5"
-                },
-            ]
-            def check_md5(datarows,md5_pairs):
-                cache_list = []
-                new_datarows = []
-                for datarow in tqdm(datarows):
-                    corrupted = False
-                    # loop all the md5 pairs
-                    for pair in md5_pairs:
-                        path_name = pair['path']
-                        md5_name = pair['md5']
-                        # if md5 not in datarow, then recache
-                        if not md5_name in datarow.keys():
-                            if datarow['image_path'] not in cache_list:
-                                cache_list.append(datarow['image_path'])
-                                corrupted = True
-                            break
-                        
-                        file_path = datarow[path_name]
-                        file_path_md5 = ''
-                        if os.path.exists(file_path):
-                            with open(file_path, 'rb') as f:
-                                file_path_md5 = md5(f.read()).hexdigest()
-                        
-                        if file_path_md5 != datarow[md5_name]:
-                            if datarow['image_path'] not in cache_list:
-                                cache_list.append(datarow['image_path'])
-                                corrupted = True
-                            break
-                    if not corrupted:
-                        new_datarows.append(datarow)
-                return cache_list, new_datarows
-                                
-            # for metadata_file in metadata_files:
-            # Validate two datasets 
-            # loop all the datarow and check file md5 for integrity
-            # print(f"Checking integrity: ")
-            # # fine images not in full_datarows, handle added images
-            current_images = [d['image_path'] for d in full_datarows]
-            missing_images = [f for f in image_files if f not in current_images]
-            if len(missing_images) > 0:
-                print(f"Images exists but not in metadata: {len(missing_images)}")
-                # add missing images to cache list
-                cache_list += missing_images
-            
-            # check full_datarows md5
-            corrupted_files, new_datarows = check_md5(full_datarows,md5_pairs)
-            # skip corrupted datarows, update full datarows
-            full_datarows = new_datarows
-            if len(corrupted_files) > 0:
-                print(f"corrupted files: {len(corrupted_files)}")
-                # add corrupted files to cache list
-                cache_list += corrupted_files
-                    
-        if len(cache_list)>0:
-            # for cpu offload
-            transformer.to("cpu")
-            # Load the tokenizers
-            # tokenizer_one = ChatGLMTokenizer.from_pretrained(
-            #     args.pretrained_model_name_or_path,
-            #     subfolder="text_encoder",
-            #     revision=revision, 
-            #     variant=variant
-            # )
-
-            # text_encoder_one = ChatGLMModel.from_pretrained(
-            #     args.pretrained_model_name_or_path, subfolder="text_encoder", revision=revision, variant=variant
-            # )
-            
-            # Load the tokenizers
-            tokenizer_one = CLIPTokenizer.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="tokenizer",
-            )
-            tokenizer_two = T5TokenizerFast.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="tokenizer_2",
-            )
-            # tokenizer_three = T5TokenizerFast.from_pretrained(
-            #     args.pretrained_model_name_or_path,
-            #     subfolder="tokenizer_3",
-            # )
-
-            # import correct text encoder classes
-            text_encoder_cls_one = import_model_class_from_model_name_or_path(
-                args.pretrained_model_name_or_path, 
-            )
-            text_encoder_cls_two = import_model_class_from_model_name_or_path(
-                args.pretrained_model_name_or_path,  subfolder="text_encoder_2"
-            )
-            # text_encoder_cls_three = import_model_class_from_model_name_or_path(
-            #     args.pretrained_model_name_or_path, subfolder="text_encoder_3"
-            # )
-            
-            text_encoder_one, text_encoder_two = load_text_encoders(
-                text_encoder_cls_one, text_encoder_cls_two
-            )
-            
-            # text_encoder_one, text_encoder_two, text_encoder_three = load_text_encoders(
-            #     text_encoder_cls_one, text_encoder_cls_two, text_encoder_cls_three
-            # )
-            
-            vae = AutoencoderKL.from_pretrained(
-                args.pretrained_model_name_or_path,
-                subfolder="vae",
-            )
-            
-            
-            # vae_folder = os.path.join(args.pretrained_model_name_or_path, "vae")
-            # if args.vae_path:
-            #     vae = AutoencoderKL.from_single_file(
-            #         args.vae_path,
-            #         config=vae_folder,
-            #     )
-            # else:
-            #     # load from repo
-            #     weight_file = "diffusion_pytorch_model"
-            #     vae_variant = None
-            #     ext = ".safetensors"
-            #     # diffusion_pytorch_model.fp16.safetensors
-            #     fp16_weight = os.path.join(vae_folder, f"{weight_file}.fp16{ext}")
-            #     fp32_weight = os.path.join(vae_folder, f"{weight_file}{ext}")
-            #     if os.path.exists(fp16_weight):
-            #         vae_variant = "fp16"
-            #     elif os.path.exists(fp32_weight):
-            #         vae_variant = None
-            #     else:
-            #         raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
-                    
-            #     vae = AutoencoderKL.from_pretrained(
-            #             args.pretrained_model_name_or_path, variant=vae_variant
-            #         )
-            
-            # vae.requires_grad_(False)
-            # text_encoder_one.requires_grad_(False)
-            vae.requires_grad_(False)
-            text_encoder_one.requires_grad_(False)
-            text_encoder_two.requires_grad_(False)
-            # text_encoder_three.requires_grad_(False)
-            
-            vae.to(accelerator.device, dtype=torch.float32)
-            text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-            text_encoder_two.to(accelerator.device, dtype=weight_dtype)
-            # text_encoder_three.to(accelerator.device, dtype=weight_dtype)
-
-            # tokenizers = [tokenizer_one,tokenizer_two,tokenizer_three]
-            # text_encoders = [text_encoder_one,text_encoder_two,text_encoder_three]
-            tokenizers = [tokenizer_one,tokenizer_two]
-            text_encoders = [text_encoder_one,text_encoder_two]
-            # create metadata and latent cache
-            cached_datarows = create_metadata_cache(tokenizers,text_encoders,vae,cache_list,metadata_path=metadata_path,recreate_cache=args.recreate_cache, resolution_config=args.resolution)
-            
-            # merge newly cached datarows to full_datarows
-            full_datarows += cached_datarows
-            
-            # reset validation_datarows
-            validation_datarows = []
-            # prepare validation_slipt
-            if args.validation_ratio > 0:
-                # buckets = image_utils.get_buckets()
-                train_ratio = 1 - args.validation_ratio
-                validation_ratio = args.validation_ratio
-                if len(full_datarows) == 1:
-                    full_datarows = full_datarows + full_datarows.copy()
-                    validation_ratio = 0.5
-                    train_ratio = 0.5
-                training_datarows, validation_datarows = train_test_split(full_datarows, train_size=train_ratio, test_size=validation_ratio)
-                datarows = training_datarows
-            else:
-                datarows = full_datarows
-            
-            # Serializing json
-            json_object = json.dumps(datarows, indent=4)
-            # update metadata file
-            with open(metadata_path, "w", encoding='utf-8') as outfile:
-                outfile.write(json_object)
-            
-            if len(validation_datarows) > 0:
-                # Serializing json
-                val_json_object = json.dumps(validation_datarows, indent=4)
-                # update val metadata file
-                with open(val_metadata_path, "w", encoding='utf-8') as outfile:
-                    outfile.write(val_json_object)
-                
-            # clear memory
-            del validation_datarows
-            text_encoder_one.to("cpu")
-            text_encoder_two.to("cpu")
-            # text_encoder_three.to("cpu")
-            del vae, tokenizer_one,tokenizer_two, text_encoder_one,text_encoder_two
-            # del vae, tokenizer_one,tokenizer_two,tokenizer_three, text_encoder_one,text_encoder_two,text_encoder_three
-            # gc.collect()
-            # torch.cuda.empty_cache()
-    flush()
     
-    # repeat_datarows = []
-    # for datarow in datarows:
-    #     for i in range(args.repeats):
-    #         repeat_datarows.append(datarow)
-    # datarows = repeat_datarows
-    
-    datarows = datarows * args.repeats
     # resume from cpu after cache files
-    transformer.to(accelerator.device, dtype=weight_dtype)
+    # transformer.to(accelerator.device, dtype=weight_dtype)
 
     # Make sure the trainable params are in float32.
     if args.mixed_precision == "fp16":
@@ -1281,24 +1240,24 @@ def main(args):
     
     def collate_fn(examples):
         # not sure if this would have issue when using multiple aspect ratio
-        latents = torch.stack([example["latent"] for example in examples])
+        # latents = torch.stack([example["latent"] for example in examples])
         # time_ids = torch.stack([example["time_id"] for example in examples])
         prompt_embeds = torch.stack([example["prompt_embed"] for example in examples])
         pooled_prompt_embeds = torch.stack([example["pooled_prompt_embed"] for example in examples])
         txt_attention_masks = torch.stack([example["txt_attention_mask"] for example in examples])
         
-        # text_ids = torch.stack([example["text_id"] for example in examples])
-
-        return {
-            "latents": latents,
+        sample = {
             "prompt_embeds": prompt_embeds,
             "pooled_prompt_embeds": pooled_prompt_embeds,
             "txt_attention_masks": txt_attention_masks,
-            # "text_ids": text_ids,
-            # "time_ids": time_ids,
         }
+        
+        image_classes = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image"]
+        for image_class in image_classes:
+            sample[image_class] = torch.stack([example[image_class]["latent"] for example in examples])
+        return sample
     # create dataset based on input_dir
-    train_dataset = CachedImageDataset(datarows,conditional_dropout_percent=args.caption_dropout)
+    train_dataset = CachedMaskedPairsDataset(datarows,conditional_dropout_percent=args.caption_dropout)
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
@@ -1340,10 +1299,10 @@ def main(args):
     ]
     
 
-    # print("  Num examples = ", len(train_dataset))
-    # print("  Num Epochs = ", args.num_train_epochs)
-    # print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
-    # print("  max_train_steps = ", max_train_steps)
+    print("  Num examples = ", len(train_dataset))
+    print("  Num Epochs = ", args.num_train_epochs)
+    print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
+    print("  max_train_steps = ", max_train_steps)
 
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
@@ -1356,7 +1315,11 @@ def main(args):
     optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         optimizer, train_dataloader, lr_scheduler
     )
-
+    
+    # load transformer to cpu
+    transformer.to("cuda")
+    flush()
+    
     transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
     
 
@@ -1380,20 +1343,6 @@ def main(args):
     logger.info(f"  Total optimization steps = {max_train_steps}")
     global_step = 0
     first_epoch = 0
-
-
-    # def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
-    #     sigmas = noise_scheduler.sigmas.to(device=accelerator.device, dtype=dtype)
-    #     schedule_timesteps = noise_scheduler.timesteps.to(accelerator.device)
-    #     timesteps = timesteps.to(accelerator.device)
-
-    #     step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
-
-    #     sigma = sigmas[step_indices].flatten()
-    #     while len(sigma.shape) < n_dim:
-    #         sigma = sigma.unsqueeze(-1)
-    #     return sigma
-
 
     resume_step = 0
     # Potentially load in the weights and states from a previous save
@@ -1463,31 +1412,41 @@ def main(args):
                 accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
                 flush()
                 
-                latents = batch["latents"].to(accelerator.device)
+                # latents = batch["latents"].to(accelerator.device)
                 prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                 pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
                 txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
+                
+                ground_trues = batch["ground_true"].to(accelerator.device)
+                factual_images = batch["factual_image"].to(accelerator.device)
+                factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
+                factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                
+                # latents = ground_trues
+                factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                factual_images = factual_images.to(dtype=weight_dtype)
+                                
+                # scale ground trues with vae factor
+                ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
+                ground_trues = ground_trues.to(dtype=weight_dtype)
+                
+                factual_image_masked_images = (factual_image_masked_images - vae_config_shift_factor) * vae_config_scaling_factor
+                factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
+                
                 # text_ids = batch["text_ids"].to(accelerator.device)
                 
                 text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
                 
-                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                latents = latents.to(dtype=weight_dtype)
 
                 vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+                # print("vae_scale_factor")
+                # print(vae_scale_factor)
 
-                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                    latents.shape[0],
-                    latents.shape[2] // 2,
-                    latents.shape[3] // 2,
-                    accelerator.device,
-                    weight_dtype,
-                )
-                
                 # noise = torch.randn_like(latents)
-                noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
-                bsz = latents.shape[0]
+                noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
                 
+                
+                bsz = factual_images.shape[0]
                 # Sample a random timestep for each image
                 # for weighting schemes where we sample timesteps non-uniformly
                 u = compute_density_for_timestep_sampling(
@@ -1502,9 +1461,26 @@ def main(args):
                 
                 # Add noise according to flow matching.
                 # zt = (1 - texp) * x + texp * z1
-                sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
+                noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
+                noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
                 
+                # create learning image
+                latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                noisy_model_input = latents
+                # if under reg ratio, use ground_true as training
+                # if random.random() < args.reg_ratio:
+                #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                    
+                latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                    latents.shape[0],
+                    latents.shape[2] // 2,
+                    latents.shape[3] // 2,
+                    accelerator.device,
+                    weight_dtype,
+                )
+                
+                # pack noisy latents
                 packed_noisy_latents = FluxPipeline._pack_latents(
                     noisy_model_input,
                     batch_size=latents.shape[0],
@@ -1512,6 +1488,37 @@ def main(args):
                     height=latents.shape[2],
                     width=latents.shape[3],
                 )
+                
+                
+                factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                # pack factual_image
+                packed_factual_image_masks = FluxPipeline._pack_latents(
+                    factual_image_masks,
+                    batch_size=latents.shape[0],
+                    num_channels_latents=vae_scale_factor * vae_scale_factor,
+                    height=latents.shape[2],
+                    width=latents.shape[3],
+                )
+                # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                
+                # pack factual_image
+                packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                    factual_image_masked_images,
+                    batch_size=latents.shape[0],
+                    num_channels_latents=latents.shape[1],
+                    height=latents.shape[2],
+                    width=latents.shape[3],
+                )
+                
+                masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                # print("masked_image_latents.shape")
+                # print(masked_image_latents.shape)
+                # concat noisy latents and masked image latents
+                cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
+                # print("cat_model_input.shape")
+                # print(cat_model_input.shape)
                 
                 if handle_guidance:
                     guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
@@ -1522,7 +1529,7 @@ def main(args):
                 with accelerator.autocast():
                     # Predict the noise residual
                     model_pred = transformer(
-                        hidden_states=packed_noisy_latents,
+                        hidden_states=cat_model_input,
                         encoder_hidden_states=prompt_embeds,
                         joint_attention_kwargs = {'attention_mask': txt_attention_masks},
                         # txt_attention_masks=txt_attention_masks,
@@ -1543,10 +1550,6 @@ def main(args):
                     vae_scale_factor=vae_scale_factor,
                 )
 
-                # these weighting schemes use a uniform timestep sampling
-                # and instead post-weight the loss
-                # weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-
                 # ====================Debug latent====================
                 # vae = AutoencoderKL.from_single_file(
                 #     vae_path
@@ -1558,27 +1561,39 @@ def main(args):
                 # image = image_processor.postprocess(image, output_type="pil")[0]
                 # image.save("model_pred.png")
                 # ====================Debug latent====================
-                
-                
-                # flow matching loss
-                # if args.precondition_outputs:
-                #     target = latents
-                # else:
-                target = noise - latents
+                w_split = factual_images.size(-1)
+                predict_factual, predict_gt = torch.split(
+                    model_pred, 
+                    [w_split, w_split], 
+                    dim=-1
+                )
                 
                 weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
-                # Compute regular loss.
-                loss = torch.mean(
-                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                target = noise - ground_trues
+                
+                # Compute state transfer loss
+                factual_loss = torch.mean(
+                    (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                     1,
                 )
-                loss = loss.mean()
+                factual_loss = factual_loss.mean()
+                # accelerator.backward(factual_loss)
+                
+                # Compute regular loss.
+                gt_loss = torch.mean(
+                    (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                    1,
+                )
+                gt_loss = gt_loss.mean()
+                # accelerator.backward(gt_loss)
 
-                # Backpropagate
+                loss = factual_loss + gt_loss
                 accelerator.backward(loss)
-                step_loss = loss.detach().item()
-                del loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
+                # Backpropagate
+                f_step_loss = factual_loss.detach().item()
+                g_step_loss = gt_loss.detach().item()
+                del factual_loss, gt_loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
                     accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
@@ -1604,7 +1619,7 @@ def main(args):
                     else:
                         lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
-                logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
+                logs = {"f_step_loss": f_step_loss, "g_step_loss": g_step_loss, lr_name: lr, "epoch": epoch}
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
                 
@@ -1613,7 +1628,281 @@ def main(args):
                 del step_loss
                 gc.collect()
                 torch.cuda.empty_cache()
+                
+                
+                if global_step % args.save_model_steps == 0 and args.save_model_steps > 0:
+                    # accelerator.wait_for_everyone()
+                    if accelerator.is_main_process:
+                        save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
+                        accelerator.save_state(save_path)
+                        logger.info(f"Saved state to {save_path}")
+                
+                if global_step % args.save_model_steps == 0 and args.save_model_steps > 0 and os.path.exists(val_metadata_path):
+                    # store rng before validation
+                    before_state = torch.random.get_rng_state()
+                    np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
+                    py_state = python_get_rng_state()
+                    with torch.no_grad():
+                        transformer = unwrap_model(transformer)
+                        # freeze rng
+                        np.random.seed(val_seed)
+                        torch.manual_seed(val_seed)
+                        dataloader_generator = torch.Generator()
+                        dataloader_generator.manual_seed(val_seed)
+                        torch.backends.cudnn.deterministic = True
+                        
+                        validation_datarows = []
+                        with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                            validation_datarows = json.loads(readfile.read())
+                        
+                        if len(validation_datarows)>0:
+                            validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0)
+                            
+                            batch_size  = 1
+                            # batch_size = args.train_batch_size
+                            # handle batch size > validation dataset size
+                            # if batch_size > len(validation_datarows):
+                            #     batch_size = 1
+                            
+                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+
+                            #initialize the DataLoader with the bucket batch sampler
+                            val_dataloader = torch.utils.data.DataLoader(
+                                validation_dataset,
+                                batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
+                                collate_fn=collate_fn,
+                                num_workers=dataloader_num_workers,
+                            )
+
+                            print("\nStart val_loss\n")
+                            
+                            f_total_loss = 0.0
+                            g_total_loss = 0.0
+                            num_batches = len(val_dataloader)
+                            # if no val data, skip the following 
+                            if num_batches == 0:
+                                print("No validation data, skip validation.")
+                            else:
+                                # basically the as same as the training loop
+                                enumerate_val_dataloader = enumerate(val_dataloader)
+                                for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                                    accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+                                    accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+                                    flush()
+                                    
+                                    # latents = batch["latents"].to(accelerator.device)
+                                    prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
+                                    pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
+                                    txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
+                                    # text_ids = batch["text_ids"].to(accelerator.device)
+                                    ground_trues = batch["ground_true"].to(accelerator.device)
+                                    factual_images = batch["factual_image"].to(accelerator.device)
+                                    factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
+                                    factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                                    
+                                    
+                                    # latents = ground_trues
+                                    factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                    factual_images = factual_images.to(dtype=weight_dtype)
+                                                    
+                                    # scale ground trues with vae factor
+                                    ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
+                                    ground_trues = ground_trues.to(dtype=weight_dtype)
+                                    
+                                    factual_image_masked_images = (factual_image_masked_images - vae_config_shift_factor) * vae_config_scaling_factor
+                                    factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
+                                    
+                                    # text_ids = batch["text_ids"].to(accelerator.device)
+                                    
+                                    text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
+                                    
+
+                                    vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+                                    # print("vae_scale_factor")
+                                    # print(vae_scale_factor)
+
+                                    # noise = torch.randn_like(latents)
+                                    noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
+                                    
+                                    
+                                    bsz = factual_images.shape[0]
+                                    # Sample a random timestep for each image
+                                    # for weighting schemes where we sample timesteps non-uniformly
+                                    u = compute_density_for_timestep_sampling(
+                                        weighting_scheme=args.weighting_scheme,
+                                        batch_size=bsz,
+                                        logit_mean=args.logit_mean,
+                                        logit_std=args.logit_std,
+                                        mode_scale=args.mode_scale,
+                                    )
+                                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                                    
+                                    # Add noise according to flow matching.
+                                    # zt = (1 - texp) * x + texp * z1
+                                    sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
+                                    noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
+                                    noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
+                                    
+                                    # create learning image
+                                    latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                                    noisy_model_input = latents
+                                    # if under reg ratio, use ground_true as training
+                                    # if random.random() < args.reg_ratio:
+                                    #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                                        
+                                    latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                                        latents.shape[0],
+                                        latents.shape[2] // 2,
+                                        latents.shape[3] // 2,
+                                        accelerator.device,
+                                        weight_dtype,
+                                    )
+                                    
+                                    # pack noisy latents
+                                    packed_noisy_latents = FluxPipeline._pack_latents(
+                                        noisy_model_input,
+                                        batch_size=latents.shape[0],
+                                        num_channels_latents=latents.shape[1],
+                                        height=latents.shape[2],
+                                        width=latents.shape[3],
+                                    )
+                                    
+                                    
+                                    factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                                    # pack factual_image
+                                    packed_factual_image_masks = FluxPipeline._pack_latents(
+                                        factual_image_masks,
+                                        batch_size=latents.shape[0],
+                                        num_channels_latents=vae_scale_factor * vae_scale_factor,
+                                        height=latents.shape[2],
+                                        width=latents.shape[3],
+                                    )
+                                    # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                                    # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                                    factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                                    
+                                    # pack factual_image
+                                    packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                                        factual_image_masked_images,
+                                        batch_size=latents.shape[0],
+                                        num_channels_latents=latents.shape[1],
+                                        height=latents.shape[2],
+                                        width=latents.shape[3],
+                                    )
+                                    
+                                    masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                                    # print("masked_image_latents.shape")
+                                    # print(masked_image_latents.shape)
+                                    # concat noisy latents and masked image latents
+                                    cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
+                                    # print("cat_model_input.shape")
+                                    # print(cat_model_input.shape)
+                                    
+                                    if handle_guidance:
+                                        guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
+                                        guidance = guidance.expand(latents.shape[0])
+                                    else:
+                                        guidance = None
+                                    
+                                    with accelerator.autocast():
+                                        # Predict the noise residual
+                                        model_pred = transformer(
+                                            hidden_states=cat_model_input,
+                                            encoder_hidden_states=prompt_embeds,
+                                            joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                            # txt_attention_masks=txt_attention_masks,
+                                            pooled_projections=pooled_prompt_embeds,
+                                            # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
+                                            timestep=timesteps / 1000,
+                                            img_ids=latent_image_ids,
+                                            txt_ids=text_ids,
+                                            guidance=guidance,
+                                            return_dict=False
+                                        )[0]
+                                    
+                                    
+                                    model_pred = FluxPipeline._unpack_latents(
+                                        model_pred,
+                                        height=latents.shape[2] * vae_scale_factor,
+                                        width=latents.shape[3] * vae_scale_factor,
+                                        vae_scale_factor=vae_scale_factor,
+                                    )
+
+                                    # ====================Debug latent====================
+                                    # vae = AutoencoderKL.from_single_file(
+                                    #     vae_path
+                                    # )
+                                    # vae.to(device=accelerator.device)
+                                    # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+                                    # with torch.no_grad():
+                                    #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
+                                    # image = image_processor.postprocess(image, output_type="pil")[0]
+                                    # image.save("model_pred.png")
+                                    # ====================Debug latent====================
+                                    w_split = factual_images.size(-1)
+                                    predict_factual, predict_gt = torch.split(
+                                        model_pred, 
+                                        [w_split, w_split], 
+                                        dim=-1
+                                    )
+                                    
+                                    weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+                                    
+                                    target = noise - ground_trues
+                                    
+                                    # Compute state transfer loss
+                                    factual_loss = torch.mean(
+                                        (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                        1,
+                                    )
+                                    factual_loss = factual_loss.mean()
+                                    
+                                    # Compute regular loss.
+                                    gt_loss = torch.mean(
+                                        (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                        1,
+                                    )
+                                    gt_loss = gt_loss.mean()
+
+                                    # loss = factual_loss + gt_loss
+                                    
+
+                                    f_total_loss+=factual_loss.detach()
+                                    g_total_loss+=gt_loss.detach()
+                                    del latents, target, factual_loss, gt_loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                                    gc.collect()
+                                    torch.cuda.empty_cache()
+                                    
+                                f_avg_loss = f_total_loss / num_batches
+                                g_avg_loss = g_total_loss / num_batches
+                                
+                                lr = lr_scheduler.get_last_lr()[0]
+                                lr_name = "val_lr"
+                                if args.optimizer == "prodigy":
+                                    lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
+                                    lr_name = "val_lr lr/d*lr"
+                                logs = {"f_val_loss": f_avg_loss,"g_avg_loss": g_avg_loss, lr_name: lr, "epoch": epoch}
+                                print(logs)
+                                progress_bar.set_postfix(**logs)
+                                accelerator.log(logs, step=global_step)
+                                del num_batches, f_avg_loss, g_avg_loss, f_total_loss, g_total_loss
+                            del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
+                            gc.collect()
+                            torch.cuda.empty_cache()
+                            print("\nEnd val_loss\n")
+                        
+                    # restore rng before validation
+                    np.random.seed(np_seed)
+                    torch.random.set_rng_state(before_state)
+                    torch.backends.cudnn.deterministic = False
+                    version, state, gauss = py_state
+                    python_set_rng_state((version, tuple(state), gauss))
             
+                    # del before_state, np_seed, py_state
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                        
         # ==================================================
         # validation part
         # ==================================================
@@ -1626,16 +1915,16 @@ def main(args):
         before_state = torch.random.get_rng_state()
         np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
-        
-        if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1:
+    
+        if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
             # accelerator.wait_for_everyone()
             if accelerator.is_main_process:
-                save_path = os.path.join(args.output_dir, f"{args.save_name}-{global_step}")
+                save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
                 accelerator.save_state(save_path)
                 logger.info(f"Saved state to {save_path}")
         
         # only execute when val_metadata_path exists
-        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
+        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
             with torch.no_grad():
                 transformer = unwrap_model(transformer)
                 # freeze rng
@@ -1650,7 +1939,7 @@ def main(args):
                     validation_datarows = json.loads(readfile.read())
                 
                 if len(validation_datarows)>0:
-                    validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
+                    validation_dataset = CachedMaskedPairsDataset(validation_datarows,conditional_dropout_percent=0)
                     
                     batch_size  = 1
                     # batch_size = args.train_batch_size
@@ -1683,30 +1972,41 @@ def main(args):
                             accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
                             flush()
                             
-                            latents = batch["latents"].to(accelerator.device)
+                            # latents = batch["latents"].to(accelerator.device)
                             prompt_embeds = batch["prompt_embeds"].to(accelerator.device)
                             pooled_prompt_embeds = batch["pooled_prompt_embeds"].to(accelerator.device)
                             txt_attention_masks = batch["txt_attention_masks"].to(accelerator.device)
                             # text_ids = batch["text_ids"].to(accelerator.device)
+                            ground_trues = batch["ground_true"].to(accelerator.device)
+                            factual_images = batch["factual_image"].to(accelerator.device)
+                            factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
+                            factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
+                        
+                            # latents = ground_trues
+                            factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
+                            factual_images = factual_images.to(dtype=weight_dtype)
+                                            
+                            # scale ground trues with vae factor
+                            ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
+                            ground_trues = ground_trues.to(dtype=weight_dtype)
+                            
+                            factual_image_masked_images = (factual_image_masked_images - vae_config_shift_factor) * vae_config_scaling_factor
+                            factual_image_masked_images = factual_image_masked_images.to(dtype=weight_dtype)
+                            
+                            # text_ids = batch["text_ids"].to(accelerator.device)
                             
                             text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
                             
-                            latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
-                            latents = latents.to(dtype=weight_dtype)
 
                             vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+                            # print("vae_scale_factor")
+                            # print(vae_scale_factor)
 
-                            latent_image_ids = FluxPipeline._prepare_latent_image_ids(
-                                latents.shape[0],
-                                latents.shape[2] // 2,
-                                latents.shape[3] // 2,
-                                accelerator.device,
-                                weight_dtype,
-                            )
+                            # noise = torch.randn_like(latents)
+                            noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
                             
-                            noise = torch.randn_like(latents)
-                            bsz = latents.shape[0]
                             
+                            bsz = factual_images.shape[0]
                             # Sample a random timestep for each image
                             # for weighting schemes where we sample timesteps non-uniformly
                             u = compute_density_for_timestep_sampling(
@@ -1721,9 +2021,26 @@ def main(args):
                             
                             # Add noise according to flow matching.
                             # zt = (1 - texp) * x + texp * z1
-                            sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
-                            noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
+                            sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
+                            noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
+                            noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
                             
+                            # create learning image
+                            latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                            noisy_model_input = latents
+                            # if under reg ratio, use ground_true as training
+                            # if random.random() < args.reg_ratio:
+                            #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
+                                
+                            latent_image_ids = FluxPipeline._prepare_latent_image_ids(
+                                latents.shape[0],
+                                latents.shape[2] // 2,
+                                latents.shape[3] // 2,
+                                accelerator.device,
+                                weight_dtype,
+                            )
+                            
+                            # pack noisy latents
                             packed_noisy_latents = FluxPipeline._pack_latents(
                                 noisy_model_input,
                                 batch_size=latents.shape[0],
@@ -1731,6 +2048,37 @@ def main(args):
                                 height=latents.shape[2],
                                 width=latents.shape[3],
                             )
+                            
+                            
+                            factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
+                            # pack factual_image
+                            packed_factual_image_masks = FluxPipeline._pack_latents(
+                                factual_image_masks,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=vae_scale_factor * vae_scale_factor,
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                            # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
+                            factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
+                            
+                            # pack factual_image
+                            packed_factual_image_masked_images = FluxPipeline._pack_latents(
+                                factual_image_masked_images,
+                                batch_size=latents.shape[0],
+                                num_channels_latents=latents.shape[1],
+                                height=latents.shape[2],
+                                width=latents.shape[3],
+                            )
+                            
+                            masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
+                            # print("masked_image_latents.shape")
+                            # print(masked_image_latents.shape)
+                            # concat noisy latents and masked image latents
+                            cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
+                            # print("cat_model_input.shape")
+                            # print(cat_model_input.shape)
                             
                             if handle_guidance:
                                 guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
@@ -1741,16 +2089,17 @@ def main(args):
                             with accelerator.autocast():
                                 # Predict the noise residual
                                 model_pred = transformer(
-                                    hidden_states=packed_noisy_latents,
+                                    hidden_states=cat_model_input,
+                                    encoder_hidden_states=prompt_embeds,
+                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                    # txt_attention_masks=txt_attention_masks,
+                                    pooled_projections=pooled_prompt_embeds,
                                     # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
                                     timestep=timesteps / 1000,
-                                    guidance=guidance,
-                                    pooled_projections=pooled_prompt_embeds,
-                                    encoder_hidden_states=prompt_embeds,
-                                    txt_ids=text_ids,
                                     img_ids=latent_image_ids,
-                                    return_dict=False,
-                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                                    txt_ids=text_ids,
+                                    guidance=guidance,
+                                    return_dict=False
                                 )[0]
                             
                             
@@ -1760,10 +2109,6 @@ def main(args):
                                 width=latents.shape[3] * vae_scale_factor,
                                 vae_scale_factor=vae_scale_factor,
                             )
-
-                            # these weighting schemes use a uniform timestep sampling
-                            # and instead post-weight the loss
-                            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
 
                             # ====================Debug latent====================
                             # vae = AutoencoderKL.from_single_file(
@@ -1776,40 +2121,50 @@ def main(args):
                             # image = image_processor.postprocess(image, output_type="pil")[0]
                             # image.save("model_pred.png")
                             # ====================Debug latent====================
-                            
-                            
-                            # flow matching loss
-                            # if args.precondition_outputs:
-                            #     target = latents
-                            # else:
-                            target = noise - latents
+                            w_split = factual_images.size(-1)
+                            predict_factual, predict_gt = torch.split(
+                                model_pred, 
+                                [w_split, w_split], 
+                                dim=-1
+                            )
                             
                             weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                             
-                            # Compute regular loss.
-                            loss = torch.mean(
-                                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                            target = noise - ground_trues
+                            
+                            # Compute state transfer loss
+                            factual_loss = torch.mean(
+                                (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                                 1,
                             )
-                            loss = loss.mean()
+                            factual_loss = factual_loss.mean()
+                            
+                            # Compute regular loss.
+                            gt_loss = torch.mean(
+                                (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                1,
+                            )
+                            gt_loss = gt_loss.mean()
 
-                            total_loss+=loss.detach()
-                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                            f_total_loss+=factual_loss.detach()
+                            g_total_loss+=gt_loss.detach()
+                            del latents, target, factual_loss, gt_loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                             gc.collect()
                             torch.cuda.empty_cache()
                             
-                        avg_loss = total_loss / num_batches
+                        f_avg_loss = f_total_loss / num_batches
+                        g_avg_loss = g_total_loss / num_batches
                         
                         lr = lr_scheduler.get_last_lr()[0]
                         lr_name = "val_lr"
                         if args.optimizer == "prodigy":
                             lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                             lr_name = "val_lr lr/d*lr"
-                        logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
+                        logs = {"f_val_loss": f_avg_loss,"g_avg_loss": g_avg_loss, lr_name: lr, "epoch": epoch}
                         print(logs)
                         progress_bar.set_postfix(**logs)
                         accelerator.log(logs, step=global_step)
-                        del num_batches, avg_loss, total_loss
+                        del num_batches, f_avg_loss, g_avg_loss, f_total_loss, g_total_loss
                     del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
                     gc.collect()
                     torch.cuda.empty_cache()

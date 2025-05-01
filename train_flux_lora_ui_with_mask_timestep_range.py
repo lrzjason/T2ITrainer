@@ -560,6 +560,12 @@ def parse_args(input_args=None):
         default=0.7,
         help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
     )
+    parser.add_argument(
+        "--reg_timestep",
+        type=int,
+        default=900,
+        help="As regularization of objective transfer learning. You could try different value.",
+    )
     
     
     if input_args is not None:
@@ -668,8 +674,12 @@ def main(args):
     # args.logit_mean = -6.0
     # args.logit_std = 2.0
     
+    # 0-399 learning inpaint, 400-999 learning task
+    # reg_timestep = 400
+    reg_timestep = args.reg_timestep
+    
     # to avoid cache mutiple times on same embedding
-    use_same_embedding = True
+    # use_same_embedding = True
     
     lr_num_cycles = args.cosine_restarts
     resolution = int(args.resolution)
@@ -846,7 +856,85 @@ def main(args):
                     
                     # Pair them together
                     factual_pairs.append((gt_file, factual_file, mask_file))
-                    
+        # for gt_file in gt_files:
+        #     base_name = os.path.basename(gt_file)
+        #     filename, _ = os.path.splitext(base_name)
+        #     prefix = filename.split(gt_image_suffix)[0]
+        #     related_factual_image_files = [f for f in factual_image_files if prefix+factual_image_suffix in f]
+        #     related_factual_image_files = [f for f in factual_image_files if prefix+factual_image_suffix in f]
+            # for factual_image_file, factual_image_mask in zip(factual_image_files, factual_image_masks):
+            #     if prefix in factual_image_file:
+            #         factual_pairs.append((gt_file,factual_image_file,factual_image_mask))
+            #         break
+
+        # Align metadata with existing files
+        # def align_metadata(datarows, image_files, metadata_path):
+        #     existing_image_files = set(image_files)
+        #     new_datarows = []
+        #     for data_row in datarows:
+        #         if (data_row['image_path'] in existing_image_files and
+        #             data_row['mask_path'] in existing_image_files and
+        #             data_row['ground_truth_path'] in existing_image_files and
+        #             os.path.exists(data_row['text_path']) and
+        #             os.path.exists(data_row['npz_path']) and
+        #             os.path.exists(data_row['latent_path'])):
+        #             new_datarows.append(data_row)
+        #     with open(metadata_path, "w", encoding='utf-8') as writefile:
+        #         writefile.write(json.dumps(new_datarows))
+        #     return new_datarows
+
+        # Check MD5 integrity
+        # def check_md5(datarows, md5_pairs):
+        #     cache_list = []
+        #     new_datarows = []
+        #     for datarow in tqdm(datarows):
+        #         corrupted = False
+        #         for pair in md5_pairs:
+        #             path_name = pair['path']
+        #             md5_name = pair['md5']
+        #             if md5_name not in datarow:
+        #                 corrupted = True
+        #                 break
+        #             file_path = datarow[path_name]
+        #             if not os.path.exists(file_path):
+        #                 corrupted = True
+        #                 break
+        #             with open(file_path, 'rb') as f:
+        #                 file_md5 = md5(f.read()).hexdigest()
+        #             if file_md5 != datarow[md5_name]:
+        #                 corrupted = True
+        #                 break
+        #         if not corrupted:
+        #             new_datarows.append(datarow)
+        #         else:
+        #             cache_list.append(datarow['image_path'])
+        #     return cache_list, new_datarows
+
+        # # Define MD5 pairs
+        # md5_pairs = [
+        #     {"path": "image_path", "md5": "image_path_md5"},
+        #     {"path": "mask_path", "md5": "mask_path_md5"},
+        #     {"path": "ground_truth_path", "md5": "ground_truth_path_md5"},
+        #     {"path": "text_path", "md5": "text_path_md5"},
+        #     {"path": "npz_path", "md5": "npz_path_md5"},
+        #     {"path": "latent_path", "md5": "latent_path_md5"},
+        # ]
+
+        # Main code integration
+        # if os.path.exists(metadata_path):
+        #     with open(metadata_path, "r", encoding='utf-8') as readfile:
+        #         existing_metadata = json.loads(readfile.read())
+        #         # existing_metadata = align_metadata(existing_metadata, image_files, metadata_path)
+        #         # metadata_datarows = existing_metadata + metadata_datarows
+
+        # if recreate_cache:
+        #     cache_list = [row['image_path'] for row in metadata_datarows]
+        # else:
+        #     corrupted_files, new_datarows = check_md5(metadata_datarows, md5_pairs)
+        #     metadata_datarows = new_datarows
+        #     if len(corrupted_files) > 0:
+        #         cache_list += corrupted_files
+
         if len(factual_pairs) > 0:
             if os.path.exists(metadata_path) and os.path.exists(val_metadata_path):
                 with open(metadata_path, "r", encoding='utf-8') as readfile:
@@ -1422,9 +1510,28 @@ def main(args):
                 factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
                 factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
                 
+                bsz = factual_images.shape[0]
+                # Sample a random timestep for each image
+                # for weighting schemes where we sample timesteps non-uniformly
+                u = compute_density_for_timestep_sampling(
+                    weighting_scheme=args.weighting_scheme,
+                    batch_size=bsz,
+                    logit_mean=args.logit_mean,
+                    logit_std=args.logit_std,
+                    mode_scale=args.mode_scale,
+                )
+                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                
+                latents = factual_images
+                if timesteps < reg_timestep:
+                    latents = ground_trues
+                    prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                    pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                    
                 # latents = ground_trues
-                factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
-                factual_images = factual_images.to(dtype=weight_dtype)
+                latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                latents = latents.to(dtype=weight_dtype)
                                 
                 # scale ground trues with vae factor
                 ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
@@ -1442,36 +1549,6 @@ def main(args):
                 # print("vae_scale_factor")
                 # print(vae_scale_factor)
 
-                # noise = torch.randn_like(latents)
-                noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
-                
-                
-                bsz = factual_images.shape[0]
-                # Sample a random timestep for each image
-                # for weighting schemes where we sample timesteps non-uniformly
-                u = compute_density_for_timestep_sampling(
-                    weighting_scheme=args.weighting_scheme,
-                    batch_size=bsz,
-                    logit_mean=args.logit_mean,
-                    logit_std=args.logit_std,
-                    mode_scale=args.mode_scale,
-                )
-                indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
-                
-                # Add noise according to flow matching.
-                # zt = (1 - texp) * x + texp * z1
-                sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
-                noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
-                noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
-                
-                # create learning image
-                latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                noisy_model_input = latents
-                # if under reg ratio, use ground_true as training
-                # if random.random() < args.reg_ratio:
-                #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                    
                 latent_image_ids = FluxPipeline._prepare_latent_image_ids(
                     latents.shape[0],
                     latents.shape[2] // 2,
@@ -1479,6 +1556,15 @@ def main(args):
                     accelerator.device,
                     weight_dtype,
                 )
+                
+                # noise = torch.randn_like(latents)
+                noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
+                
+                
+                # Add noise according to flow matching.
+                # zt = (1 - texp) * x + texp * z1
+                sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                 
                 # pack noisy latents
                 packed_noisy_latents = FluxPipeline._pack_latents(
@@ -1489,8 +1575,10 @@ def main(args):
                     width=latents.shape[3],
                 )
                 
+                # implement mask dropout
+                if args.mask_dropout > random.random():
+                    factual_image_masks = torch.ones_like(factual_image_masks)
                 
-                factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
                 # pack factual_image
                 packed_factual_image_masks = FluxPipeline._pack_latents(
                     factual_image_masks,
@@ -1499,9 +1587,6 @@ def main(args):
                     height=latents.shape[2],
                     width=latents.shape[3],
                 )
-                # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
-                # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
-                factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
                 
                 # pack factual_image
                 packed_factual_image_masked_images = FluxPipeline._pack_latents(
@@ -1561,38 +1646,23 @@ def main(args):
                 # image = image_processor.postprocess(image, output_type="pil")[0]
                 # image.save("model_pred.png")
                 # ====================Debug latent====================
-                w_split = factual_images.size(-1)
-                predict_factual, predict_gt = torch.split(
-                    model_pred, 
-                    [w_split, w_split], 
-                    dim=-1
-                )
-                
-                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
                 target = noise - ground_trues
                 
-                # Compute state transfer loss
-                factual_loss = torch.mean(
-                    (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                    1,
-                )
-                factual_loss = factual_loss.mean()
-                accelerator.backward(factual_loss)
+                weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                 
                 # Compute regular loss.
-                gt_loss = torch.mean(
-                    (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                loss = torch.mean(
+                    (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                     1,
                 )
-                gt_loss = gt_loss.mean()
-                accelerator.backward(gt_loss)
+                
+                loss = loss.mean()
 
-                # loss = factual_loss + gt_loss
                 # Backpropagate
-                f_step_loss = factual_loss.detach().item()
-                g_step_loss = gt_loss.detach().item()
-                del factual_loss, gt_loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
+                accelerator.backward(loss)
+                step_loss = loss.detach().item()
+                del loss, latents, target, model_pred,  timesteps,  bsz, noise, noisy_model_input
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
                     accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
@@ -1618,7 +1688,7 @@ def main(args):
                     else:
                         lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
-                logs = {"f_step_loss": f_step_loss, "g_step_loss": g_step_loss, lr_name: lr, "epoch": epoch}
+                logs = {"step_loss": step_loss, lr_name: lr, "epoch": epoch}
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
                 
@@ -1675,8 +1745,7 @@ def main(args):
 
                             print("\nStart val_loss\n")
                             
-                            f_total_loss = 0.0
-                            g_total_loss = 0.0
+                            total_loss = 0.0
                             num_batches = len(val_dataloader)
                             # if no val data, skip the following 
                             if num_batches == 0:
@@ -1699,10 +1768,35 @@ def main(args):
                                     factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
                                     factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
                                     
-                                    
-                                    # latents = ground_trues
                                     factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
                                     factual_images = factual_images.to(dtype=weight_dtype)
+
+                                    # scale ground trues with vae factor
+                                    ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
+                                    ground_trues = ground_trues.to(dtype=weight_dtype)
+                                    
+                                    bsz = factual_images.shape[0]
+                                    # Sample a random timestep for each image
+                                    # for weighting schemes where we sample timesteps non-uniformly
+                                    u = compute_density_for_timestep_sampling(
+                                        weighting_scheme=args.weighting_scheme,
+                                        batch_size=bsz,
+                                        logit_mean=args.logit_mean,
+                                        logit_std=args.logit_std,
+                                        mode_scale=args.mode_scale,
+                                    )
+                                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                                    
+                                    latents = factual_images
+                                    if timesteps > reg_timestep:
+                                        latents = ground_trues
+                                        prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                                        pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                                        
+                                    # latents = ground_trues
+                                    latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                                    latents = latents.to(dtype=weight_dtype)
                                                     
                                     # scale ground trues with vae factor
                                     ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
@@ -1720,36 +1814,6 @@ def main(args):
                                     # print("vae_scale_factor")
                                     # print(vae_scale_factor)
 
-                                    # noise = torch.randn_like(latents)
-                                    noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
-                                    
-                                    
-                                    bsz = factual_images.shape[0]
-                                    # Sample a random timestep for each image
-                                    # for weighting schemes where we sample timesteps non-uniformly
-                                    u = compute_density_for_timestep_sampling(
-                                        weighting_scheme=args.weighting_scheme,
-                                        batch_size=bsz,
-                                        logit_mean=args.logit_mean,
-                                        logit_std=args.logit_std,
-                                        mode_scale=args.mode_scale,
-                                    )
-                                    indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                                    timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
-                                    
-                                    # Add noise according to flow matching.
-                                    # zt = (1 - texp) * x + texp * z1
-                                    sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
-                                    noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
-                                    noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
-                                    
-                                    # create learning image
-                                    latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                                    noisy_model_input = latents
-                                    # if under reg ratio, use ground_true as training
-                                    # if random.random() < args.reg_ratio:
-                                    #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                                        
                                     latent_image_ids = FluxPipeline._prepare_latent_image_ids(
                                         latents.shape[0],
                                         latents.shape[2] // 2,
@@ -1757,6 +1821,15 @@ def main(args):
                                         accelerator.device,
                                         weight_dtype,
                                     )
+                                    
+                                    # noise = torch.randn_like(latents)
+                                    noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
+                                    
+                                    
+                                    # Add noise according to flow matching.
+                                    # zt = (1 - texp) * x + texp * z1
+                                    sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                                    noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                                     
                                     # pack noisy latents
                                     packed_noisy_latents = FluxPipeline._pack_latents(
@@ -1766,9 +1839,6 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
-                                    
-                                    
-                                    factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
                                     # pack factual_image
                                     packed_factual_image_masks = FluxPipeline._pack_latents(
                                         factual_image_masks,
@@ -1777,10 +1847,6 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
-                                    # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
-                                    # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
-                                    factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
-                                    
                                     # pack factual_image
                                     packed_factual_image_masked_images = FluxPipeline._pack_latents(
                                         factual_image_masked_images,
@@ -1789,7 +1855,10 @@ def main(args):
                                         height=latents.shape[2],
                                         width=latents.shape[3],
                                     )
-                                    
+                                    # print("packed_factual_image_masked_images.shape")
+                                    # print(packed_factual_image_masked_images.shape)
+                                    # print("packed_factual_image_masks.shape")
+                                    # print(packed_factual_image_masks.shape)
                                     masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
                                     # print("masked_image_latents.shape")
                                     # print(masked_image_latents.shape)
@@ -1797,6 +1866,7 @@ def main(args):
                                     cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
                                     # print("cat_model_input.shape")
                                     # print(cat_model_input.shape)
+                                    
                                     
                                     if handle_guidance:
                                         guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
@@ -1808,16 +1878,15 @@ def main(args):
                                         # Predict the noise residual
                                         model_pred = transformer(
                                             hidden_states=cat_model_input,
-                                            encoder_hidden_states=prompt_embeds,
-                                            joint_attention_kwargs = {'attention_mask': txt_attention_masks},
-                                            # txt_attention_masks=txt_attention_masks,
-                                            pooled_projections=pooled_prompt_embeds,
                                             # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
                                             timestep=timesteps / 1000,
-                                            img_ids=latent_image_ids,
-                                            txt_ids=text_ids,
                                             guidance=guidance,
-                                            return_dict=False
+                                            pooled_projections=pooled_prompt_embeds,
+                                            encoder_hidden_states=prompt_embeds,
+                                            txt_ids=text_ids,
+                                            img_ids=latent_image_ids,
+                                            return_dict=False,
+                                            joint_attention_kwargs = {'attention_mask': txt_attention_masks},
                                         )[0]
                                     
                                     
@@ -1827,6 +1896,10 @@ def main(args):
                                         width=latents.shape[3] * vae_scale_factor,
                                         vae_scale_factor=vae_scale_factor,
                                     )
+
+                                    # these weighting schemes use a uniform timestep sampling
+                                    # and instead post-weight the loss
+                                    weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
 
                                     # ====================Debug latent====================
                                     # vae = AutoencoderKL.from_single_file(
@@ -1839,53 +1912,45 @@ def main(args):
                                     # image = image_processor.postprocess(image, output_type="pil")[0]
                                     # image.save("model_pred.png")
                                     # ====================Debug latent====================
-                                    w_split = factual_images.size(-1)
-                                    predict_factual, predict_gt = torch.split(
-                                        model_pred, 
-                                        [w_split, w_split], 
-                                        dim=-1
-                                    )
+                                    
+                                    
+                                    # flow matching loss
+                                    # if args.precondition_outputs:
+                                    #     target = latents
+                                    # else:
+                                    # target = noise - latents
+                                    
+                                    # learning forward to ground true
+                                    # training the model to predict the velocity of noise - ground_trues
+                                    # model predicted ~= noise - ground_trues
+                                    target = noise - ground_trues
                                     
                                     weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                                     
-                                    target = noise - ground_trues
-                                    
-                                    # Compute state transfer loss
-                                    factual_loss = torch.mean(
-                                        (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                                        1,
-                                    )
-                                    factual_loss = factual_loss.mean()
-                                    
                                     # Compute regular loss.
-                                    gt_loss = torch.mean(
-                                        (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                                    loss = torch.mean(
+                                        (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                                         1,
                                     )
-                                    gt_loss = gt_loss.mean()
+                                    loss = loss.mean()
 
-                                    # loss = factual_loss + gt_loss
-                                    
-
-                                    f_total_loss+=factual_loss.detach()
-                                    g_total_loss+=gt_loss.detach()
-                                    del latents, target, factual_loss, gt_loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                                    total_loss+=loss.detach()
+                                    del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                                     gc.collect()
                                     torch.cuda.empty_cache()
                                     
-                                f_avg_loss = f_total_loss / num_batches
-                                g_avg_loss = g_total_loss / num_batches
+                                avg_loss = total_loss / num_batches
                                 
                                 lr = lr_scheduler.get_last_lr()[0]
                                 lr_name = "val_lr"
                                 if args.optimizer == "prodigy":
                                     lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                                     lr_name = "val_lr lr/d*lr"
-                                logs = {"f_val_loss": f_avg_loss,"g_avg_loss": g_avg_loss, lr_name: lr, "epoch": epoch}
+                                logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
                                 print(logs)
                                 progress_bar.set_postfix(**logs)
                                 accelerator.log(logs, step=global_step)
-                                del num_batches, f_avg_loss, g_avg_loss, f_total_loss, g_total_loss
+                                del num_batches, avg_loss, total_loss
                             del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
                             gc.collect()
                             torch.cuda.empty_cache()
@@ -1914,7 +1979,7 @@ def main(args):
         before_state = torch.random.get_rng_state()
         np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
         py_state = python_get_rng_state()
-    
+        
         if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
             # accelerator.wait_for_everyone()
             if accelerator.is_main_process:
@@ -1980,10 +2045,29 @@ def main(args):
                             factual_images = batch["factual_image"].to(accelerator.device)
                             factual_image_masks = batch["factual_image_mask"].to(accelerator.device)
                             factual_image_masked_images = batch["factual_image_masked_image"].to(accelerator.device)
-                        
+                            
+                            bsz = factual_images.shape[0]
+                            # Sample a random timestep for each image
+                            # for weighting schemes where we sample timesteps non-uniformly
+                            u = compute_density_for_timestep_sampling(
+                                weighting_scheme=args.weighting_scheme,
+                                batch_size=bsz,
+                                logit_mean=args.logit_mean,
+                                logit_std=args.logit_std,
+                                mode_scale=args.mode_scale,
+                            )
+                            indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
+                            timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
+                            
+                            latents = factual_images
+                            if timesteps < reg_timestep:
+                                latents = ground_trues
+                                prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                                pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                                
                             # latents = ground_trues
-                            factual_images = (factual_images - vae_config_shift_factor) * vae_config_scaling_factor
-                            factual_images = factual_images.to(dtype=weight_dtype)
+                            latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
+                            latents = latents.to(dtype=weight_dtype)
                                             
                             # scale ground trues with vae factor
                             ground_trues = (ground_trues - vae_config_shift_factor) * vae_config_scaling_factor
@@ -2001,36 +2085,6 @@ def main(args):
                             # print("vae_scale_factor")
                             # print(vae_scale_factor)
 
-                            # noise = torch.randn_like(latents)
-                            noise = torch.randn_like(factual_images) + args.noise_offset * torch.randn(factual_images.shape[0], factual_images.shape[1], 1, 1).to(accelerator.device)
-                            
-                            
-                            bsz = factual_images.shape[0]
-                            # Sample a random timestep for each image
-                            # for weighting schemes where we sample timesteps non-uniformly
-                            u = compute_density_for_timestep_sampling(
-                                weighting_scheme=args.weighting_scheme,
-                                batch_size=bsz,
-                                logit_mean=args.logit_mean,
-                                logit_std=args.logit_std,
-                                mode_scale=args.mode_scale,
-                            )
-                            indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
-                            timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
-                            
-                            # Add noise according to flow matching.
-                            # zt = (1 - texp) * x + texp * z1
-                            sigmas = get_sigmas(timesteps, n_dim=factual_images.ndim, dtype=factual_images.dtype)
-                            noisy_factual_images = (1.0 - sigmas) * factual_images + sigmas * noise
-                            noisy_ground_trues = (1.0 - sigmas) * ground_trues + sigmas * noise
-                            
-                            # create learning image
-                            latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                            noisy_model_input = latents
-                            # if under reg ratio, use ground_true as training
-                            # if random.random() < args.reg_ratio:
-                            #     latents = torch.cat((noisy_factual_images, noisy_ground_trues), dim=-1)
-                                
                             latent_image_ids = FluxPipeline._prepare_latent_image_ids(
                                 latents.shape[0],
                                 latents.shape[2] // 2,
@@ -2038,6 +2092,15 @@ def main(args):
                                 accelerator.device,
                                 weight_dtype,
                             )
+                            
+                            # noise = torch.randn_like(latents)
+                            noise = torch.randn_like(latents) + args.noise_offset * torch.randn(latents.shape[0], latents.shape[1], 1, 1).to(accelerator.device)
+                            
+                            
+                            # Add noise according to flow matching.
+                            # zt = (1 - texp) * x + texp * z1
+                            sigmas = get_sigmas(timesteps, n_dim=latents.ndim, dtype=latents.dtype)
+                            noisy_model_input = (1.0 - sigmas) * latents + sigmas * noise
                             
                             # pack noisy latents
                             packed_noisy_latents = FluxPipeline._pack_latents(
@@ -2048,8 +2111,6 @@ def main(args):
                                 width=latents.shape[3],
                             )
                             
-                            
-                            factual_image_masks = torch.cat((factual_image_masks, factual_image_masks), dim=-1)
                             # pack factual_image
                             packed_factual_image_masks = FluxPipeline._pack_latents(
                                 factual_image_masks,
@@ -2058,10 +2119,6 @@ def main(args):
                                 height=latents.shape[2],
                                 width=latents.shape[3],
                             )
-                            # factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
-                            # factual_image_masked_images = torch.cat((factual_images, factual_image_masked_images), dim=-1)
-                            factual_image_masked_images = torch.cat((factual_image_masked_images, factual_image_masked_images), dim=-1)
-                            
                             # pack factual_image
                             packed_factual_image_masked_images = FluxPipeline._pack_latents(
                                 factual_image_masked_images,
@@ -2070,7 +2127,10 @@ def main(args):
                                 height=latents.shape[2],
                                 width=latents.shape[3],
                             )
-                            
+                            # print("packed_factual_image_masked_images.shape")
+                            # print(packed_factual_image_masked_images.shape)
+                            # print("packed_factual_image_masks.shape")
+                            # print(packed_factual_image_masks.shape)
                             masked_image_latents = torch.cat((packed_factual_image_masked_images, packed_factual_image_masks), dim=-1)
                             # print("masked_image_latents.shape")
                             # print(masked_image_latents.shape)
@@ -2078,6 +2138,7 @@ def main(args):
                             cat_model_input = torch.cat((packed_noisy_latents, masked_image_latents), dim=2)
                             # print("cat_model_input.shape")
                             # print(cat_model_input.shape)
+                            
                             
                             if handle_guidance:
                                 guidance = torch.tensor([args.guidance_scale], device=accelerator.device)
@@ -2089,16 +2150,15 @@ def main(args):
                                 # Predict the noise residual
                                 model_pred = transformer(
                                     hidden_states=cat_model_input,
-                                    encoder_hidden_states=prompt_embeds,
-                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
-                                    # txt_attention_masks=txt_attention_masks,
-                                    pooled_projections=pooled_prompt_embeds,
                                     # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
                                     timestep=timesteps / 1000,
-                                    img_ids=latent_image_ids,
-                                    txt_ids=text_ids,
                                     guidance=guidance,
-                                    return_dict=False
+                                    pooled_projections=pooled_prompt_embeds,
+                                    encoder_hidden_states=prompt_embeds,
+                                    txt_ids=text_ids,
+                                    img_ids=latent_image_ids,
+                                    return_dict=False,
+                                    joint_attention_kwargs = {'attention_mask': txt_attention_masks},
                                 )[0]
                             
                             
@@ -2108,6 +2168,10 @@ def main(args):
                                 width=latents.shape[3] * vae_scale_factor,
                                 vae_scale_factor=vae_scale_factor,
                             )
+
+                            # these weighting schemes use a uniform timestep sampling
+                            # and instead post-weight the loss
+                            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
 
                             # ====================Debug latent====================
                             # vae = AutoencoderKL.from_single_file(
@@ -2120,50 +2184,45 @@ def main(args):
                             # image = image_processor.postprocess(image, output_type="pil")[0]
                             # image.save("model_pred.png")
                             # ====================Debug latent====================
-                            w_split = factual_images.size(-1)
-                            predict_factual, predict_gt = torch.split(
-                                model_pred, 
-                                [w_split, w_split], 
-                                dim=-1
-                            )
+                            
+                            
+                            # flow matching loss
+                            # if args.precondition_outputs:
+                            #     target = latents
+                            # else:
+                            # target = noise - latents
+                            
+                            # learning forward to ground true
+                            # training the model to predict the velocity of noise - ground_trues
+                            # model predicted ~= noise - ground_trues
+                            target = noise - ground_trues
                             
                             weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
                             
-                            target = noise - ground_trues
-                            
-                            # Compute state transfer loss
-                            factual_loss = torch.mean(
-                                (weighting.float() * (predict_factual.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                                1,
-                            )
-                            factual_loss = factual_loss.mean()
-                            
                             # Compute regular loss.
-                            gt_loss = torch.mean(
-                                (weighting.float() * (predict_gt.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                            loss = torch.mean(
+                                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
                                 1,
                             )
-                            gt_loss = gt_loss.mean()
+                            loss = loss.mean()
 
-                            f_total_loss+=factual_loss.detach()
-                            g_total_loss+=gt_loss.detach()
-                            del latents, target, factual_loss, gt_loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
+                            total_loss+=loss.detach()
+                            del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                             gc.collect()
                             torch.cuda.empty_cache()
                             
-                        f_avg_loss = f_total_loss / num_batches
-                        g_avg_loss = g_total_loss / num_batches
+                        avg_loss = total_loss / num_batches
                         
                         lr = lr_scheduler.get_last_lr()[0]
                         lr_name = "val_lr"
                         if args.optimizer == "prodigy":
                             lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                             lr_name = "val_lr lr/d*lr"
-                        logs = {"f_val_loss": f_avg_loss,"g_avg_loss": g_avg_loss, lr_name: lr, "epoch": epoch}
+                        logs = {"val_loss": avg_loss, lr_name: lr, "epoch": epoch}
                         print(logs)
                         progress_bar.set_postfix(**logs)
                         accelerator.log(logs, step=global_step)
-                        del num_batches, f_avg_loss, g_avg_loss, f_total_loss, g_total_loss
+                        del num_batches, avg_loss, total_loss
                     del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
                     gc.collect()
                     torch.cuda.empty_cache()

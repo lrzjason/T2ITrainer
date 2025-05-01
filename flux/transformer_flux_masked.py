@@ -6,7 +6,7 @@ from diffusers.utils import USE_PEFT_BACKEND, is_torch_version, logging, scale_l
 
 from typing import Any, Dict, Optional, Tuple, Union
 import torch
-import flux.custom_offloading_utils as custom_offloading_utils
+import utils.custom_offloading_utils as custom_offloading_utils
 
 import numpy as np
 

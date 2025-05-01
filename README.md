@@ -4,7 +4,7 @@
 ---
 
 ## 📅 Recent Updates
-- **2025-03-25:** 🎨 Update train_flux_lora_ui_with_mask_cat script
+- **2025-04-08:** 🎨 Update flux fill training script, remove experimental scripts
 ```
 train_flux_lora_ui_with_mask_cat is the latest attempt on training state transfer training.
 for usually inpaint training, the training is a reconstruction training.

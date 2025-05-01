@@ -119,11 +119,11 @@ transformer = FluxTransformer2DModel.from_pretrained(
 )
 pipeline.transformer = transformer
 
-print("Loading lora")
-pipeline.load_lora_weights("F:/models/Lora/flux", weight_name="objectRemoval_rordtest_reg08-0-16314.safetensors", adapter_name="removal")
-pipeline.set_adapters(["removal"], adapter_weights=[1])
-print("Fusing lora")
-pipeline.fuse_lora()
+# print("Loading lora")
+# pipeline.load_lora_weights("F:/models/Lora/flux", weight_name="objectRemoval_rordtest_reg08-0-16314.safetensors", adapter_name="removal")
+# pipeline.set_adapters(["removal"], adapter_weights=[1])
+# print("Fusing lora")
+# pipeline.fuse_lora()
 
 print('loaded flux transformer')
 print('optimized flux transformer')
@@ -140,7 +140,7 @@ image = pipeline(
     prompt_embeds=prompt_embeds,
     pooled_prompt_embeds=pooled_prompt_embeds,
     image=image,
-    mask_image=mask,
+    # mask_image=mask,
     height=512,
     width=512,
     max_sequence_length=512,
