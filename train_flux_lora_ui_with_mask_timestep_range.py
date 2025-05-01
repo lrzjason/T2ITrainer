@@ -748,10 +748,10 @@ def main(args):
             "attn.add_q_proj",
             "attn.add_v_proj",
             "attn.to_add_out",
-            # "ff.net.0.proj",
-            # "ff.net.2",
-            # "ff_context.net.0.proj",
-            # "ff_context.net.2",
+            "ff.net.0.proj",
+            "ff.net.2",
+            "ff_context.net.0.proj",
+            "ff_context.net.2",
         ]
     
     # Make sure the trainable params are in float32.

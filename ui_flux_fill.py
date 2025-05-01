@@ -53,7 +53,8 @@ default_config = {
     "max_time_steps":0,
     "blocks_to_swap":10,
     "mask_dropout":0,
-    "reg_ratio":0.7
+    "reg_ratio":0.7,
+    "reg_timestep":700
     # "use_fp8":True
     # "freeze_transformer_layers":'5,7,10,17,18,19'
 }
@@ -101,6 +102,7 @@ def save_config(
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
+        reg_timestep
         # use_fp8
         # freeze_transformer_layers
     ):
@@ -146,6 +148,7 @@ def save_config(
         "blocks_to_swap":blocks_to_swap,
         "mask_dropout":mask_dropout,
         "reg_ratio":reg_ratio,
+        "reg_timestep":reg_timestep
         # "use_fp8":use_fp8
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
@@ -197,7 +200,7 @@ def load_config(config_path):
             default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps'], \
             default_config['blocks_to_swap'],default_config['mask_dropout'], \
-            default_config['reg_ratio']
+            default_config['reg_ratio'],default_config['reg_timestep']
             # default_config['use_dora'], \
             # default_config['freeze_transformer_layers']
             # default_config['logging_dir'],default_config['break_epoch'], 
@@ -245,6 +248,7 @@ def run(
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
+        reg_timestep
         # use_fp8
         # freeze_transformer_layers
     ):
@@ -292,7 +296,8 @@ def run(
         "max_time_steps":max_time_steps,
         "blocks_to_swap":blocks_to_swap,
         "mask_dropout":mask_dropout,
-        "reg_ratio":reg_ratio
+        "reg_ratio":reg_ratio,
+        "reg_timestep":reg_timestep
         # "use_fp8":use_fp8
         # "freeze_transformer_layers":freeze_transformer_layers
     }
@@ -351,7 +356,8 @@ def run(
         max_time_steps,
         blocks_to_swap,
         mask_dropout,
-        reg_ratio
+        reg_ratio,
+        reg_timestep
         # use_fp8
         # freeze_transformer_layers
     )
@@ -418,6 +424,7 @@ with gr.Blocks() as demo:
             mask_dropout = gr.Number(label="mask_dropout", value=default_config["mask_dropout"], info="Dropout mask which means mask is all one for whole image reconstruction" )
         #     freeze_transformer_layers = gr.Textbox(label="freeze_transformer_layers", value=default_config["freeze_transformer_layers"], info="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19" )
             reg_ratio = gr.Number(label="reg_ratio", value=default_config["reg_ratio"], info="As regularization of objective transfer learning. Set as 1 if you aren't training different objective." )
+            reg_timestep = gr.Number(label="reg_timestep", value=default_config["reg_timestep"], info="As regularization of objective transfer learning. Set as 0 if you aren't training different objective." )
             
             
     with gr.Accordion("Misc"):
@@ -485,7 +492,8 @@ with gr.Blocks() as demo:
         max_time_steps,
         blocks_to_swap,
         mask_dropout,
-        reg_ratio
+        reg_ratio,
+        reg_timestep
         # freeze_transformer_layers,
     ]
     output = gr.Textbox(label="Output Box")
