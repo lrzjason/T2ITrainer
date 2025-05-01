@@ -1793,11 +1793,15 @@ def main(args):
                                     indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
                                     timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
                                     
-                                    latents = factual_images
-                                    if timesteps > reg_timestep:
-                                        latents = ground_trues
-                                        prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
-                                        pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                                    # latents = factual_images
+                                    # if timesteps > reg_timestep:
+                                    #     latents = ground_trues
+                                    #     prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                                    #     pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                                    mask = (timesteps < reg_timestep)  # Shape: (bsz,)
+                                    mask_for_latents = mask.view((-1,) + (1,) * (len(factual_images.shape) - 1))
+                                    latents = torch.where(mask_for_latents, ground_trues, factual_images)
+                                    
                                         
                                     # latents = ground_trues
                                     latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
@@ -2064,11 +2068,15 @@ def main(args):
                             indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
                             timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
                             
-                            latents = factual_images
-                            if timesteps < reg_timestep:
-                                latents = ground_trues
-                                prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
-                                pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                            # latents = factual_images
+                            # if timesteps < reg_timestep:
+                            #     latents = ground_trues
+                            #     prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
+                            #     pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
+                            mask = (timesteps < reg_timestep)  # Shape: (bsz,)
+                            mask_for_latents = mask.view((-1,) + (1,) * (len(factual_images.shape) - 1))
+                            latents = torch.where(mask_for_latents, ground_trues, factual_images)
+                            
                                 
                             # latents = ground_trues
                             latents = (latents - vae_config_shift_factor) * vae_config_scaling_factor
