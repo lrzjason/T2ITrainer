@@ -4,7 +4,7 @@
 ---
 
 ## 📅 Recent Updates
-- **2025-05-01:** 🎨 Add train_flux_lora_ui_with_mask_timestep_range.py
+- **2025-05-03:** 🎨 Update train_flux_lora_ui_with_mask_timestep_range.py
 ```
 train_flux_lora_ui_with_mask_timestep_range.py add a parameter reg_timestep to adjust the training objective
 for example, reg_timgstep=700.
