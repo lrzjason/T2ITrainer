@@ -677,6 +677,7 @@ def main(args):
     # 0-399 learning inpaint, 400-999 learning task
     # reg_timestep = 400
     reg_timestep = args.reg_timestep
+    reg_ratio = args.reg_ratio
     
     # to avoid cache mutiple times on same embedding
     # use_same_embedding = True
@@ -1529,8 +1530,12 @@ def main(args):
                 #     prompt_embeds = torch.zeros_like(prompt_embeds).to(accelerator.device)
                 #     pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds).to(accelerator.device)
                     
+                # after testing, reg introduce negative effect.
                 # Create a mask for samples where timesteps < reg_timestep
-                mask = (timesteps < reg_timestep)  # Shape: (bsz,)
+                # r = random.random()
+                # # apply reg_ratio to reg_timestep
+                # mask = (timesteps < reg_timestep) | (r < reg_ratio)
+                mask = (timesteps < reg_timestep)
                 mask_for_latents = mask.view((-1,) + (1,) * (len(factual_images.shape) - 1))
                 latents = torch.where(mask_for_latents, ground_trues, factual_images)
                 
