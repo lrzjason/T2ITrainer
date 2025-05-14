@@ -560,6 +560,13 @@ def parse_args(input_args=None):
         default=0.7,
         help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
     )
+    parser.add_argument(
+        "--reg_timestep",
+        type=int,
+        default=900,
+        help="As regularization of objective transfer learning. You could try different value.",
+    )
+    
     
     
     if input_args is not None:
