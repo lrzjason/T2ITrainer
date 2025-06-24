@@ -248,6 +248,147 @@ class CachedImageDataset(Dataset):
             result["redux_pooled_prompt_embed"] = cached_npz['redux_pooled_prompt_embed']
             
         return result
+    
+    
+class CachedMutiImageDataset(Dataset):
+    def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False, dataset_configs=None): 
+        self.has_redux = has_redux
+        self.datarows = datarows
+        self.leftover_indices = []  #initialize an empty list to store indices of leftover items
+        #for conditional_dropout
+        self.conditional_dropout_percent = conditional_dropout_percent
+        self.dataset_configs = dataset_configs
+        self.empty_embedding = get_empty_embedding()
+        # self.caption_key = "captions"
+        # self.latent_key = "latent"
+        # self.latent_path_key = "latent_path"
+        # self.extra_keys = [
+        #     {
+        #         "latent_key":"masked_latent",
+        #         "latent_path_key":"masked_latent_path",
+        #     }
+        # ]
+        # self.npz_path_key = "npz_path"
+        # self.npz_keys = [
+        #     "prompt_embed",
+        #     "pooled_prompt_embed",
+        #     "txt_attention_mask"
+        # ]
+        # self.npz_extra_keys = [
+        #     "redux_prompt_embed",
+        #     "redux_pooled_prompt_embed"
+        # ]
+    #returns dataset length
+    def __len__(self):
+        return len(self.datarows)
+    #returns dataset item, using index
+    def __getitem__(self, index):
+        if self.leftover_indices:
+            # Fetch from leftovers first
+            actual_index = self.leftover_indices.pop(0)
+        else:
+            actual_index = index
+        metadata = self.datarows[actual_index] 
+        # {
+        #    "captions":{
+        #       "factual":{
+        #          "text_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.txt",
+        #          "text_path_md5":"8522dcd4f1a2b6c4aff94efdc41579c3",
+        #          "npz_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npflux"
+        #       }
+        #    },
+        #    "mapping_key":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal_cat_2_",
+        #    "factual":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.webp",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npfluxlatent",
+        #       "latent_path_md5":"cf8043c622b1d5fe1b0ba155bd0cd4de"
+        #    },
+        #    "groundtrue":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.webp",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.npfluxlatent",
+        #       "latent_path_md5":"0942d20edd4a4fb2f7d05c91958aaca0"
+        #    },
+        #    "factual_mask":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.png",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.npfluxlatent",
+        #       "masked_latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M_masked.npfluxlatent"
+        #    },
+        #    "bucket":"448x576"
+        # }
+        
+        
+        # dataset_configs = {
+        #     "caption_key":caption_key,
+        #     "latent_key":"latent",
+        #     "latent_path_key":latent_path_key,
+        #     "extra_keys":{
+        #         image_1_mask=factual_mask:{
+        #             "latent_key":f"{masked_suffix}_{latent_key}",
+        #             "latent_path_key":f"{masked_suffix}_{latent_path_key}",
+        #         }
+        #     },
+        #     "npz_path_key": embbeding_path_key,
+        #     "npz_keys": {
+        #         prompt_embed_key:prompt_embed_key,
+        #         pool_prompt_embed_key:pool_prompt_embed_key,
+        #         txt_attention_mask_key:txt_attention_mask_key
+        #     },
+        #     "npz_extra_keys": {
+        #         redux_key:[
+        #             prompt_embed_key,
+        #             pool_prompt_embed_key
+        #         ]
+        #     }
+        # }
+        result = {
+            
+        }
+        metadata_caption_key = self.dataset_configs["caption_key"]
+        npz_path_key = self.dataset_configs["npz_path_key"]
+        npz_keys = self.dataset_configs["npz_keys"]
+        npz_extra_keys = self.dataset_configs["npz_extra_keys"]
+        latent_path_key = self.dataset_configs["latent_path_key"]
+        latent_key = self.dataset_configs["latent_key"]
+        extra_keys = self.dataset_configs["extra_keys"]
+        keys = metadata.keys()
+        for key in keys:
+            if key == "mapping_key":
+                result["mapping_key"] = metadata[key]
+            if metadata_caption_key == key:
+                captions = metadata[metadata_caption_key]
+                for caption_key in captions.keys():
+                    result[caption_key] = {
+                        key:{}
+                    }
+                    caption = captions[caption_key]
+                    cached_npz = torch.load(caption[npz_path_key], weights_only=True)
+                    for npz_key in npz_keys:
+                        result[caption_key][key][npz_key] = cached_npz[npz_key]
+                    if "npz_extra_keys" in self.dataset_configs:
+                        result[caption_key][key]["redux"] = {}
+                        for npz_extra_key_group in npz_extra_keys.keys():
+                            result[caption_key][key]["redux"][npz_extra_key_group] = {}
+                            for npz_extra_key in npz_extra_keys[npz_extra_key_group]:
+                                result[caption_key][key]["redux"][npz_extra_key_group][npz_extra_key] = cached_npz["redux"][npz_extra_key_group][npz_extra_key]
+                        
+            if latent_path_key in metadata[key]:
+                latent = torch.load(metadata[key][latent_path_key], weights_only=True)
+                # for captions
+                if key in result:
+                    result[key][latent_key] = latent[latent_key]
+                else:
+                    result[key] = {
+                        latent_key:latent[latent_key]
+                    }
+                if "extra_keys" in self.dataset_configs:
+                    for extra_key_group in extra_keys.keys():
+                        extra_key = extra_keys[extra_key_group]
+                        extra_latent_key = extra_key["latent_key"]
+                        extra_latent_path_key = extra_key["latent_path_key"]
+                        if extra_latent_path_key in metadata[key]:
+                            extra_latent = torch.load(metadata[key][extra_latent_path_key], weights_only=True)
+                            result[key][extra_latent_key] = extra_latent[latent_key]
+        return result
 
 class CachedMaskedPairsDataset(Dataset):
     def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False): 
@@ -261,6 +402,7 @@ class CachedMaskedPairsDataset(Dataset):
         # self.empty_pooled_prompt_embed = embedding['pooled_prompt_embed']
         # self.empty_txt_attention_mask = embedding['txt_attention_mask']
         # self.empty_text_id = embedding['text_id']
+        
     #returns dataset length
     def __len__(self):
         return len(self.datarows)
@@ -286,6 +428,10 @@ class CachedMaskedPairsDataset(Dataset):
             "txt_attention_mask": txt_attention_mask,
             # "text_id": text_id,
         }
+        if "redux_prompt_embed" in cached_npz:
+            result["redux_prompt_embed"] = cached_npz['redux_prompt_embed']
+            result["redux_pooled_prompt_embed"] = cached_npz['redux_pooled_prompt_embed']
+        
         cached_latent_names = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image"]
         if self.has_redux:
             cached_latent_names = ["ground_true", "factual_image", "factual_image_mask", "factual_image_masked_image", "redux_image"]
@@ -421,8 +567,8 @@ def create_embedding(tokenizers,text_encoders,folder_path,file,cache_ext=".npflu
         pipe_prior_output = pipe_prior_redux(image,prompt_embeds=prompt_embeds,pooled_prompt_embeds=pooled_prompt_embeds)
         prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
         pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
-        npz_dict["prompt_embed"] = prompt_embed.cpu()
-        npz_dict["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
+        npz_dict["redux_prompt_embed"] = prompt_embed.cpu()
+        npz_dict["redux_pooled_prompt_embed"] = pooled_prompt_embed.cpu()
         
         # extend txt_attention_mask dim as 1 to match prompt_embed
         # npz_dict["txt_attention_mask"] = torch.ones_like(prompt_embed)
@@ -543,11 +689,76 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npf
     return json_obj
 
 
+
+@torch.no_grad()
+def vae_encode(vae,image):
+    # create tensor latent
+    pixel_values = []
+    pixel_values.append(image)
+    pixel_values = torch.stack(pixel_values).to(vae.device)
+    # del image
+    
+    with torch.no_grad():
+        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+        del pixel_values
+    latent_dict = {
+        'latent': latent.cpu()
+    }
+    return latent_dict
+
+def read_image(image_path):
+    try:
+        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        if image is not None:
+            # Convert to RGB format (assuming the original image is in BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            print(f"Failed to open {image_path}.")
+    except Exception as e:
+        print(f"An error occurred while processing {image_path}: {e}")
+    return image
+
+
+def crop_image(image_path,resolution):
+    image = read_image(image_path)
+    ##############################################################################
+    # Simple center crop for others
+    ##############################################################################
+    # width, height = image.size
+    # original_size = (height, width)
+    # image = numpy.array(image)
+    
+    height, width, _ = image.shape
+    # original_size = (height, width)
+    
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+    scale_with_height = True
+    # crops_coords_top_left = (0,0)
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        # image = simple_center_crop(image,scale_with_height,closest_resolution)
+        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+        # crops_coords_top_left = (crop_y,crop_x)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
+    # test = Image.fromarray(image)
+    # test.show()
+    # set meta data
+    return image
+
 # based on image_path, caption_path, caption create json object
 # write tensor related to npz file
 # ground_true_file, factual_image_file and factual_image_mask
 @torch.no_grad()
-def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npfluxlatent",recreate_cache=False):
+def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npfluxlatent",recreate_cache=False,use_original_mask=False):
     npz_path = json_obj["npz_path"]
     
     # npz_dict = {}
@@ -572,66 +783,6 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     f_width = 0
     
     train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-    def vae_encode(image):
-        
-        # create tensor latent
-        pixel_values = []
-        pixel_values.append(image)
-        pixel_values = torch.stack(pixel_values).to(vae.device)
-        # del image
-        
-        with torch.no_grad():
-            latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
-            del pixel_values
-        latent_dict = {
-            'latent': latent.cpu()
-        }
-        return latent_dict
-    def read_image(image_path):
-        try:
-            image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-            if image is not None:
-                # Convert to RGB format (assuming the original image is in BGR)
-                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            else:
-                print(f"Failed to open {image_path}.")
-        except Exception as e:
-            print(f"An error occurred while processing {image_path}: {e}")
-        return image
-    def crop_image(image_path):
-        image = read_image(image_path)
-        ##############################################################################
-        # Simple center crop for others
-        ##############################################################################
-        # width, height = image.size
-        # original_size = (height, width)
-        # image = numpy.array(image)
-        
-        height, width, _ = image.shape
-        # original_size = (height, width)
-        
-        # get nearest resolution
-        closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
-        # we need to expand the closest resolution to target resolution before cropping
-        scale_ratio = closest_resolution[0] / closest_resolution[1]
-        image_ratio = width / height
-        scale_with_height = True
-        # crops_coords_top_left = (0,0)
-        # referenced kohya ss code
-        if image_ratio < scale_ratio: 
-            scale_with_height = False
-        try:
-            # image = simple_center_crop(image,scale_with_height,closest_resolution)
-            image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
-            # crops_coords_top_left = (crop_y,crop_x)
-            # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
-        except Exception as e:
-            print(e)
-            raise e
-        # test = Image.fromarray(image)
-        # test.show()
-        # set meta data
-        return image
     
     for image_class,image_path in image_files:
         filename, _ = os.path.splitext(image_path)
@@ -648,7 +799,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         # target_size = (image_height,image_width)
         ##############################################################################
         
-        image = crop_image(image_path)
+        image = crop_image(image_path,resolution)
         image_height, image_width, _ = image.shape
         
         # if cache_ratio !=1:
@@ -673,7 +824,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
             f_height = image_height
             f_width = image_width
             
-        latent_dict = vae_encode(image)
+        latent_dict = vae_encode(vae,image)
         torch.save(latent_dict, latent_cache_path)
         json_obj[image_class]['latent_path_md5'] = get_md5_by_path(latent_cache_path)
     # del npz_dict
@@ -698,7 +849,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         redux_image = cv2.resize(redux_image, (int(f_width), int(f_height)), interpolation=cv2.INTER_LANCZOS4)
             
         redux_image = train_transforms(redux_image)
-        latent_dict = vae_encode(redux_image)
+        latent_dict = vae_encode(vae,redux_image)
         torch.save(latent_dict, redux_cache_path)
         json_obj["redux_image"] = {}
         json_obj["redux_image"]["latent_path"] = redux_cache_path
@@ -729,7 +880,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
         do_resize=False
     )
     
-    mask_image = crop_image(mask_path)
+    mask_image = crop_image(mask_path,resolution)
     mask_image = cv2.cvtColor(mask_image, cv2.COLOR_RGB2GRAY)
     
     # if cache_ratio !=1:
@@ -753,15 +904,18 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     # 2. encode the masked image
     masked_image_latent = vae.encode(masked_image).latent_dist.sample().squeeze(0)
 
-    # 5.resize mask to latents shape we we concatenate the mask to the latents
-    mask_image = mask_image[:, 0, :, :]  # batch_size, 8 * height, 8 * width (mask has not been 8x compressed)
-    mask_image = mask_image.view(
-        1, height, vae_scale_factor, width, vae_scale_factor
-    )  # batch_size, height, 8, width, 8
-    mask_image = mask_image.permute(0, 2, 4, 1, 3)  # batch_size, 8, 8, height, width
-    mask_image = mask_image.reshape(
-        1, vae_scale_factor * vae_scale_factor, height, width
-    )  # batch_size, 8*8, height, width
+    # for debug, return the original mask
+    
+    if not use_original_mask:
+        # 5.resize mask to latents shape we we concatenate the mask to the latents
+        mask_image = mask_image[:, 0, :, :]  # batch_size, 8 * height, 8 * width (mask has not been 8x compressed)
+        mask_image = mask_image.view(
+            1, height, vae_scale_factor, width, vae_scale_factor
+        )  # batch_size, height, 8, width, 8
+        mask_image = mask_image.permute(0, 2, 4, 1, 3)  # batch_size, 8, 8, height, width
+        mask_image = mask_image.reshape(
+            1, vae_scale_factor * vae_scale_factor, height, width
+        )  # batch_size, 8*8, height, width
 
     latent_dict = {
         'latent': masked_image_latent.cpu()
@@ -1056,24 +1210,26 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     return resize(cropped_image,closest_resolution),crop_x,crop_y
 
 
-def crop_image(image,resolution=1024):
-    height, width, _ = image.shape
-    # get nearest resolution
-    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
-    # we need to expand the closest resolution to target resolution before cropping
-    scale_ratio = closest_resolution[0] / closest_resolution[1]
-    image_ratio = width / height
-    scale_with_height = True
-    # referenced kohya ss code
-    if image_ratio < scale_ratio: 
-        scale_with_height = False
-    try:
-        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
-    except Exception as e:
-        print(e)
-        raise e
+# def crop_image(image,resolution=1024):
+#     # read image from image_path
     
-    return image,crop_x,crop_y
+#     height, width, _ = image.shape
+#     # get nearest resolution
+#     closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
+#     # we need to expand the closest resolution to target resolution before cropping
+#     scale_ratio = closest_resolution[0] / closest_resolution[1]
+#     image_ratio = width / height
+#     scale_with_height = True
+#     # referenced kohya ss code
+#     if image_ratio < scale_ratio: 
+#         scale_with_height = False
+#     try:
+#         image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+#     except Exception as e:
+#         print(e)
+#         raise e
+    
+#     return image,crop_x,crop_y
 
 def resize(img,resolution):
     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)

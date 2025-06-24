@@ -62,7 +62,10 @@ from diffusers import (
     # FluxTransformer2DModel,
 )
 
-from flux.transformer_flux_masked import MaskedFluxTransformer2DModel, compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
+
+from flux.transformer_flux_masked import MaskedFluxTransformer2DModel
+
+from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
 
 from pathlib import Path
 from diffusers.optimization import get_scheduler
@@ -106,7 +109,7 @@ from utils.image_utils_flux import BucketBatchSampler, CachedMaskedPairsDataset
 from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
 
-from peft import LoraConfig
+from peft import LoraConfig, prepare_model_for_kbit_training
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 # from kolors.models.modeling_chatglm import ChatGLMModel
 # from kolors.models.tokenization_chatglm import ChatGLMTokenizer
@@ -568,7 +571,6 @@ def parse_args(input_args=None):
     )
     
     
-    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
@@ -985,43 +987,34 @@ def main(args):
     
     
     offload_device = accelerator.device
+        
     if not (args.model_path is None or args.model_path == ""):
         config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
-        transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, config=config,  torch_dtype=torch.float16).to(offload_device)
+        transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, 
+                            config=config,  
+                            torch_dtype=weight_dtype
+                        ).to(offload_device)
     else:
         if args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
-            # transformer  = SD3Transformer2DModel.from_pretrained(
-            #         args.pretrained_model_name_or_path, subfolder="transformer"
-            #     ).to(offload_device, dtype=weight_dtype)
-            
             transformer = MaskedFluxTransformer2DModel.from_pretrained(
-                args.pretrained_model_name_or_path, subfolder="transformer"
-            ).to(offload_device, dtype=weight_dtype)
+                args.pretrained_model_name_or_path, 
+                subfolder="transformer",  
+                torch_dtype=weight_dtype
+            ).to(offload_device)
             flush()
         else:
             # load from repo
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, "transformer")
             # weight_file = "diffusion_pytorch_model"
             variant = None
-            # ext = ".safetensors"
-            # diffusion_pytorch_model.fp16.safetensors
-            # fp16_weight = os.path.join(transformer_folder, f"{weight_file}.fp16{ext}")
-            # fp32_weight = os.path.join(transformer_folder, f"{weight_file}{ext}")
-            # if os.path.exists(fp16_weight):
-            #     variant = "fp16"
-            # elif os.path.exists(fp32_weight):
-            #     variant = None
-            # else:
-            #     raise FileExistsError(f"{fp16_weight} and {fp32_weight} not found. \n Please download the model from https://huggingface.co/Kwai-Kolors/Kolors or https://hf-mirror.com/Kwai-Kolors/Kolors")
-                
             transformer = MaskedFluxTransformer2DModel.from_pretrained(
-                        transformer_folder, variant=variant
-                    ).to(offload_device, dtype=weight_dtype)
+                        transformer_folder, variant=variant,  
+                        torch_dtype=weight_dtype
+                    ).to(offload_device)
         
             flush()
 
-    # load transformer to cpu
-    # transformer.to("cpu")
+    transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
     
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
@@ -1167,10 +1160,10 @@ def main(args):
     # transformer.to(accelerator.device, dtype=weight_dtype)
 
     # Make sure the trainable params are in float32.
-    if args.mixed_precision == "fp16":
-        models = [transformer]
-        # only upcast trainable parameters (LoRA) into fp32
-        cast_training_params(models, dtype=torch.float32)
+    # if args.mixed_precision == "fp16":
+    #     models = [transformer]
+    #     # only upcast trainable parameters (LoRA) into fp32
+    #     cast_training_params(models, dtype=torch.float32)
 
     transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
     # Optimization parameters
@@ -1192,16 +1185,7 @@ def main(args):
         )
 
     if args.optimizer.lower() == "adamw":
-        if args.mixed_precision == "bf16":
-            try:
-                from adamw_bf16 import AdamWBF16
-            except ImportError:
-                raise ImportError(
-                    "To use bf Adam, please install the AdamWBF16 library: `pip install adamw-bf16`."
-                )
-            optimizer_class = AdamWBF16
-            transformer.to(dtype=torch.bfloat16)
-        elif use_8bit_adam:
+        if use_8bit_adam:
             try:
                 import bitsandbytes as bnb
             except ImportError:
