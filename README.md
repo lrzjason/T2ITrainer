@@ -4,12 +4,11 @@
 ---
 
 ## 📅 Recent Updates
-- **2025-05-03:** 🎨 Update train_flux_lora_ui_with_mask_timestep_range.py
+- **2025-06-24:**  Added nf4 support and change download cli to nf4 version flux fill
 ```
-train_flux_lora_ui_with_mask_timestep_range.py add a parameter reg_timestep to adjust the training objective
-for example, reg_timgstep=700.
-when training timestep < reg_timestep, the training objective is to learn the ground true image distrubution.
-when training timestep >= reg_timestep, the training objective is to learn the factual image toward to ground true image distrubution.
+Rehosted an nf4 version flux fill on https://huggingface.co/lrzjason/flux-fill-nf4
+download nf4 version flux fill and use it for training could significantly decrease lora training VRAM requirement.
+Thanks for diffusers and Terminus Research Group
 ```
 ---
 
