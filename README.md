@@ -60,7 +60,10 @@ Recommended Method
     # Kolors
     huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
 
-    # Flux Fill
+    # NF4 Flux Fill for low gpu
+    huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/
+
+    # skip if downloaded nf 4 Flux Fill
     huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
     
     # SD3.5 Models
@@ -149,7 +152,7 @@ For more details (example dataset structure):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
-- **2025-02-15:**  Released Flux Fill Training script which could train lora for flux fill.
+- **2025-06-24:**  Added nf4 support and change download cli to nf4 version flux fill
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
