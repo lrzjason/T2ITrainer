@@ -1,6 +1,21 @@
 # 🎨 Flux Kontext Training Guide
 **Requires diffusers>=0.32.0**
 
+### Kontext Model Installation
+Inpainting Model Setup
+```bash
+  huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
+- https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
+
+### Redux Model Installation (Optional)
+Inpainting Model Setup
+```bash
+  huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
+```
+
 ## 🔍 Object Removal Alpha Example
 - **Example Dataset**:  
   [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97-HuggingFace-orange)](https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext)
@@ -31,7 +46,7 @@ Folder structure example:
 | VRAM Optimization | nf4 repo                      | 
 | Precision         | bf16 (3090)                   |
 
-## 💻 VRAM Usage (bf16)
+## 💻 VRAM Usage
 <div align="center">
   <table>
     <tr>

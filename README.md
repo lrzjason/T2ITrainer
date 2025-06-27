@@ -133,6 +133,18 @@ Inpainting Model Setup
 | VRAM Optimization | Use nf4 based training        | 
 | Precision         | bf16     |
 
+## 💻 VRAM Usage nf4
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/nf4_example.png" width="400">
+      </td>
+    </tr>
+  </table>
+</div>
+
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
   <table>
@@ -148,6 +160,7 @@ Inpainting Model Setup
     </tr>
   </table>
 </div>
+
 
 ## 🔧 Testing & Integration
 - **Kolors Workflow**:
