@@ -12,20 +12,21 @@ default_config = {
                         "train_flux_lora_ui.py",
                         "train_flux_lora_ui_with_mask.py",
                         "train_flux_lora_ui_with_mask_timestep_range.py",
+                        "train_flux_lora_ui_kontext.py"
                         # "train_flux_lora_ui_with_mask_concat.py"
                        ],
     "output_dir":"F:/models/flux",
     "save_name":"flux-lora",
-    "pretrained_model_name_or_path":"F:/T2ITrainer/flux_models/fill", # or local folder F:\Kolors
-    "train_data_dir":"F:/ImageSet/fill", 
+    "pretrained_model_name_or_path":"F:/T2ITrainer/flux_models/kontext", # or local folder F:\Kolors
+    "train_data_dir":"F:/ImageSet/kontext", 
     # "vae_path":None, # or local file
     "resume_from_checkpoint":None,
     "model_path":None, 
     # "logging_dir":"logs",
     "report_to":"wandb", 
-    "rank":32,
+    "rank":16,
     "train_batch_size":1,
-    "repeats":10,
+    "repeats":4,
     "gradient_accumulation_steps":1,
     "mixed_precision":"bf16",
     "gradient_checkpointing":True,
@@ -46,15 +47,15 @@ default_config = {
     "caption_dropout":0.1,
     "config_path":"config.json",
     "resolution":"512",
-    "resolution_choices":["1024","512"],
+    "resolution_choices":["512","1024"],
     "use_debias":False,
     "snr_gamma":0,
     "cosine_restarts":1,
     "max_time_steps":0,
-    "blocks_to_swap":10,
+    "blocks_to_swap":0,
     "mask_dropout":0,
-    "reg_ratio":0.7,
-    "reg_timestep":700
+    "reg_ratio":0.0,
+    "reg_timestep":0
     # "use_fp8":True
     # "freeze_transformer_layers":'5,7,10,17,18,19'
 }

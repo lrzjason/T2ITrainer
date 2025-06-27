@@ -1,0 +1,1 @@
+huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/

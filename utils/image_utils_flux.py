@@ -31,53 +31,91 @@ from diffusers.utils import load_image
 # ]
 
 RESOLUTION_CONFIG = {
-    256: [
-        # extra resolution for testing
-        # (1536, 1536),
-        # (672, 672),
-        (256, 256),
-        (384, 256), # 1.5
-        (288, 224), # 1.5
-        (304, 256), # 1.5
-        (304, 208), # 1.5
-        (512,256),
-        (512,288),
-        (512,320),
-    ],
-    512: [
-        # extra resolution for testing
-        # (1536, 1536),
-        # (672, 672),
-        (512, 512),
-        (768, 512), # 1.5
-        (576, 448), # 1.5
-        (608, 512), # 1.5
-        (608, 416), # 1.5
-        (1024,512),
-        (1024,576),
-        (1024,640),
-    ],
+    # 256: [
+    #     # extra resolution for testing
+    #     # (1536, 1536),
+    #     # (672, 672),
+    #     # (256, 256),
+    #     # (384, 256), # 1.5
+    #     # (288, 224), # 1.5
+    #     # (304, 256), # 1.5
+    #     # (304, 208), # 1.5
+    #     # (512,256),
+    #     # (512,288),
+    #     # (512,320),
+    # ],
+    # 512: [
+    #     # extra resolution for testing
+    #     # (1536, 1536),
+    #     # (672, 672),
+    #     # (512, 512),
+    #     # (768, 512), # 1.5
+    #     # (576, 448), # 1.5
+    #     # (608, 512), # 1.5
+    #     # (608, 416), # 1.5
+    #     # (1024,512),
+    #     # (1024,576),
+    #     # (1024,640),
+        
+    # ],
     1024: [
-        # extra resolution for testing
-        # (1536, 1536),
-        # (1344, 1344),
         (1024, 1024),
-        (1344, 1024),
-        (1152, 896), # 1.2857
-        (1216, 832), # 1.46
-        (1344, 768), # 1.75
-        (1536, 640), # 2.4
-        (1536, 1024), # 2.4
-        (2048, 1024),
+        (672, 1568),
+        (688, 1504),
+        (720, 1456),
+        (752, 1392),
+        (800, 1328),
+        (832, 1248),
+        (880, 1184),
+        (944, 1104),
     ],
-    2048: [
-        (2048, 2048),
-        (2304, 1792), # 1.2857
-        (2432, 1664), # 1.46
-        (2688, 1536), # 1.75
-        (3072, 1280), # 2.4
+    # based on 1024 to create 512
+    512: [
+        (512, 512),
+        (336, 784),
+        (344, 752),
+        (360, 728),
+        (376, 696),
+        (400, 664),
+        (416, 624),
+        (440, 592),
+        (472, 552),
+    ],
+    # based on 512 to create 256
+    256: [
+        (256, 256),
+        (168, 392),
+        (172, 376),
+        (180, 364),
+        (188, 348),
+        (200, 332),
+        (208, 312),
+        (220, 296),
+        (236, 276),
     ]
 }
+
+
+# PREFERRED_KONTEXT_RESOLUTIONS = [
+#     (672, 1568),
+#     (688, 1504),
+#     (720, 1456),
+#     (752, 1392),
+#     (800, 1328),
+#     (832, 1248),
+#     (880, 1184),
+#     (944, 1104),
+#     (1024, 1024),
+#     (1104, 944),
+#     (1184, 880),
+#     (1248, 832),
+#     (1328, 800),
+#     (1392, 752),
+#     (1456, 720),
+#     (1504, 688),
+#     (1568, 672),
+# ]
+
 
 def get_buckets(resolution=1024):
     resolution_set = RESOLUTION_CONFIG[resolution]
@@ -249,6 +287,145 @@ class CachedImageDataset(Dataset):
             
         return result
     
+class CachedMutiImageDatasetKontext(Dataset):
+    def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False, dataset_configs=None): 
+        self.has_redux = has_redux
+        self.datarows = datarows
+        self.leftover_indices = []  #initialize an empty list to store indices of leftover items
+        #for conditional_dropout
+        self.conditional_dropout_percent = conditional_dropout_percent
+        self.dataset_configs = dataset_configs
+        self.empty_embedding = get_empty_embedding()
+        # self.caption_key = "captions"
+        # self.latent_key = "latent"
+        # self.latent_path_key = "latent_path"
+        # self.extra_keys = [
+        #     {
+        #         "latent_key":"masked_latent",
+        #         "latent_path_key":"masked_latent_path",
+        #     }
+        # ]
+        # self.npz_path_key = "npz_path"
+        # self.npz_keys = [
+        #     "prompt_embed",
+        #     "pooled_prompt_embed",
+        #     "txt_attention_mask"
+        # ]
+        # self.npz_extra_keys = [
+        #     "redux_prompt_embed",
+        #     "redux_pooled_prompt_embed"
+        # ]
+    #returns dataset length
+    def __len__(self):
+        return len(self.datarows)
+    #returns dataset item, using index
+    def __getitem__(self, index):
+        if self.leftover_indices:
+            # Fetch from leftovers first
+            actual_index = self.leftover_indices.pop(0)
+        else:
+            actual_index = index
+        metadata = self.datarows[actual_index] 
+        # {
+        #    "captions":{
+        #       "factual":{
+        #          "text_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.txt",
+        #          "text_path_md5":"8522dcd4f1a2b6c4aff94efdc41579c3",
+        #          "npz_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npflux"
+        #       }
+        #    },
+        #    "mapping_key":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal_cat_2_",
+        #    "factual":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.webp",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npfluxlatent",
+        #       "latent_path_md5":"cf8043c622b1d5fe1b0ba155bd0cd4de"
+        #    },
+        #    "groundtrue":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.webp",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.npfluxlatent",
+        #       "latent_path_md5":"0942d20edd4a4fb2f7d05c91958aaca0"
+        #    },
+        #    "factual_mask":{
+        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.png",
+        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.npfluxlatent",
+        #       "masked_latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M_masked.npfluxlatent"
+        #    },
+        #    "bucket":"448x576"
+        # }
+        
+        
+        # dataset_configs = {
+        #     "caption_key":caption_key,
+        #     "latent_key":"latent",
+        #     "latent_path_key":latent_path_key,
+        #     "extra_keys":{
+        #         image_1_mask=factual_mask:{
+        #             "latent_key":f"{masked_suffix}_{latent_key}",
+        #             "latent_path_key":f"{masked_suffix}_{latent_path_key}",
+        #         }
+        #     },
+        #     "npz_path_key": embbeding_path_key,
+        #     "npz_keys": {
+        #         prompt_embed_key:prompt_embed_key,
+        #         pool_prompt_embed_key:pool_prompt_embed_key,
+        #         txt_attention_mask_key:txt_attention_mask_key
+        #     },
+        #     "npz_extra_keys": {
+        #         redux_key:[
+        #             prompt_embed_key,
+        #             pool_prompt_embed_key
+        #         ]
+        #     }
+        # }
+        result = {
+            
+        }
+        metadata_caption_key = self.dataset_configs["caption_key"]
+        npz_path_key = self.dataset_configs["npz_path_key"]
+        npz_keys = self.dataset_configs["npz_keys"]
+        npz_extra_keys = self.dataset_configs["npz_extra_keys"]
+        latent_path_key = self.dataset_configs["latent_path_key"]
+        latent_key = self.dataset_configs["latent_key"]
+        # extra_keys = self.dataset_configs["extra_keys"]
+        keys = metadata.keys()
+        for key in keys:
+            if key == "mapping_key":
+                result["mapping_key"] = metadata[key]
+            if metadata_caption_key == key:
+                captions = metadata[metadata_caption_key]
+                for caption_key in captions.keys():
+                    result[caption_key] = {
+                        key:{}
+                    }
+                    caption = captions[caption_key]
+                    cached_npz = torch.load(caption[npz_path_key], weights_only=True)
+                    for npz_key in npz_keys:
+                        result[caption_key][key][npz_key] = cached_npz[npz_key]
+                    if "npz_extra_keys" in self.dataset_configs:
+                        result[caption_key][key]["redux"] = {}
+                        for npz_extra_key_group in npz_extra_keys.keys():
+                            result[caption_key][key]["redux"][npz_extra_key_group] = {}
+                            for npz_extra_key in npz_extra_keys[npz_extra_key_group]:
+                                result[caption_key][key]["redux"][npz_extra_key_group][npz_extra_key] = cached_npz["redux"][npz_extra_key_group][npz_extra_key]
+                        
+            if latent_path_key in metadata[key]:
+                latent = torch.load(metadata[key][latent_path_key], weights_only=True)
+                # for captions
+                if key in result:
+                    result[key][latent_key] = latent[latent_key]
+                else:
+                    result[key] = {
+                        latent_key:latent[latent_key]
+                    }
+                # if "extra_keys" in self.dataset_configs:
+                #     for extra_key_group in extra_keys.keys():
+                #         extra_key = extra_keys[extra_key_group]
+                #         extra_latent_key = extra_key["latent_key"]
+                #         extra_latent_path_key = extra_key["latent_path_key"]
+                #         if extra_latent_path_key in metadata[key]:
+                #             extra_latent = torch.load(metadata[key][extra_latent_path_key], weights_only=True)
+                #             result[key][extra_latent_key] = extra_latent[latent_key]
+        return result
     
 class CachedMutiImageDataset(Dataset):
     def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False, dataset_configs=None): 
@@ -349,7 +526,9 @@ class CachedMutiImageDataset(Dataset):
         npz_extra_keys = self.dataset_configs["npz_extra_keys"]
         latent_path_key = self.dataset_configs["latent_path_key"]
         latent_key = self.dataset_configs["latent_key"]
-        extra_keys = self.dataset_configs["extra_keys"]
+        extra_keys = None 
+        if extra_keys in self.dataset_configs:
+            extra_keys = self.dataset_configs["extra_keys"]
         keys = metadata.keys()
         for key in keys:
             if key == "mapping_key":

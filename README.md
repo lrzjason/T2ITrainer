@@ -1,11 +1,13 @@
 # 🚀 T2ITrainer 
 **⚠️ Development Notice:** Currently in active development - stability not guaranteed. Frequent updates - check changelogs regularly.
-
+T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 ---
 
 ## 📅 Recent Updates
-- **2025-06-24:**  Added nf4 support and change download cli to nf4 version flux fill
+- **2025-06-27:**  Support kontext nf4 training
 ```
+Rehosted an nf4 version flux kontext on https://huggingface.co/lrzjason/flux-kontext-nf4
+
 Rehosted an nf4 version flux fill on https://huggingface.co/lrzjason/flux-fill-nf4
 download nf4 version flux fill and use it for training could significantly decrease lora training VRAM requirement.
 Thanks for diffusers and Terminus Research Group
@@ -22,7 +24,7 @@ Thanks for diffusers and Terminus Research Group
 |------------------|----------------------------|--------------|
 | Kolors           | 11GB GPU                   | ✅ Supported  |
 | SD3.5 (FP16 BS1) | 24GB GPU                   | ✅ Supported  |
-| Flux, Flux Fill  | 24GB GPU                   | ✅ Supported  |
+| Flux Fill,Kontext| 24GB GPU                   | ✅ Supported  |
 
 ---
 
@@ -67,11 +69,18 @@ Recommended Method
     
     # SD3.5 Models
     huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+
+    # NF4 Flux kontext
+    huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+
+    # Flux Redux for enable redux training
+    huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
 ```
 
 ## 🚀 Launch Options
 | Script          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
+| Flux kontext    | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
 | SD3.5 Large     | `python ui_sd35.py`      | 24GB VRAM Recommended            |
@@ -113,19 +122,33 @@ Dependency Alert
 ### Fill Model Installation
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
+  huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
 ```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+- https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
 
-## ⚙️ Flux Fill Training Recommended Parameters
+### Kontext Model Installation
+Inpainting Model Setup
+```bash
+  huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
+- https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
+
+### Redux Model Installation
+Inpainting Model Setup
+```bash
+  huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
+```
+## ⚙️ Flux Training Recommended Parameters
 | Category          | Settings                      |
 |-------------------|-------------------------------|
-| Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
+| Base Configuration| Rank 16, AdamW, Lr 1e-4       |
 | 24GB GPU          | 512 resolution, Batch Size 1  |
-| VRAM Optimization | blocks_to_swap: 10 (15-20 for lower VRAM GPUs)  | 
-| Precision         | bf16 (3090) / fp8 (40xx)      |
-
-For more details (example dataset structure):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+| VRAM Optimization | Use nf4 based training        | 
+| Precision         | bf16     |
 
 ## 💻 VRAM Usage (bf16, blocks_to_swap=10)
 <div align="center">
@@ -151,7 +174,7 @@ For more details (example dataset structure):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
-- **2025-06-24:**  Added nf4 support and change download cli to nf4 version flux fill
+- **2025-06-27:**  Support kontxt nf4 training
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
