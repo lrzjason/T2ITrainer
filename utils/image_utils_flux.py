@@ -523,11 +523,13 @@ class CachedMutiImageDataset(Dataset):
         metadata_caption_key = self.dataset_configs["caption_key"]
         npz_path_key = self.dataset_configs["npz_path_key"]
         npz_keys = self.dataset_configs["npz_keys"]
-        npz_extra_keys = self.dataset_configs["npz_extra_keys"]
+        npz_extra_keys = None
+        if "npz_extra_keys" in self.dataset_configs:
+            npz_extra_keys = self.dataset_configs["npz_extra_keys"]
         latent_path_key = self.dataset_configs["latent_path_key"]
         latent_key = self.dataset_configs["latent_key"]
         extra_keys = None 
-        if extra_keys in self.dataset_configs:
+        if "extra_keys" in self.dataset_configs:
             extra_keys = self.dataset_configs["extra_keys"]
         keys = metadata.keys()
         for key in keys:

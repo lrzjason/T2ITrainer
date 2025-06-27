@@ -671,16 +671,16 @@ def main(args):
             pooled_prompt_embed_key:pooled_prompt_embed_key,
             txt_attention_mask_key:txt_attention_mask_key
         },
-        "npz_extra_keys": {
-            image_2:{
-                prompt_embed_key:prompt_embed_key,
-                pooled_prompt_embed_key:pooled_prompt_embed_key,
-            },
-            image_1:{
-                prompt_embed_key:prompt_embed_key,
-                pooled_prompt_embed_key:pooled_prompt_embed_key,
-            },
-        }
+        # "npz_extra_keys": {
+        #     image_2:{
+        #         prompt_embed_key:prompt_embed_key,
+        #         pooled_prompt_embed_key:pooled_prompt_embed_key,
+        #     },
+        #     image_1:{
+        #         prompt_embed_key:prompt_embed_key,
+        #         pooled_prompt_embed_key:pooled_prompt_embed_key,
+        #     },
+        # }
     }
     
     # to avoid cache mutiple times on same embedding
@@ -1714,8 +1714,9 @@ def main(args):
             
             if condition_selection != "dropout":
                 final_caption = {}
-                for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
-                    final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
+                if "npz_extra_keys" in dataset_configs:
+                    for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
+                        final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
         
                 
         prompt_embeds = final_caption[prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
