@@ -9,8 +9,8 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 Rehosted an nf4 version flux kontext on https://huggingface.co/lrzjason/flux-kontext-nf4
 
 Rehosted an nf4 version flux fill on https://huggingface.co/lrzjason/flux-fill-nf4
+
 download nf4 version flux fill and use it for training could significantly decrease lora training VRAM requirement.
-Thanks for diffusers and Terminus Research Group
 ```
 ---
 
@@ -204,6 +204,7 @@ Inpainting Model Setup
 
 
 ## Acknowledgements:
+- Thanks for diffusers and Terminus Research Group
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
 - Special thanks to kohya ss for references from the training codebase.
 - Thanks to Kblueleaf for coding reference on hunyuandit gradient checkpoint implementation.
