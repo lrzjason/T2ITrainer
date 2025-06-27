@@ -1,7 +1,7 @@
 # 🚀 T2ITrainer 
 **⚠️ Development Notice:** Currently in active development - stability not guaranteed. Frequent updates - check changelogs regularly.
-T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 ---
+T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
 - **2025-06-27:**  Support kontext nf4 training
@@ -85,23 +85,6 @@ Recommended Method
 | Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
 | SD3.5 Large     | `python ui_sd35.py`      | 24GB VRAM Recommended            |
 
-## 🔧 Testing & Integration
-- **Kolors Workflow**:
-    ```bash
-        # ComfyUI Plugins
-        git clone https://github.com/kijai/ComfyUI-KwaiKolorsWrapper
-        git clone https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ
-    ```
-
-- **Configuration Guide**: [📖 CivitAI Article](https://civitai.com/articles/7743)
-
-
-## 🆘 Troubleshooting
-- **Kolors Black Image Issue**: Ensure you're using [FP16 Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
-- **VRAM Limitations**: Adjust `blocks_to_swap` parameter (higher values reduce memory usage)
-- **Windows DLL Errors**: Verify VC++ Redistributable installation
----
-
 ## 🔧 Parameter Configuration Guide
 [![CivitAI Article](https://img.shields.io/badge/📖-Detailed_Parameter_Guide-purple)](https://civitai.com/articles/7743)
 
@@ -165,6 +148,23 @@ Inpainting Model Setup
     </tr>
   </table>
 </div>
+
+## 🔧 Testing & Integration
+- **Kolors Workflow**:
+    ```bash
+        # ComfyUI Plugins
+        git clone https://github.com/kijai/ComfyUI-KwaiKolorsWrapper
+        git clone https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ
+    ```
+
+- **Configuration Guide**: [📖 CivitAI Article](https://civitai.com/articles/7743)
+
+
+## 🆘 Troubleshooting
+- **Kolors Black Image Issue**: Ensure you're using [FP16 Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
+- **VRAM Limitations**: Adjust `blocks_to_swap` parameter (higher values reduce memory usage)
+- **Windows DLL Errors**: Verify VC++ Redistributable installation
+---
 
 
 ## Star History
