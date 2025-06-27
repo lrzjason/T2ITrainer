@@ -1,4 +1,5 @@
 import math
+import random
 import torch
 
 # https://github.com/huggingface/diffusers/blob/main/src/diffusers/training_utils.py
@@ -21,7 +22,8 @@ def compute_loss_weighting_for_sd3(weighting_scheme: str, sigmas=None):
 
 # https://github.com/huggingface/diffusers/blob/main/src/diffusers/training_utils.py#L236
 def compute_density_for_timestep_sampling(
-    weighting_scheme: str, batch_size: int, logit_mean: float = None, logit_std: float = None, mode_scale: float = None
+    weighting_scheme: str, batch_size: int, logit_mean: float = None, logit_std: float = None, mode_scale: float = None, 
+    pos_logit_mean: float = None, pos_selection_lambda: float = 0.5
 ):
     """
     Compute the density for sampling the timesteps when doing SD3 training.
@@ -41,6 +43,15 @@ def compute_density_for_timestep_sampling(
         logsnr = torch.normal(mean=logit_mean, std=logit_std, size=(batch_size,), device="cpu")
         # from https://arxiv.org/pdf/2411.14793
         u = 1 - torch.nn.functional.sigmoid(-logsnr/2)
+    elif weighting_scheme == "double_logit_normal":
+        u1 = torch.normal(mean=logit_mean, std=logit_std, size=(batch_size,), device="cpu")
+        u2 = torch.normal(mean=pos_logit_mean, std=logit_std, size=(batch_size,), device="cpu")
+        
+        if random.random() < pos_selection_lambda:
+            u = u1
+        else:
+            u = u2
+        u = torch.nn.functional.sigmoid(u)
     else:
         u = torch.rand(size=(batch_size,), device="cpu")
     return u
