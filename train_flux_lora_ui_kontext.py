@@ -1702,7 +1702,7 @@ def main(args):
             txt_attention_mask_key : selected_caption[txt_attention_mask_key]
         }
         # handle redux
-        if "use_extra" in captions_selection:
+        if "use_extra" in captions_selection and enable_redux_training:
             assert "condition_extra" in captions_selection
             conditions = captions_selection["condition_extra"]
             
