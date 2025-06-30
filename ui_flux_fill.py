@@ -7,18 +7,17 @@ import os
 
 
 default_config = {
-    "script": "train_flux_lora_ui_with_mask.py",
+    "script": "train_flux_lora_ui_kontext.py",
     "script_choices": [
                         "train_flux_lora_ui.py",
                         "train_flux_lora_ui_with_mask.py",
                         "train_flux_lora_ui_with_mask_timestep_range.py",
-                        "train_flux_lora_ui_kontext.py"
-                        # "train_flux_lora_ui_with_mask_concat.py"
+                        "train_flux_lora_ui_kontext.py",
                        ],
     "output_dir":"F:/models/flux",
     "save_name":"flux-lora",
-    "pretrained_model_name_or_path":"F:/T2ITrainer/flux_models/kontext", # or local folder F:\Kolors
-    "train_data_dir":"F:/ImageSet/kontext", 
+    "pretrained_model_name_or_path":"F:/T2ITrainer/flux_models/fill", # or local folder F:\Kolors
+    "train_data_dir":"F:/ImageSet/fill", 
     # "vae_path":None, # or local file
     "resume_from_checkpoint":None,
     "model_path":None, 
@@ -26,7 +25,7 @@ default_config = {
     "report_to":"wandb", 
     "rank":16,
     "train_batch_size":1,
-    "repeats":4,
+    "repeats":1,
     "gradient_accumulation_steps":1,
     "mixed_precision":"bf16",
     "gradient_checkpointing":True,
@@ -45,17 +44,16 @@ default_config = {
     # "use_dora":False,
     "recreate_cache":False,
     "caption_dropout":0.1,
-    "config_path":"config.json",
     "resolution":"512",
-    "resolution_choices":["512","1024"],
+    "resolution_choices":["512","256","1024"],
     "use_debias":False,
     "snr_gamma":0,
     "cosine_restarts":1,
     "max_time_steps":0,
-    "blocks_to_swap":0,
+    "blocks_to_swap":10,
     "mask_dropout":0,
-    "reg_ratio":0.0,
-    "reg_timestep":0
+    "reg_ratio":0.7,
+    "reg_timestep":700
     # "use_fp8":True
     # "freeze_transformer_layers":'5,7,10,17,18,19'
 }
@@ -63,7 +61,6 @@ default_config = {
 
 # Function to save configuration to a specified directory
 def save_config( 
-        config_path,
         script,
         seed,
         # logging_dir,
@@ -138,7 +135,6 @@ def save_config(
         # "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         # "vae_path":vae_path,
-        "config_path":config_path,
         "resolution":resolution,
         # "use_debias":use_debias,
         # 'snr_gamma':snr_gamma,
@@ -153,8 +149,8 @@ def save_config(
         # "use_fp8":use_fp8
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
-    with open(config_path, 'w') as f:
-        json.dump(config, f, indent=4)
+    # with open(config_path, 'w') as f:
+    #     json.dump(config, f, indent=4)
     print(f"Configuration saved to {config_path}")
     print(f"Update default config")
     with open("config.json", 'w') as f:
@@ -188,7 +184,7 @@ def load_config(config_path):
             
     # print("default_config")
     # print(default_config)
-    return config_path,default_config['script'],default_config['seed'], \
+    return default_config['script'],default_config['seed'], \
             default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
@@ -209,7 +205,6 @@ def load_config(config_path):
 # load config.json by default
 load_config("config.json")
 def run(
-        config_path,
         script,
         seed,
         # logging_dir,
@@ -314,11 +309,11 @@ def run(
             else:
                 args.append(f"--{key}")
                 args.append(str(value))
-                
+    
+    
     # Call the script with the arguments
     subprocess.call(args)
     save_config(
-        config_path,
         script,
         seed,
         # logging_dir,
@@ -454,7 +449,6 @@ with gr.Blocks() as demo:
         with gr.Row():
             resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
     inputs = [
-        config_path,
         script,
         seed,
         # logging_dir,
@@ -499,7 +493,6 @@ with gr.Blocks() as demo:
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
-    # inputs.append(config_path)
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
     save_config_btn.click(fn=save_config, inputs=inputs)
     load_config_btn.click(fn=load_config, inputs=[config_path], outputs=inputs)
