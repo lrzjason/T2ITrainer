@@ -7,7 +7,7 @@ import os
 
 
 default_config = {
-    "script": "train_flux_lora_ui_kontext.py",
+    "script": "train_flux_lora_ui_with_mask.py",
     "script_choices": [
                         "train_flux_lora_ui.py",
                         "train_flux_lora_ui_with_mask.py",
@@ -23,9 +23,9 @@ default_config = {
     "model_path":None, 
     # "logging_dir":"logs",
     "report_to":"wandb", 
-    "rank":16,
+    "rank":32,
     "train_batch_size":1,
-    "repeats":1,
+    "repeats":10,
     "gradient_accumulation_steps":1,
     "mixed_precision":"bf16",
     "gradient_checkpointing":True,
@@ -44,8 +44,9 @@ default_config = {
     # "use_dora":False,
     "recreate_cache":False,
     "caption_dropout":0.1,
+    "config_path":"config.json",
     "resolution":"512",
-    "resolution_choices":["512","256","1024"],
+    "resolution_choices":["1024","512","256"],
     "use_debias":False,
     "snr_gamma":0,
     "cosine_restarts":1,
@@ -61,6 +62,7 @@ default_config = {
 
 # Function to save configuration to a specified directory
 def save_config( 
+        config_path,
         script,
         seed,
         # logging_dir,
@@ -135,6 +137,7 @@ def save_config(
         # "use_dora":use_dora,
         "recreate_cache":recreate_cache,
         # "vae_path":vae_path,
+        "config_path":config_path,
         "resolution":resolution,
         # "use_debias":use_debias,
         # 'snr_gamma':snr_gamma,
@@ -149,8 +152,8 @@ def save_config(
         # "use_fp8":use_fp8
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
-    # with open(config_path, 'w') as f:
-    #     json.dump(config, f, indent=4)
+    with open(config_path, 'w') as f:
+        json.dump(config, f, indent=4)
     print(f"Configuration saved to {config_path}")
     print(f"Update default config")
     with open("config.json", 'w') as f:
@@ -184,7 +187,7 @@ def load_config(config_path):
             
     # print("default_config")
     # print(default_config)
-    return default_config['script'],default_config['seed'], \
+    return config_path,default_config['script'],default_config['seed'], \
             default_config['mixed_precision'],default_config['report_to'],default_config['lr_warmup_steps'], \
             default_config['output_dir'],default_config['save_name'],default_config['train_data_dir'], \
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
@@ -205,6 +208,7 @@ def load_config(config_path):
 # load config.json by default
 load_config("config.json")
 def run(
+        config_path,
         script,
         seed,
         # logging_dir,
@@ -310,10 +314,15 @@ def run(
                 args.append(f"--{key}")
                 args.append(str(value))
     
+    # Add the config_path argument if the script is train_flux_lora_ui_with_mask_cat_custom3.py
+    # if script == "train_flux_lora_ui_with_mask_cat_custom3.py":
+    #     args.append("--config_path")
+    #     args.append(config_path)
     
     # Call the script with the arguments
     subprocess.call(args)
     save_config(
+        config_path,
         script,
         seed,
         # logging_dir,
@@ -449,6 +458,7 @@ with gr.Blocks() as demo:
         with gr.Row():
             resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
     inputs = [
+        config_path,
         script,
         seed,
         # logging_dir,
@@ -493,6 +503,7 @@ with gr.Blocks() as demo:
     ]
     output = gr.Textbox(label="Output Box")
     run_btn = gr.Button("Run")
+    # inputs.append(config_path)
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
     save_config_btn.click(fn=save_config, inputs=inputs)
     load_config_btn.click(fn=load_config, inputs=[config_path], outputs=inputs)
