@@ -82,8 +82,12 @@ Recommended Method
   <table>
     <tr>
       <td align="center">
-        <p>Folder Structure:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="Folder Structure" width="600" />
+        <p>flux_models:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="flux_models" width="400" />
+      </td>
+      <td align="center">
+        <p>kontext:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="kontext" width="400" />
       </td>
     </tr>
   </table>
