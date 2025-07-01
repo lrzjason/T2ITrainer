@@ -77,6 +77,18 @@ Recommended Method
     huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
 ```
 
+### Folder Structure
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <p>Folder Structure:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="Folder Structure" width="600" />
+      </td>
+    </tr>
+  </table>
+</div>
+
 ## 🚀 Launch Options
 | Script          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
