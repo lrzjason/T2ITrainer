@@ -50,6 +50,11 @@ Folder structure example:
   </table>
 </div>
 
+## 🚀 Launch Options
+| Script          | Command                  | Special Notes                     |
+|-----------------|--------------------------|-----------------------------------|
+| Flux fill    | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
+
 ## 📬 Contact
 - 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
 - 📧 **Email**: [lrzjason@gmail.com](mailto:lrzjason@gmail.com)
