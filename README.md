@@ -106,25 +106,6 @@ Recommended Method
 
 ## 🌌 Flux Model Management
 
-### Core Model Download
-Base Model Installation
-```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
-```
-
-## 🎨 Flux Fill Special Requirements
-Dependency Alert
-- **Mandatory:** `diffusers>=0.32.0`
-
-### Fill Model Installation
-Inpainting Model Setup
-```bash
-  huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
-```
-For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
-- https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
-
 ### Kontext Model Installation
 Inpainting Model Setup
 ```bash
@@ -133,6 +114,21 @@ Inpainting Model Setup
 For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
+
+### Fill Model Installation (Skip if train kontext)
+Inpainting Model Setup
+```bash
+  huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+- https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
+
+### Dev Model Download (Skip if train fill and kontext)
+Dev Model Installation
+```bash
+  huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
+```
 
 ## ⚙️ Flux Training Recommended Parameters
 | Category          | Settings                      |
@@ -171,7 +167,7 @@ For more details (example dataset):
 </div>
 
 
-## 🔧 Testing & Integration
+## 🔧 Kolors Testing & Integration
 - **Kolors Workflow**:
     ```bash
         # ComfyUI Plugins
