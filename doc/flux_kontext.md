@@ -10,11 +10,21 @@ For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
-### Redux Model Installation (Optional)
-Inpainting Model Setup
-```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
-```
+### Folder Structure
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <p>flux_models:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="flux_models" width="400" />
+      </td>
+      <td align="center">
+        <p>kontext:</p>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="kontext" width="400" />
+      </td>
+    </tr>
+  </table>
+</div>
 
 ## 🔍 Object Removal Alpha Example
 - **Example Dataset**:  
