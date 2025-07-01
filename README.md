@@ -87,7 +87,7 @@ Recommended Method
       </td>
       <td align="center">
         <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="kontext" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/kontext.png" alt="kontext" width="400" />
       </td>
     </tr>
   </table>
