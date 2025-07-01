@@ -73,8 +73,6 @@ Recommended Method
     # NF4 Flux kontext
     huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 
-    # Flux Redux for enable redux training
-    huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
 ```
 
 ### Folder Structure
@@ -136,11 +134,6 @@ For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
-### Redux Model Installation
-Inpainting Model Setup
-```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-Redux-dev"
-```
 ## ⚙️ Flux Training Recommended Parameters
 | Category          | Settings                      |
 |-------------------|-------------------------------|
