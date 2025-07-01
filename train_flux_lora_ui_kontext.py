@@ -1604,7 +1604,8 @@ def main(args):
                 from_timestep =  timesteps_config["from"]
                 to_timestep =  timesteps_config["to"]
                 mask = (from_timestep >= timesteps) & (timesteps >= to_timestep)
-                mask_for_latents = mask.view((-1,) + (1,) * (batch_size - 1))
+                # mask_for_latents = mask.view((-1,) + (1,) * (batch_size - 1))
+                mask_for_latents = mask.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
                 
                 images_config = transition_config["images"]
                 from_image_key =  images_config["from"]
