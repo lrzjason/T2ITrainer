@@ -369,93 +369,95 @@ def run(
     return " ".join(args)
     
 
-with gr.Blocks() as demo:
+with gr.Blocks(title="Flux Kontext LoRA 训练界面", theme=gr.themes.Soft()) as demo:
     gr.Markdown(
     """
-    ## Lora Training
+    # 🎨 Flux Kontext LoRA 训练界面
+    专为Flux Kontext模型LoRA训练设计的图形界面
     """)
-    script = gr.Dropdown(label="script", value=default_config["script"], choices=default_config["script_choices"])
+    script = gr.Dropdown(label="🔧 训练脚本", value=default_config["script"], choices=default_config["script_choices"], info="选择要使用的训练脚本")
     with gr.Row(equal_height=True):
             # Text input for user to specify another config save and load dir
-        config_path = gr.Textbox(scale=3, label="Config Path (.json file)", value=default_config["config_path"], placeholder="Enter path to save/load config")
-        save_config_btn = gr.Button("Save", scale=1)
-        load_config_btn = gr.Button("load", scale=1)
+        config_path = gr.Textbox(scale=3, label="📁 配置文件路径 (.json文件)", value=default_config["config_path"], placeholder="输入保存/加载配置的路径")
+        save_config_btn = gr.Button("💾 保存配置", scale=1, variant="secondary")
+        load_config_btn = gr.Button("📂 加载配置", scale=1, variant="secondary")
 
-    with gr.Accordion("Directory section"):
+    with gr.Accordion("📂 目录配置", open=True):
         # dir section
         with gr.Row():
-            output_dir = gr.Textbox(label="output_dir", value=default_config["output_dir"],
-                                   placeholder="checkpoint save to")
-            save_name = gr.Textbox(label="save_name", value=default_config["save_name"],
-                                   placeholder="checkpoint save name")
+            output_dir = gr.Textbox(label="📤 输出目录", value=default_config["output_dir"],
+                                   placeholder="模型保存位置")
+            save_name = gr.Textbox(label="💾 保存名称", value=default_config["save_name"],
+                                   placeholder="模型保存名称")
         with gr.Row():
-            pretrained_model_name_or_path = gr.Textbox(label="pretrained_model_name_or_path", 
+            pretrained_model_name_or_path = gr.Textbox(label="🤖 预训练模型路径", 
                 value=default_config["pretrained_model_name_or_path"], 
-                placeholder="repo name or dir contains diffusers model structure"
+                placeholder="模型仓库名称或包含diffusers模型结构的目录"
             )
-            resume_from_checkpoint = gr.Textbox(label="resume_from_checkpoint", value=default_config["resume_from_checkpoint"], placeholder="resume the lora weight from seleted dir")
+            resume_from_checkpoint = gr.Textbox(label="🔄 从检查点恢复", value=default_config["resume_from_checkpoint"], placeholder="从选定目录恢复LoRA权重")
         with gr.Row():
-            train_data_dir = gr.Textbox(label="train_data_dir", value=default_config["train_data_dir"], placeholder="dir contains dataset")
-            model_path = gr.Textbox(label="model_path", value=default_config["model_path"], placeholder="single weight files if not trained from official weight")
+            train_data_dir = gr.Textbox(label="📊 训练数据目录", value=default_config["train_data_dir"], placeholder="包含数据集的目录")
+            model_path = gr.Textbox(label="📄 模型文件路径", value=default_config["model_path"], placeholder="单个权重文件路径（如果不是从官方权重训练）")
             # logging_dir = gr.Textbox(label="logging_dir", value=default_config["logging_dir"], placeholder="logs folder")
         with gr.Row():
-            report_to = gr.Dropdown(label="report_to", value=default_config["report_to"], choices=["wandb"])
+            report_to = gr.Dropdown(label="📈 报告平台", value=default_config["report_to"], choices=["wandb"], info="训练指标报告平台")
             
 
-    with gr.Accordion("Lora Config"):
+    with gr.Accordion("⚙️ LoRA 配置", open=True):
         # train related section
         with gr.Row():
-            rank = gr.Number(label="rank", value=default_config["rank"], info="Recommanded to use rank 4 for training set small than 100." )
-            train_batch_size = gr.Number(label="train_batch_size", value=default_config["train_batch_size"], info="Batch size 1 is using 18GB. Please use small batch size to avoid oom." )
+            rank = gr.Number(label="🔢 LoRA Rank", value=default_config["rank"], info="建议：训练集少于100时使用rank 4，一般用16-32" )
+            train_batch_size = gr.Number(label="📦 训练批次大小", value=default_config["train_batch_size"], info="批次大小1使用18GB显存，请使用小批次避免显存不足" )
         with gr.Row():
-            repeats = gr.Number(label="repeats", value=default_config["repeats"])
-            gradient_accumulation_steps = gr.Number(label="gradient_accumulation_steps", value=default_config["gradient_accumulation_steps"])
+            repeats = gr.Number(label="🔄 重复次数", value=default_config["repeats"], info="每个样本重复训练次数")
+            gradient_accumulation_steps = gr.Number(label="📈 梯度累积步数", value=default_config["gradient_accumulation_steps"], info="累积梯度减少显存使用")
             # mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["fp16", "bf16"])
-            mixed_precision = gr.Radio(label="mixed_precision", value=default_config["mixed_precision"], choices=["bf16", "fp8"])
-            gradient_checkpointing = gr.Checkbox(label="gradient_checkpointing", value=default_config["gradient_checkpointing"])
+            mixed_precision = gr.Radio(label="💾 混合精度", value=default_config["mixed_precision"], choices=["bf16", "fp8"], info="推荐bf16")
+            gradient_checkpointing = gr.Checkbox(label="🔍 梯度检查点", value=default_config["gradient_checkpointing"], info="节省显存但稍慢")
             # use_dora = gr.Checkbox(label="use_dora", value=default_config["use_dora"])
         with gr.Row():
-            optimizer = gr.Dropdown(label="optimizer", value=default_config["optimizer"], choices=["adamw","prodigy"])
-            lr_scheduler = gr.Dropdown(label="lr_scheduler", value=default_config["lr_scheduler"], 
-                        choices=["linear", "cosine", "cosine_with_restarts", "polynomial","constant", "constant_with_warmup"])
-            cosine_restarts = gr.Number(label="cosine_restarts", value=default_config["cosine_restarts"], info="Only useful for lr_scheduler: cosine_with_restarts", minimum=1)
+            optimizer = gr.Dropdown(label="🎯 优化器", value=default_config["optimizer"], choices=["adamw","prodigy"], info="推荐AdamW")
+            lr_scheduler = gr.Dropdown(label="📊 学习率调度器", value=default_config["lr_scheduler"], 
+                        choices=["linear", "cosine", "cosine_with_restarts", "polynomial","constant", "constant_with_warmup"], info="推荐cosine")
+            cosine_restarts = gr.Number(label="🔄 余弦重启次数", value=default_config["cosine_restarts"], info="仅对cosine_with_restarts有效", minimum=1)
         with gr.Row():
-            learning_rate = gr.Number(label="learning_rate", value=default_config["learning_rate"], info="Recommended: 1e-4 or 1 for prodigy")
-            lr_warmup_steps = gr.Number(label="lr_warmup_steps", value=default_config["lr_warmup_steps"])
-            seed = gr.Number(label="seed", value=default_config["seed"])
+            learning_rate = gr.Number(label="📈 学习率", value=default_config["learning_rate"], info="推荐：1e-4（AdamW）或1（Prodigy）")
+            lr_warmup_steps = gr.Number(label="🔥 学习率预热步数", value=default_config["lr_warmup_steps"], info="预热步数")
+            seed = gr.Number(label="🎲 随机种子", value=default_config["seed"], info="固定随机种子保证可重现性")
         with gr.Row():
-            blocks_to_swap = gr.Number(label="blocks_to_swap", value=default_config["blocks_to_swap"], info="How many blocks to swap to cpu. It is suggested 10 for 24 GB and more for lower VRAM" )
-            mask_dropout = gr.Number(label="mask_dropout", value=default_config["mask_dropout"], info="Dropout mask which means mask is all one for whole image reconstruction" )
+            blocks_to_swap = gr.Number(label="💾 块交换数量", value=default_config["blocks_to_swap"], info="交换到CPU的块数量。24GB显存建议10，更低显存用更多" )
+            mask_dropout = gr.Number(label="🎭 掩码丢弃率", value=default_config["mask_dropout"], info="掩码丢弃意味着掩码全为1进行整图重建" )
         #     freeze_transformer_layers = gr.Textbox(label="freeze_transformer_layers", value=default_config["freeze_transformer_layers"], info="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19" )
-            reg_ratio = gr.Number(label="reg_ratio", value=default_config["reg_ratio"], info="As regularization of objective transfer learning. Set as 1 if you aren't training different objective." )
-            reg_timestep = gr.Number(label="reg_timestep", value=default_config["reg_timestep"], info="As regularization of objective transfer learning. Set as 0 if you aren't training different objective." )
+            reg_ratio = gr.Number(label="📊 正则化比例", value=default_config["reg_ratio"], info="目标迁移学习的正则化。如果不训练不同目标设为1" )
+            reg_timestep = gr.Number(label="⏰ 正则化时间步", value=default_config["reg_timestep"], info="目标迁移学习的正则化。如果不训练不同目标设为0" )
             
             
-    with gr.Accordion("Misc"):
+    with gr.Accordion("🔧 其他设置"):
         with gr.Row():
-            num_train_epochs = gr.Number(label="num_train_epochs", value=default_config["num_train_epochs"], info="Total epoches of the training")
-            save_model_epochs = gr.Number(label="save_model_epochs", value=default_config["save_model_epochs"], info="Save checkpoint when x epoches")
-            validation_epochs = gr.Number(label="validation_epochs", value=default_config["validation_epochs"], info="perform validation when x epoches")
+            num_train_epochs = gr.Number(label="🔄 训练轮数", value=default_config["num_train_epochs"], info="训练的总轮数")
+            save_model_epochs = gr.Number(label="💾 保存模型间隔", value=default_config["save_model_epochs"], info="每x轮保存检查点")
+            validation_epochs = gr.Number(label="🔍 验证间隔", value=default_config["validation_epochs"], info="每x轮执行验证")
         with gr.Row():
-            skip_epoch = gr.Number(label="skip_epoch", value=default_config["skip_epoch"], info="Skip x epoches for validation and save checkpoint")
+            skip_epoch = gr.Number(label="⏭️ 跳过轮数", value=default_config["skip_epoch"], info="跳过x轮进行验证和保存检查点")
             # break_epoch = gr.Number(label="break_epoch", value=default_config["break_epoch"], info="Stop train after x epoches")
-            skip_step = gr.Number(label="skip_step", value=default_config["skip_step"], info="Skip x steps for validation and save checkpoint")
-            validation_ratio = gr.Number(label="validation_ratio", value=default_config["validation_ratio"], info="Split dataset with this ratio for validation")
+            skip_step = gr.Number(label="⏭️ 跳过步数", value=default_config["skip_step"], info="跳过x步进行验证和保存检查点")
+            validation_ratio = gr.Number(label="📊 验证集比例", value=default_config["validation_ratio"], info="按此比例分割数据集用于验证")
             
         with gr.Row():
-            recreate_cache = gr.Checkbox(label="recreate_cache", value=default_config["recreate_cache"])
+            recreate_cache = gr.Checkbox(label="🔄 重新创建缓存", value=default_config["recreate_cache"], info="强制重新生成所有缓存文件")
             # use_debias = gr.Checkbox(label="use_debias", value=default_config["use_debias"])
             # snr_gamma = gr.Number(label="min-snr_gamma recommanded: 5", value=default_config["snr_gamma"], info="Compute loss-weights as per Section 3.4 of https://arxiv.org/abs/2303.09556.", maximum=10, minimum=0)
-            caption_dropout = gr.Number(label="Caption Dropout", value=default_config["caption_dropout"], info="Caption Dropout", maximum=1, minimum=0)
-            max_time_steps = gr.Number(label="Max timesteps limitation", value=default_config["max_time_steps"], info="Max timesteps limitation", maximum=1000, minimum=0)
+            caption_dropout = gr.Number(label="💬 标题丢弃率", value=default_config["caption_dropout"], info="随机丢弃标题的概率", maximum=1, minimum=0)
+            max_time_steps = gr.Number(label="⏰ 最大时间步限制", value=default_config["max_time_steps"], info="最大时间步数限制", maximum=1000, minimum=0)
         gr.Markdown(
 """
-## Experiment Option: resolution
-- Based target resolution (default:1024). 
-- 512 or 1024 are supported.
+## 🎯 实验选项：分辨率
+- 基于目标分辨率（默认：1024）
+- 支持512或1024分辨率
+- **推荐**：显存不足时使用512，充足时使用1024
 """)
         with gr.Row():
-            resolution = gr.Dropdown(label="resolution", value=default_config["resolution"], choices=default_config["resolution_choices"])
+            resolution = gr.Dropdown(label="🖼️ 训练分辨率", value=default_config["resolution"], choices=default_config["resolution_choices"], info="更高分辨率需要更多显存")
     inputs = [
         config_path,
         script,
@@ -500,8 +502,30 @@ with gr.Blocks() as demo:
         reg_timestep
         # freeze_transformer_layers,
     ]
-    output = gr.Textbox(label="Output Box")
-    run_btn = gr.Button("Run")
+    # 添加训练提示信息
+    gr.Markdown(
+    """
+    ---
+    ### 💡 训练提示
+    - **显存不足**：减小批次大小、增加块交换数量、降低分辨率
+    - **推荐设置**：Rank 16-32，学习率1e-4，AdamW优化器，bf16精度
+    - **数据准备**：确保训练数据目录包含配对的_R(参考)和_T(目标)图像及对应的.txt文件
+    """
+    )
+    
+    output = gr.Textbox(label="📄 训练输出日志", lines=10, max_lines=20, show_copy_button=True, interactive=False)
+    
+    with gr.Row():
+        run_btn = gr.Button("🚀 开始训练", variant="primary", size="lg")
+        
+    # 状态显示
+    gr.Markdown(
+    """
+    ---
+    ### 📊 当前配置状态
+    请确认以上设置后点击"开始训练"按钮。训练过程中的详细日志将在上方输出框中显示。
+    """
+    )
     # inputs.append(config_path)
     run_btn.click(fn=run, inputs=inputs, outputs=output, api_name="run")
     save_config_btn.click(fn=save_config, inputs=inputs)
