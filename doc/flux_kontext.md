@@ -2,7 +2,7 @@
 **Requires diffusers>=0.32.0**
 
 ### Kontext Model Installation
-Inpainting Model Setup
+Kontext Model Setup
 ```bash
   huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
