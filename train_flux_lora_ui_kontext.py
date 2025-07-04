@@ -1964,7 +1964,7 @@ def main(args):
                 
         
         # only execute when val_metadata_path exists
-        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
+       if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1) and os.path.exists(val_metadata_path):
             with torch.no_grad():
                 transformer = unwrap_model(transformer)
                 # freeze rng
