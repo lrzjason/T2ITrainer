@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python ui.py
+python ui_flux_fill.py
