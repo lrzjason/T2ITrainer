@@ -924,10 +924,41 @@ def main(args):
                             npz_path = f'{file_path}{cache_ext}'
                             json_obj["npz_path"] = npz_path
                             
+                            
                             if not recreate_cache and os.path.exists(npz_path):
                                 if 'npz_path_md5' not in json_obj:
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
-                                continue
+                                npz_dict = torch.load(npz_path)
+                            else:
+                                prompt_embeds, pooled_prompt_embeds, txt_attention_masks = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
+                                prompt_embed = prompt_embeds.squeeze(0)
+                                pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
+                                txt_attention_mask = txt_attention_masks.squeeze(0)
+                                npz_dict = {
+                                    "prompt_embed": prompt_embed.cpu(), 
+                                    "pooled_prompt_embed": pooled_prompt_embed.cpu(),
+                                    "txt_attention_mask": txt_attention_mask.cpu(),
+                                }
+                                
+                                if pipe_prior_redux is not None:
+                                    if "redux" in caption_config:
+                                        npz_dict["redux"] = {}
+                                        redux_list = caption_config["redux"]
+                                        for redux_image_key in redux_list:
+                                            npz_dict["redux"][redux_image_key] = {}
+                                            redux_image_path = image_pair[redux_image_key]
+                                            image = load_image(redux_image_path)
+                                            pipe_prior_output = pipe_prior_redux(image,
+                                                                                prompt_embeds=prompt_embeds,
+                                                                                pooled_prompt_embeds=pooled_prompt_embeds,
+                                                                                prompt_embeds_scale=redux_lambda,
+                                                                                pooled_prompt_embeds_scale=redux_lambda)
+                                            prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
+                                            pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
+                                            npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
+                                            npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
+                                # save latent to cache file
+                                torch.save(npz_dict, npz_path)
                             
                             if os.path.exists(text_path):
                                 json_obj["text_path"] = text_path
@@ -941,32 +972,7 @@ def main(args):
                                     content = replace_non_utf8_characters(content)
                                     # json_obj['prompt'] = content
                                     json_obj["text_path_md5"] = ""
-                                    
-                            prompt_embeds, pooled_prompt_embeds, txt_attention_masks = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
-                            prompt_embed = prompt_embeds.squeeze(0)
-                            pooled_prompt_embed = pooled_prompt_embeds.squeeze(0)
-                            txt_attention_mask = txt_attention_masks.squeeze(0)
-                            npz_dict = {
-                                "prompt_embed": prompt_embed.cpu(), 
-                                "pooled_prompt_embed": pooled_prompt_embed.cpu(),
-                                "txt_attention_mask": txt_attention_mask.cpu(),
-                            }
-                            
-                            if pipe_prior_redux is not None:
-                                if "redux" in caption_config:
-                                    npz_dict["redux"] = {}
-                                    redux_list = caption_config["redux"]
-                                    for redux_image_key in redux_list:
-                                        npz_dict["redux"][redux_image_key] = {}
-                                        redux_image_path = image_pair[redux_image_key]
-                                        image = load_image(redux_image_path)
-                                        pipe_prior_output = pipe_prior_redux(image,prompt_embeds=prompt_embeds,pooled_prompt_embeds=pooled_prompt_embeds)
-                                        prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
-                                        pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
-                                        npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
-                                        npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
-                            # save latent to cache file
-                            torch.save(npz_dict, npz_path)
+                             
                             
                             embedding_object[caption_key][caption_config_key] = json_obj
                             
