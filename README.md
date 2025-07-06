@@ -222,6 +222,7 @@ Dev Model Installation
 
 
 ## Acknowledgements:
+- Thanks to chenpipi0807 for Chinese translation and language switch support
 - Thanks for diffusers and Terminus Research Group
 - Thanks to minienglish1 and Freon in EveryDream Discord for the assistance.
 - Special thanks to kohya ss for references from the training codebase.
