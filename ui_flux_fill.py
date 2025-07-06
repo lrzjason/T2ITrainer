@@ -151,7 +151,7 @@ TRANSLATIONS = {
 }
 
 # 当前语言状态
-current_language = 'zh'  # 默认中文
+current_language = 'en'  # 默认中文
 
 def get_text(key):
     """获取当前语言的文本"""
@@ -209,8 +209,8 @@ default_config = {
     "max_time_steps":0,
     "blocks_to_swap":0,
     "mask_dropout":0,
-    "reg_ratio":0.7,
-    "reg_timestep":700
+    "reg_ratio":0.0,
+    "reg_timestep":0
     # "use_fp8":True
     # "freeze_transformer_layers":'5,7,10,17,18,19'
 }
