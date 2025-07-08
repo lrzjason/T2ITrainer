@@ -128,7 +128,7 @@ from collections import defaultdict
 from utils.image_utils_flux import load_image, compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, get_empty_embedding, cache_file, cache_multiple, crop_image,get_md5_by_path,vae_encode,read_image
 
 
-from diffusers import FluxPriorReduxPipeline
+# from diffusers import FluxPriorReduxPipeline
 import cv2
 
 from torchvision import transforms
@@ -608,7 +608,7 @@ def main(args):
     
     transformer_subfolder = "transformer"
     
-    enable_redux_training = False
+    # enable_redux_training = False
     image_1 = "train"
     image_2 = "ref"
     
@@ -638,7 +638,7 @@ def main(args):
     caption_configs = {
         image_1:{
             "ext":"txt",
-            "redux":[image_1,image_2]
+            # "redux":[image_1,image_2]
         }
     }
     training_layout_configs = {
@@ -888,10 +888,10 @@ def main(args):
                     tokenizers = [tokenizer_one,tokenizer_two]
                     text_encoders = [text_encoder_one,text_encoder_two]
                     
-                    repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
-                    pipe_prior_redux = None
-                    if enable_redux_training:
-                        pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(repo_redux, torch_dtype=weight_dtype).to(accelerator.device)
+                    # repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
+                    # pipe_prior_redux = None
+                    # if enable_redux_training:
+                    #     pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(repo_redux, torch_dtype=weight_dtype).to(accelerator.device)
                     
                     create_empty_embedding(tokenizers,text_encoders)
                     embedding_objects = {}
@@ -940,23 +940,23 @@ def main(args):
                                     "txt_attention_mask": txt_attention_mask.cpu(),
                                 }
                                 
-                                if pipe_prior_redux is not None:
-                                    if "redux" in caption_config:
-                                        npz_dict["redux"] = {}
-                                        redux_list = caption_config["redux"]
-                                        for redux_image_key in redux_list:
-                                            npz_dict["redux"][redux_image_key] = {}
-                                            redux_image_path = image_pair[redux_image_key]
-                                            image = load_image(redux_image_path)
-                                            pipe_prior_output = pipe_prior_redux(image,
-                                                                                prompt_embeds=prompt_embeds,
-                                                                                pooled_prompt_embeds=pooled_prompt_embeds,
-                                                                                prompt_embeds_scale=redux_lambda,
-                                                                                pooled_prompt_embeds_scale=redux_lambda)
-                                            prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
-                                            pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
-                                            npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
-                                            npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
+                                # if pipe_prior_redux is not None:
+                                #     if "redux" in caption_config:
+                                #         npz_dict["redux"] = {}
+                                #         redux_list = caption_config["redux"]
+                                #         for redux_image_key in redux_list:
+                                #             npz_dict["redux"][redux_image_key] = {}
+                                #             redux_image_path = image_pair[redux_image_key]
+                                #             image = load_image(redux_image_path)
+                                #             pipe_prior_output = pipe_prior_redux(image,
+                                #                                                 prompt_embeds=prompt_embeds,
+                                #                                                 pooled_prompt_embeds=pooled_prompt_embeds,
+                                #                                                 prompt_embeds_scale=redux_lambda,
+                                #                                                 pooled_prompt_embeds_scale=redux_lambda)
+                                #             prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
+                                #             pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
+                                #             npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
+                                #             npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
                                 # save latent to cache file
                                 torch.save(npz_dict, npz_path)
                             
@@ -1036,7 +1036,8 @@ def main(args):
                     
                     text_encoder_one.to("cpu")
                     text_encoder_two.to("cpu")
-                    del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two, pipe_prior_redux
+                    # del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two, pipe_prior_redux
+                    del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
                 
             datarows = metadata_datarows
             # Handle validation split
@@ -1306,14 +1307,14 @@ def main(args):
                 sample[key][caption_key] = {}
                 for npz_key in dataset_configs["npz_keys"]:
                     sample[key][caption_key][npz_key] = torch.stack([example[key][caption_key][npz_key] for example in examples])
-                if "redux" in example[key][caption_key]:
-                    sample[key][caption_key]["redux"] = {}
-                    npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                    for npz_extra_key_group in npz_extra_key_groups:
-                        sample[key][caption_key]["redux"][npz_extra_key_group] = {}
-                        for npz_extra_key in dataset_configs["npz_extra_keys"][npz_extra_key_group].keys():
-                            if npz_extra_key in example[key][caption_key]["redux"][npz_extra_key_group]:
-                                sample[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] = torch.stack([example[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] for example in examples])
+                # if "redux" in example[key][caption_key]:
+                #     sample[key][caption_key]["redux"] = {}
+                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
+                #     for npz_extra_key_group in npz_extra_key_groups:
+                #         sample[key][caption_key]["redux"][npz_extra_key_group] = {}
+                #         for npz_extra_key in dataset_configs["npz_extra_keys"][npz_extra_key_group].keys():
+                #             if npz_extra_key in example[key][caption_key]["redux"][npz_extra_key_group]:
+                #                 sample[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] = torch.stack([example[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] for example in examples])
                         
         return sample
     # create dataset based on input_dir
@@ -1592,17 +1593,17 @@ def main(args):
                 for npz_key in dataset_configs["npz_keys"].keys():
                     captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
                 # check extra keys in dataset
-                if "npz_extra_keys" in dataset_configs:
-                    captions[training_layout_config_key]["redux"] = {}
-                    npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                    for npz_extra_key_group in npz_extra_key_groups:
-                        # check extra keys in batch captions
-                        if npz_extra_key_group in batch[training_layout_config_key][caption_key]["redux"]:
-                            # npz_extra_key_group is redux or something else
-                            npz_extra_keys = dataset_configs["npz_extra_keys"][npz_extra_key_group]
-                            captions[training_layout_config_key]["redux"][npz_extra_key_group] = {}
-                            for npz_extra_key in npz_extra_keys:
-                                captions[training_layout_config_key]["redux"][npz_extra_key_group][npz_extra_key] = batch[training_layout_config_key][caption_key]["redux"][npz_extra_key_group][npz_extra_key]
+                # if "npz_extra_keys" in dataset_configs:
+                #     captions[training_layout_config_key]["redux"] = {}
+                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
+                #     for npz_extra_key_group in npz_extra_key_groups:
+                #         # check extra keys in batch captions
+                #         if npz_extra_key_group in batch[training_layout_config_key][caption_key]["redux"]:
+                #             # npz_extra_key_group is redux or something else
+                #             npz_extra_keys = dataset_configs["npz_extra_keys"][npz_extra_key_group]
+                #             captions[training_layout_config_key]["redux"][npz_extra_key_group] = {}
+                #             for npz_extra_key in npz_extra_keys:
+                #                 captions[training_layout_config_key]["redux"][npz_extra_key_group][npz_extra_key] = batch[training_layout_config_key][caption_key]["redux"][npz_extra_key_group][npz_extra_key]
 
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
@@ -1709,21 +1710,21 @@ def main(args):
             txt_attention_mask_key : selected_caption[txt_attention_mask_key]
         }
         # handle redux
-        if "use_extra" in captions_selection and enable_redux_training:
-            assert "condition_extra" in captions_selection
-            conditions = captions_selection["condition_extra"]
+        # if "use_extra" in captions_selection and enable_redux_training:
+        #     assert "condition_extra" in captions_selection
+        #     conditions = captions_selection["condition_extra"]
             
-            options = list(conditions.keys())
-            weights = list(conditions.values())
+        #     options = list(conditions.keys())
+        #     weights = list(conditions.values())
 
-            # Randomly select one option based on weights
-            condition_selection = random.choices(options, weights=weights, k=1)[0]
+        #     # Randomly select one option based on weights
+        #     condition_selection = random.choices(options, weights=weights, k=1)[0]
             
-            if condition_selection != "dropout":
-                final_caption = {}
-                if "npz_extra_keys" in dataset_configs:
-                    for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
-                        final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
+        #     if condition_selection != "dropout":
+        #         final_caption = {}
+        #         if "npz_extra_keys" in dataset_configs:
+        #             for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
+        #                 final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
         
                 
         prompt_embeds = final_caption[prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
