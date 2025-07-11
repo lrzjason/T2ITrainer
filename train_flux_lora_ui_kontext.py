@@ -924,6 +924,18 @@ def main(args):
                             npz_path = f'{file_path}{cache_ext}'
                             json_obj["npz_path"] = npz_path
                             
+                            if os.path.exists(text_path):
+                                json_obj["text_path"] = text_path
+                                try:
+                                    content = open(text_path, encoding='utf-8').read()
+                                    # json_obj['prompt'] = content
+                                    json_obj["text_path_md5"] = get_md5_by_path(text_path)
+                                except:
+                                    content = open(text_path, encoding='utf-8').read()
+                                    # try to remove non utf8 character
+                                    content = replace_non_utf8_characters(content)
+                                    # json_obj['prompt'] = content
+                                    json_obj["text_path_md5"] = ""
                             
                             if not recreate_cache and os.path.exists(npz_path):
                                 if 'npz_path_md5' not in json_obj:
@@ -940,40 +952,7 @@ def main(args):
                                     "txt_attention_mask": txt_attention_mask.cpu(),
                                 }
                                 
-                                # if pipe_prior_redux is not None:
-                                #     if "redux" in caption_config:
-                                #         npz_dict["redux"] = {}
-                                #         redux_list = caption_config["redux"]
-                                #         for redux_image_key in redux_list:
-                                #             npz_dict["redux"][redux_image_key] = {}
-                                #             redux_image_path = image_pair[redux_image_key]
-                                #             image = load_image(redux_image_path)
-                                #             pipe_prior_output = pipe_prior_redux(image,
-                                #                                                 prompt_embeds=prompt_embeds,
-                                #                                                 pooled_prompt_embeds=pooled_prompt_embeds,
-                                #                                                 prompt_embeds_scale=redux_lambda,
-                                #                                                 pooled_prompt_embeds_scale=redux_lambda)
-                                #             prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
-                                #             pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
-                                #             npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
-                                #             npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
-                                # save latent to cache file
                                 torch.save(npz_dict, npz_path)
-                            
-                            if os.path.exists(text_path):
-                                json_obj["text_path"] = text_path
-                                try:
-                                    content = open(text_path, encoding='utf-8').read()
-                                    # json_obj['prompt'] = content
-                                    json_obj["text_path_md5"] = get_md5_by_path(text_path)
-                                except:
-                                    content = open(text_path, encoding='utf-8').read()
-                                    # try to remove non utf8 character
-                                    content = replace_non_utf8_characters(content)
-                                    # json_obj['prompt'] = content
-                                    json_obj["text_path_md5"] = ""
-                             
-                            
                             embedding_object[caption_key][caption_config_key] = json_obj
                             
                         for key in image_pair.keys():
