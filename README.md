@@ -4,14 +4,10 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-06-27:**  Support kontext nf4 training
-```
-Rehosted an nf4 version flux kontext on https://huggingface.co/lrzjason/flux-kontext-nf4
+- **2025-07-11:**  
+Fix empty prompt issue. In previous update, the script adjusted the position of cache loading.
+It introduces a bug where the prompt is incorrectly set to empty string and it doesn't load the actual prompt.
 
-Rehosted an nf4 version flux fill on https://huggingface.co/lrzjason/flux-fill-nf4
-
-download nf4 version flux fill and use it for training could significantly decrease lora training VRAM requirement.
-```
 ---
 
 ## 🛡️ Prerequisites
@@ -192,7 +188,9 @@ Dev Model Installation
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
-- **2025-06-27:**  Support kontxt nf4 training
+- **2025-07-11:**  
+Fix empty prompt issue. In previous update, the script adjusted the position of cache loading.
+It introduces a bug where the prompt is incorrectly set to empty string and it doesn't load the actual prompt.
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
