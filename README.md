@@ -4,9 +4,11 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-07-11:**  
-Fix empty prompt issue. In previous update, the script adjusted the position of cache loading.
-It introduces a bug where the prompt is incorrectly set to empty string and it doesn't load the actual prompt.
+- **2025-07-13:**  
+Add tensorboard support
+```bash
+tensorboard --logdir=.\logs
+```
 
 ---
 
@@ -162,6 +164,19 @@ Dev Model Installation
   </table>
 </div>
 
+## 🔧 Visualize Training Data
+Register WandB before using it
+Setup WandB env
+```bash
+pip install wandb
+wandb login
+```
+
+Install Tensorboard first if you choice to use Tensorboard
+To visualize training data, run the following command in your terminal:
+```bash
+tensorboard --logdir=.\logs
+```
 
 ## 🔧 Kolors Testing & Integration
 - **Kolors Workflow**:

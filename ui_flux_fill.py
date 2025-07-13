@@ -178,7 +178,7 @@ default_config = {
     "resume_from_checkpoint":None,
     "model_path":None, 
     # "logging_dir":"logs",
-    "report_to":"wandb", 
+    "report_to":"all", 
     "rank":16,
     "train_batch_size":1,
     "repeats":1,
@@ -526,16 +526,6 @@ def run(
     return " ".join(args)
     
 
-def update_ui_text():
-    """更新UI文本内容"""
-    for key, component in ui_components.items():
-        if hasattr(component, 'label'):
-            component.label = get_text(key)
-        if hasattr(component, 'info') and key + '_info' in translations['zh']:
-            component.info = get_text(key + '_info')
-        if hasattr(component, 'placeholder') and key + '_placeholder' in translations['zh']:
-            component.placeholder = get_text(key + '_placeholder')
-
 def toggle_language_handler():
     """语言切换处理函数"""
     toggle_language()
@@ -584,7 +574,7 @@ with gr.Blocks() as demo:
             train_data_dir = gr.Textbox(label=get_text('train_data_dir'), value=default_config["train_data_dir"], placeholder=get_text('train_data_dir_placeholder'))
             model_path = gr.Textbox(label=get_text('model_path'), value=default_config["model_path"], placeholder=get_text('model_path_placeholder'))
         with gr.Row():
-            report_to = gr.Dropdown(label=get_text('report_to'), value=default_config["report_to"], choices=["wandb"])
+            report_to = gr.Dropdown(label=get_text('report_to'), value=default_config["report_to"], choices=["all","wandb","tensorboard"])
 
     lora_accordion = gr.Accordion(get_text('lora_config'))
     with lora_accordion:
@@ -709,7 +699,7 @@ with gr.Blocks() as demo:
             gr.Textbox(label=get_text('resume_from_checkpoint'), value=default_config["resume_from_checkpoint"], placeholder=get_text('resume_from_checkpoint_placeholder')),  # 恢复检查点
             gr.Textbox(label=get_text('train_data_dir'), value=default_config["train_data_dir"], placeholder=get_text('train_data_dir_placeholder')),  # 训练数据目录
             gr.Textbox(label=get_text('model_path'), value=default_config["model_path"], placeholder=get_text('model_path_placeholder')),  # 模型路径
-            gr.Dropdown(label=get_text('report_to'), value=default_config["report_to"], choices=["wandb"]),  # 报告到
+            gr.Dropdown(label=get_text('report_to'), value=default_config["report_to"], choices=["all","wandb","tensorboard"]),  # 报告到
             
             # LoRA配置部分的组件
             gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info')),  # 排名
