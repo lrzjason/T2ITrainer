@@ -135,6 +135,8 @@ from torchvision import transforms
 
 from diffusers.image_processor import VaeImageProcessor
 
+from utils.utils import find_index_from_right
+
 
 def load_text_encoders(class_one, class_two):
     text_encoder_one = class_one.from_pretrained(
@@ -750,12 +752,12 @@ def main(args):
         input_dir = args.train_data_dir
         recreate_cache = args.recreate_cache
 
-        def find_index_from_right(lst, value):
-            try:
-                reversed_index = lst[::-1].index(value[::-1])
-                return len(lst) - 1 - reversed_index
-            except:
-                return -1
+        # def find_index_from_right(lst, value):
+        #     try:
+        #         reversed_index = lst[::-1].index(value[::-1])
+        #         return len(lst) - 1 - reversed_index
+        #     except:
+        #         return -1
             
         SUPPORTED_IMAGE_TYPES = ['.jpg','.jpeg','.png','.webp']
         # files = glob.glob(f"{input_dir}/**", recursive=True)

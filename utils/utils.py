@@ -14,6 +14,12 @@ import random
 from PIL import Image
 from hashlib import md5
 
+def find_index_from_right(lst, value):
+    try:
+        reversed_index = lst[::-1].index(value[::-1])
+        return len(lst) - len(value) - reversed_index
+    except:
+        return -1
 def _ntuple(n):
     def parse(x):
         if isinstance(x, Iterable) and not isinstance(x, str):
