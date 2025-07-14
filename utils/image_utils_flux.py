@@ -1164,6 +1164,7 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
         # "time_id":time_id.cpu()
     }
     # save latent to cache file
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     torch.save(latent, cache_path)
 
     return latent
