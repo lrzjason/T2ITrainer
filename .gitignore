@@ -1,3 +1,5 @@
+.env
+
 # Python
 venv
 __pycache__
@@ -49,13 +51,6 @@ presets/*/user_presets/*
 test_result
 
 Kolors_models/*
-config.json
-config_slider.json
-config_colorfix.json
-config_cloth_removal.json
-config_slider.json
-config_object_removal_rord_second_stage.json
-config_removal_timestep.json
 
 generation
 togetherai/**

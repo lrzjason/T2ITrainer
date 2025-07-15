@@ -326,57 +326,6 @@ class CachedMutiImageDatasetKontext(Dataset):
         else:
             actual_index = index
         metadata = self.datarows[actual_index] 
-        # {
-        #    "captions":{
-        #       "factual":{
-        #          "text_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.txt",
-        #          "text_path_md5":"8522dcd4f1a2b6c4aff94efdc41579c3",
-        #          "npz_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npflux"
-        #       }
-        #    },
-        #    "mapping_key":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal_cat_2_",
-        #    "factual":{
-        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.webp",
-        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_F.npfluxlatent",
-        #       "latent_path_md5":"cf8043c622b1d5fe1b0ba155bd0cd4de"
-        #    },
-        #    "groundtrue":{
-        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.webp",
-        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_G.npfluxlatent",
-        #       "latent_path_md5":"0942d20edd4a4fb2f7d05c91958aaca0"
-        #    },
-        #    "factual_mask":{
-        #       "image_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.png",
-        #       "latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M.npfluxlatent",
-        #       "masked_latent_path":"F:/ImageSet/ObjectRemoval/new_construct\\title_removal\\cat_2_M_masked.npfluxlatent"
-        #    },
-        #    "bucket":"448x576"
-        # }
-        
-        
-        # dataset_configs = {
-        #     "caption_key":caption_key,
-        #     "latent_key":"latent",
-        #     "latent_path_key":latent_path_key,
-        #     "extra_keys":{
-        #         image_1_mask=factual_mask:{
-        #             "latent_key":f"{masked_suffix}_{latent_key}",
-        #             "latent_path_key":f"{masked_suffix}_{latent_path_key}",
-        #         }
-        #     },
-        #     "npz_path_key": embbeding_path_key,
-        #     "npz_keys": {
-        #         prompt_embed_key:prompt_embed_key,
-        #         pool_prompt_embed_key:pool_prompt_embed_key,
-        #         txt_attention_mask_key:txt_attention_mask_key
-        #     },
-        #     "npz_extra_keys": {
-        #         redux_key:[
-        #             prompt_embed_key,
-        #             pool_prompt_embed_key
-        #         ]
-        #     }
-        # }
         result = {
             
         }

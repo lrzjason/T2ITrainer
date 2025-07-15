@@ -92,6 +92,7 @@ from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
 
+from pathlib import Path
 import json
 
 
@@ -556,21 +557,38 @@ def parse_args(input_args=None):
     else:
         args = parser.parse_args()
 
-    # env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    # if env_local_rank != -1 and env_local_rank != args.local_rank:
-    #     args.local_rank = env_local_rank
-
-    # if args.with_prior_preservation:
-    #     if args.class_data_dir is None:
-    #         raise ValueError("You must specify a data directory for class images.")
-    #     if args.class_prompt is None:
-    #         raise ValueError("You must specify prompt for class images.")
-    # else:
-    #     # logger is not available yet
-    #     if args.class_data_dir is not None:
-    #         warnings.warn("You need not use --class_data_dir without --with_prior_preservation.")
-    #     if args.class_prompt is not None:
-    #         warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
+    # Load config file if provided
+    if args.config_path and os.path.exists(args.config_path):
+        try:
+            with open(args.config_path, 'r', encoding='utf-8') as f:
+                config_args = json.load(f)
+            # Update args with values from config file
+            # Ensure that config values override command-line arguments
+            # Convert config values to the correct types if necessary
+            for key, value in config_args.items():
+                if hasattr(args, key):
+                    # Attempt to convert value to the type of the existing argument
+                    arg_type = type(value)
+                    if arg_type == bool:
+                        # Handle boolean conversion carefully
+                        if isinstance(value, str):
+                            if value.lower() in ('true', '1', 'yes'):
+                                setattr(args, key, True)
+                            elif value.lower() in ('false', '0', 'no'):
+                                setattr(args, key, False)
+                            else:
+                                print(f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default.")
+                        else:
+                            setattr(args, key, bool(value))
+                    else:
+                        try:
+                            setattr(args, key, arg_type(value))
+                        except ValueError:
+                            print(f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default.")
+                else:
+                    print(f"Config file contains unknown argument: '{key}'. Ignoring.")
+        except Exception as e:
+            print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
 
     return args
 
@@ -673,16 +691,6 @@ def main(args):
             pooled_prompt_embed_key:pooled_prompt_embed_key,
             txt_attention_mask_key:txt_attention_mask_key
         },
-        # "npz_extra_keys": {
-        #     image_2:{
-        #         prompt_embed_key:prompt_embed_key,
-        #         pooled_prompt_embed_key:pooled_prompt_embed_key,
-        #     },
-        #     image_1:{
-        #         prompt_embed_key:prompt_embed_key,
-        #         pooled_prompt_embed_key:pooled_prompt_embed_key,
-        #     },
-        # }
     }
     
     # to avoid cache mutiple times on same embedding
@@ -752,13 +760,6 @@ def main(args):
         input_dir = args.train_data_dir
         recreate_cache = args.recreate_cache
 
-        # def find_index_from_right(lst, value):
-        #     try:
-        #         reversed_index = lst[::-1].index(value[::-1])
-        #         return len(lst) - 1 - reversed_index
-        #     except:
-        #         return -1
-            
         SUPPORTED_IMAGE_TYPES = ['.jpg','.jpeg','.png','.webp']
         # files = glob.glob(f"{input_dir}/**", recursive=True)
         # image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]

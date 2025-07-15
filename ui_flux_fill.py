@@ -367,7 +367,6 @@ def run(
         config_path,
         script,
         seed,
-        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -385,19 +384,14 @@ def run(
         validation_epochs,
         rank,
         skip_epoch,
-        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
-        # use_dora,
         recreate_cache,
-        # vae_path,
         resolution,
-        # use_debias,
-        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps,
@@ -405,83 +399,12 @@ def run(
         mask_dropout,
         reg_ratio,
         reg_timestep
-        # use_fp8
-        # freeze_transformer_layers
     ):
-    # if vae_path is not None:
-    #     if not vae_path.endswith('.safetensors') and not vae_path == "":
-    #         msg = "Vae need to be a single file ends with .safetensors. It should be the fp16 fix vae from https://huggingface.co/madebyollin/sdxl-vae-fp16-fix/tree/main"
-    #         gr.Warning(msg)
-    #         return msg
-    
-    inputs = {
-        "seed":seed,
-        # "logging_dir":logging_dir,
-        "mixed_precision":mixed_precision,
-        "report_to":report_to,
-        "lr_warmup_steps":lr_warmup_steps,
-        "output_dir":output_dir,
-        "save_name":save_name,
-        "train_data_dir":train_data_dir,
-        "optimizer":optimizer,
-        "lr_scheduler":lr_scheduler,
-        "learning_rate":learning_rate,
-        "train_batch_size":train_batch_size,
-        "repeats":repeats,
-        "gradient_accumulation_steps":gradient_accumulation_steps,
-        "num_train_epochs":num_train_epochs,
-        "save_model_epochs":save_model_epochs,
-        "validation_epochs":validation_epochs,
-        "rank":rank,
-        "skip_epoch":skip_epoch,
-        # "break_epoch":break_epoch,
-        "skip_step":skip_step,
-        "gradient_checkpointing":gradient_checkpointing,
-        "validation_ratio":validation_ratio,
-        "pretrained_model_name_or_path":pretrained_model_name_or_path,
-        "model_path":model_path,
-        "resume_from_checkpoint":resume_from_checkpoint,
-        # "use_dora":use_dora,
-        "recreate_cache":recreate_cache,
-        # "vae_path":vae_path,
-        "resolution":resolution,
-        # "use_debias":use_debias,
-        # "snr_gamma":snr_gamma,
-        "caption_dropout":caption_dropout,
-        "cosine_restarts":cosine_restarts,
-        "max_time_steps":max_time_steps,
-        "blocks_to_swap":blocks_to_swap,
-        "mask_dropout":mask_dropout,
-        "reg_ratio":reg_ratio,
-        "reg_timestep":reg_timestep
-        # "use_fp8":use_fp8
-        # "freeze_transformer_layers":freeze_transformer_layers
-    }
-    # Convert the inputs dictionary to a list of arguments
-    # args = ["python", "train_sd3_lora_ui.py"]  # replace "your_script.py" with the name of your script
-    # script = "test_.pyt"
-    args = [sys.executable, script]
-    for key, value in inputs.items():
-        if value is not None:
-            if isinstance(value, bool):  # exclude boolean values
-                if value == True:
-                    args.append(f"--{key}")
-            else:
-                args.append(f"--{key}")
-                args.append(str(value))
-    
-    # Add the config_path argument if the script is train_flux_lora_ui_with_mask_cat_custom3.py
-    # if script == "train_flux_lora_ui_with_mask_cat_custom3.py":
-    #     args.append("--config_path")
-    #     args.append(config_path)
-    
-    # Call the script with the arguments
-    subprocess.call(args)
+    # Save the current configuration to the specified config file
     save_config(
         config_path,
         script,
         seed,
-        # logging_dir,
         mixed_precision,
         report_to,
         lr_warmup_steps,
@@ -499,19 +422,14 @@ def run(
         validation_epochs,
         rank,
         skip_epoch,
-        # break_epoch,
         skip_step,
         gradient_checkpointing,
         validation_ratio,
         pretrained_model_name_or_path,
         model_path,
         resume_from_checkpoint,
-        # use_dora,
         recreate_cache,
-        # vae_path,
         resolution,
-        # use_debias,
-        # snr_gamma,
         caption_dropout,
         cosine_restarts,
         max_time_steps,
@@ -519,11 +437,18 @@ def run(
         mask_dropout,
         reg_ratio,
         reg_timestep
-        # use_fp8
-        # freeze_transformer_layers
     )
-    # print(args)
-    return " ".join(args)
+
+    # Construct the command to run the script with only the config path
+    command_args = [sys.executable, script, "--config_path", config_path]
+
+    # Execute the command
+    subprocess.call(command_args)
+
+    # Return the executed command as a string
+    return " ".join(command_args)
+
+
     
 
 def toggle_language_handler():
