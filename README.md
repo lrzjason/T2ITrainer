@@ -4,12 +4,12 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-07-13:**  
-Add tensorboard support
+- **2025-07-16:**  
+add `--config_path` argument to `train_flux_lora_ui_kontext.py`
+support config file to start the kontext training
 ```bash
-tensorboard --logdir=.\logs
+    python train_flux_lora_ui_kontext.py --config_path config.json
 ```
-
 ---
 
 ## 🛡️ Prerequisites
@@ -203,9 +203,12 @@ tensorboard --logdir=.\logs
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
-- **2025-07-11:**  
-Fix empty prompt issue. In previous update, the script adjusted the position of cache loading.
-It introduces a bug where the prompt is incorrectly set to empty string and it doesn't load the actual prompt.
+- **2025-07-16:**  
+add `--config_path` argument to `train_flux_lora_ui_kontext.py`
+support config file to start the kontext training
+```bash
+    python train_flux_lora_ui_kontext.py --config_path config.json
+```
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
