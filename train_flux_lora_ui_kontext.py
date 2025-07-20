@@ -845,7 +845,7 @@ def main(args):
         
         if len(image_pairs) > 0:
             with torch.no_grad():
-                if os.path.exists(metadata_path):
+                if os.path.exists(metadata_path) and not args.recreate_cache:
                     with open(metadata_path, "r", encoding='utf-8') as readfile:
                         metadata_datarows = json.loads(readfile.read())
                         full_datarows += metadata_datarows
@@ -1057,9 +1057,9 @@ def main(args):
     offload_device = accelerator.device
         
     if not (args.model_path is None or args.model_path == ""):
-        config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
+        # config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
         transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, 
-                            config=config,  
+                            # config=config,  
                             torch_dtype=weight_dtype
                         ).to(offload_device)
     else:
@@ -1069,7 +1069,6 @@ def main(args):
                 subfolder=transformer_subfolder,  
                 torch_dtype=weight_dtype
             ).to(offload_device)
-            flush()
         else:
             # load from repo
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
@@ -1079,19 +1078,19 @@ def main(args):
                         transformer_folder, variant=variant,  
                         torch_dtype=weight_dtype
                     ).to(offload_device)
-        
-            flush()
+    flush()
 
-    transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
+    if "quantization_config" in transformer.config:
+        transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
+    else:
+        transformer = transformer.to(offload_device, dtype=weight_dtype)
+        transformer.requires_grad_(False)
     
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
-
-
-    transformer.requires_grad_(False)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()

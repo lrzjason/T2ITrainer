@@ -550,7 +550,7 @@ with gr.Blocks() as demo:
     
     # 输出和运行按钮
     output = gr.Textbox(label=get_text('output_box'))
-    run_btn = gr.Button(get_text('run_button'))
+    run_btn = gr.Button(get_text('run'))
     
     # 定义所有输入组件列表
     inputs = [
