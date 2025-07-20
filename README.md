@@ -203,6 +203,13 @@ tensorboard --logdir=.\logs
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
+- **2025-07-20:** 
+Support to user original kontext repo to train lora.
+ --exclude "*.safetensors" skip the big one model file which is not needed.
+```bash
+huggingface-cli download "black-forest-labs/FLUX.1-Kontext-dev" --local-dir flux_models/kontext_full/ --exclude "*.safetensors"
+```
+
 - **2025-07-16:**  
 add `--config_path` argument to `train_flux_lora_ui_kontext.py`
 support config file to start the kontext training
