@@ -2,4 +2,4 @@
 
 source venv/bin/activate
 
-python ui.py
+python ui_flux_fill.py

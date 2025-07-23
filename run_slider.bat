@@ -1,1 +1,0 @@
-python ui_slider.py
