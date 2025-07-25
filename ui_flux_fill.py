@@ -77,6 +77,11 @@ TRANSLATIONS = {
         'output_box': '输出框',
         'run': '运行',
         'language_toggle': '🌐 切换到English',
+        
+        'slider': '滑块训练相关',
+        'use_two_captions': '使用两对应文本标注',
+        'slider_positive_scale': '滑块正向目标强度',
+        'slider_negative_scale': '滑块负面目标强度'
     },
     'en': {
         'title': '## Lora Training',
@@ -147,6 +152,12 @@ TRANSLATIONS = {
         'output_box': 'Output Box',
         'run': 'Run',
         'language_toggle': '🌐 切换到中文',
+        
+        
+        'slider': 'Slider Related',
+        'use_two_captions': 'Use two captions for each direction',
+        'slider_positive_scale': 'Slider positive scale',
+        'slider_negative_scale': 'Slider negative scale'
     }
 }
 
@@ -167,6 +178,7 @@ default_config = {
     "script": "train_flux_lora_ui_kontext.py",
     "script_choices": [
                         "train_flux_lora_ui_kontext.py",
+                        "train_flux_lora_ui_kontext_slider.py",
                         "train_flux_lora_ui_with_mask.py",
                         "train_flux_lora_ui.py",
                        ],
@@ -210,7 +222,10 @@ default_config = {
     "blocks_to_swap":0,
     "mask_dropout":0,
     "reg_ratio":0.0,
-    "reg_timestep":0
+    "reg_timestep":0,
+    'use_two_captions': False,
+    'slider_positive_scale': 1.0,
+    'slider_negative_scale': -1.0
     # "use_fp8":True
     # "freeze_transformer_layers":'5,7,10,17,18,19'
 }
@@ -258,7 +273,10 @@ def save_config(
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
-        reg_timestep
+        reg_timestep,
+        use_two_captions,
+        slider_positive_scale,
+        slider_negative_scale
         # use_fp8
         # freeze_transformer_layers
     ):
@@ -304,7 +322,10 @@ def save_config(
         "blocks_to_swap":blocks_to_swap,
         "mask_dropout":mask_dropout,
         "reg_ratio":reg_ratio,
-        "reg_timestep":reg_timestep
+        "reg_timestep":reg_timestep,
+        'use_two_captions': use_two_captions,
+        'slider_positive_scale': slider_positive_scale,
+        'slider_negative_scale': slider_negative_scale
         # "use_fp8":use_fp8
     }
     # config_path = os.path.join(config_dir, f"{filename}{ext}")
@@ -356,7 +377,8 @@ def load_config(config_path):
             default_config['caption_dropout'], \
             default_config['cosine_restarts'],default_config['max_time_steps'], \
             default_config['blocks_to_swap'],default_config['mask_dropout'], \
-            default_config['reg_ratio'],default_config['reg_timestep']
+            default_config['reg_ratio'],default_config['reg_timestep'], \
+            default_config['use_two_captions'],default_config['slider_positive_scale'],default_config['slider_negative_scale']
             # default_config['use_dora'], \
             # default_config['freeze_transformer_layers']
             # default_config['logging_dir'],default_config['break_epoch'], 
@@ -398,7 +420,10 @@ def run(
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
-        reg_timestep
+        reg_timestep,
+        use_two_captions,
+        slider_positive_scale,
+        slider_negative_scale
     ):
     # Save the current configuration to the specified config file
     save_config(
@@ -436,7 +461,10 @@ def run(
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
-        reg_timestep
+        reg_timestep,
+        use_two_captions,
+        slider_positive_scale,
+        slider_negative_scale
     )
 
     # Construct the command to run the script with only the config path
@@ -548,6 +576,15 @@ with gr.Blocks() as demo:
         with gr.Row():
             resolution = gr.Dropdown(label=get_text('resolution'), value=default_config["resolution"], choices=default_config["resolution_choices"])
     
+    misc_accordion = gr.Accordion(get_text('slider'))
+    with misc_accordion:
+        with gr.Row():
+            use_two_captions = gr.Checkbox(label=get_text('use_two_captions'), value=default_config["use_two_captions"])
+            slider_positive_scale = gr.Number(label=get_text('slider_positive_scale'), value=default_config["slider_positive_scale"])
+            slider_negative_scale = gr.Number(label=get_text('slider_negative_scale'), value=default_config["slider_negative_scale"])
+       
+    
+    
     # 输出和运行按钮
     output = gr.Textbox(label=get_text('output_box'))
     run_btn = gr.Button(get_text('run'))
@@ -594,7 +631,10 @@ with gr.Blocks() as demo:
         blocks_to_swap,
         mask_dropout,
         reg_ratio,
-        reg_timestep
+        reg_timestep,
+        use_two_captions,
+        slider_positive_scale,
+        slider_negative_scale
         # freeze_transformer_layers,
     ]
     
@@ -659,7 +699,13 @@ with gr.Blocks() as demo:
             
             # 输出和运行按钮
             gr.Textbox(label=get_text('output_box')),  # 输出框
-            gr.Button(get_text('run_button'))  # 运行按钮
+            gr.Button(get_text('run_button')),  # 运行按钮
+            
+            gr.Checkbox(label=get_text('use_two_captions'), value=default_config["use_two_captions"]),
+            gr.Number(label=get_text('slider_positive_scale'), value=default_config["slider_positive_scale"]),
+            gr.Number(label=get_text('slider_negative_scale'), value=default_config["slider_negative_scale"])
+       
+    
         ]
         return updated_components
     
@@ -682,7 +728,8 @@ with gr.Blocks() as demo:
             blocks_to_swap, mask_dropout, reg_ratio, reg_timestep,
             num_train_epochs, save_model_epochs, validation_epochs, skip_epoch, skip_step, validation_ratio,
             recreate_cache, caption_dropout, max_time_steps, resolution_md, resolution,
-            output, run_btn
+            output, run_btn, 
+            use_two_captions, slider_positive_scale,slider_negative_scale
         ]
     )
 

@@ -203,6 +203,8 @@ tensorboard --logdir=.\logs
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
+- **2025-07-25:** 
+Add kontext slider training.
 - **2025-07-20:** 
 Support to user original kontext repo to train lora.
  --exclude "*.safetensors" skip the big one model file which is not needed.

@@ -44,8 +44,29 @@ Folder structure example:
     │   ├── 1_R.jpg
     └── dir2/
         ├── 1_T.jpg
-    │   ├── 1_T.txt
+        ├── 1_T.txt
         ├── 1_R.jpg
+```
+
+## 📂 Slider Training
+Image pairs must include:
+- `_T` suffix: Training image
+- `_R` suffix: Reference
+
+Enable use_two_captions (optional)
+Folder structure example:
+```example
+    root/
+    ├── dir1/
+    │   ├── 1_T.jpg
+    │   ├── 1_T.txt
+    │   ├── 1_R.jpg
+    │   ├── 1_R.txt
+    └── dir2/
+        ├── 1_T.jpg
+        ├── 1_T.txt
+        ├── 1_R.jpg
+        ├── 1_R.txt
 ```
 
 ## ⚙️ Recommended Parameters

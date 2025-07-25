@@ -63,7 +63,7 @@ from diffusers import (
 )
 
 from flux.transformer_flux_masked import MaskedFluxTransformer2DModel
-from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
+from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling, set_adapters
 from flux.pipeline_flux_kontext import FluxKontextPipeline
 
 from pathlib import Path
@@ -92,7 +92,6 @@ from tqdm import tqdm
 
 from sklearn.model_selection import train_test_split
 
-from pathlib import Path
 import json
 
 
@@ -129,14 +128,117 @@ from collections import defaultdict
 from utils.image_utils_flux import load_image, compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, get_empty_embedding, cache_file, cache_multiple, crop_image,get_md5_by_path,vae_encode,read_image
 
 
-# from diffusers import FluxPriorReduxPipeline
+from diffusers import FluxPriorReduxPipeline
 import cv2
 
 from torchvision import transforms
 
 from diffusers.image_processor import VaeImageProcessor
 
+# import lpips
+
+# from utils.adaptive_timestep_scheduler import AdaptiveTimeStepScheduler
+
 from utils.utils import find_index_from_right
+
+
+
+
+def gaussian_kernel(size=11, sigma=1.5):
+    """Creates 2D Gaussian kernel matrix."""
+    coords = torch.arange(size, dtype=torch.float)
+    coords -= size // 2
+    g = coords ** 2
+    g = (-g / (2 * sigma**2)).exp()
+    g /= g.sum()
+    return g.outer(g).unsqueeze_(0).unsqueeze_(0)  # Shape: [1, 1, size, size]
+
+def ssim_loss(
+    tensor1: torch.Tensor,
+    tensor2: torch.Tensor,
+    window_size: int = 11,
+    sigma: float = 1.5,
+    data_range: float = 1.0,
+    k1: float = 0.01,
+    k2: float = 0.03,
+    reduction: str = 'mean'
+) -> torch.Tensor:
+    """
+    Computes SSIM loss between two tensors (1 - SSIM).
+    
+    Args:
+        tensor1, tensor2: Input tensors of shape [B, C, H, W]
+        window_size: Size of the Gaussian window
+        sigma: Standard deviation of Gaussian kernel
+        data_range: Value range of input images (max - min)
+        k1, k2: SSIM stability constants
+        reduction: 'mean' (average loss) or 'none' (per-sample loss)
+    
+    Returns:
+        SSIM loss (scalar or tensor [B] if reduction='none')
+    """
+    # Validate inputs
+    assert tensor1.shape == tensor2.shape, "Tensors must have identical shapes"
+    assert window_size % 2 == 1, "Window size must be odd"
+    
+    # Constants and kernel setup
+    C1 = (k1 * data_range) ** 2
+    C2 = (k2 * data_range) ** 2
+    kernel = gaussian_kernel(window_size, sigma).to(tensor1)
+    pad = window_size // 2
+
+    # Convolution setup
+    conv_args = {
+        'weight': kernel.expand(tensor1.size(1), 1, -1, -1),  # [C, 1, win, win]
+        'padding': pad,
+        'groups': tensor1.size(1)  # Process each channel independently
+    }
+
+    # Compute means
+    mu1 = F.conv2d(tensor1, **conv_args)
+    mu2 = F.conv2d(tensor2, **conv_args)
+    mu12 = mu1 * mu2
+
+    # Compute variances and covariance
+    sigma1_sq = F.conv2d(tensor1 * tensor1, **conv_args) - mu1 ** 2
+    sigma2_sq = F.conv2d(tensor2 * tensor2, **conv_args) - mu2 ** 2
+    sigma12 = F.conv2d(tensor1 * tensor2, **conv_args) - mu12
+
+    # Compute SSIM map
+    num = (2 * mu12 + C1) * (2 * sigma12 + C2)
+    den = (mu1 ** 2 + mu2 ** 2 + C1) * (sigma1_sq + sigma2_sq + C2)
+    ssim_map = num / den.clamp(min=1e-6)  # Avoid division by zero
+
+    # Compute loss (1 - SSIM)
+    loss = 1 - ssim_map
+    
+    # Apply reduction
+    if reduction == 'mean':
+        return loss.mean()
+    elif reduction == 'none':
+        return loss.mean(dim=(1, 2, 3))  # Per-batch loss [B]
+    else:
+        raise ValueError("reduction must be 'mean' or 'none'")
+
+
+@torch.no_grad()
+def _expand_mask_at_timestep(original_mask_uint8, max_dilation_radius, normalized_t, power):
+    """
+    Helper function to calculate the expanded mask for a single timestep.
+    """
+    # Calculate current dilation radius based on the power curve
+    current_dilation_radius = int(round(max_dilation_radius * (normalized_t ** power)))
+
+    if current_dilation_radius == 0:
+        expanded_mask = original_mask_uint8.copy()
+    else:
+        # Kernel size must be odd
+        kernel_size = 2 * current_dilation_radius + 1
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
+        
+        # Dilate the *original* mask
+        expanded_mask = cv2.dilate(original_mask_uint8, kernel, iterations=1)
+    return expanded_mask
 
 
 def load_text_encoders(class_one, class_two):
@@ -172,7 +274,6 @@ def import_model_class_from_model_name_or_path(
 
 
 logger = get_logger(__name__)
-
 def memory_stats():
     print("\nmemory_stats:\n")
     print(torch.cuda.memory_allocated()/1024**2)
@@ -548,7 +649,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config.json",
+        default="config_slider.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -569,12 +670,11 @@ def parse_args(input_args=None):
         help="Slider Training negative target scale",
     )
     
-    
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
-
+    
     # Load config file if provided
     if args.config_path and os.path.exists(args.config_path):
         try:
@@ -611,6 +711,7 @@ def parse_args(input_args=None):
     return args
 
 def main(args):
+    debug_print = False
     
     # args.scale_lr = False
     use_8bit_adam = True
@@ -633,22 +734,100 @@ def main(args):
     prodigy_safeguard_warmup = True
     prodigy_d_coef = 2
     
+    
+    # lr_num_cycles = args.cosine_restarts
     lr_power = 1
     
     # this is for consistence validation. all validation would use this seed to generate the same validation set
     # val_seed = random.randint(1, 100)
     val_seed = 42
     
-    # not use
+    
+    
+    # test max_time_steps
+    # args.max_time_steps = 600
+    
+    # args.seed = 4321
+    # args.logging_dir = 'logs'
+    # args.mixed_precision = "bf16"
+    # args.report_to = "wandb"
+    
+    # args.rank = 32
+    # args.skip_epoch = 0
+    # args.break_epoch = 0
+    # args.skip_step = 0
+    # args.gradient_checkpointing = True
+    # args.validation_ratio = 0.1
+    # args.num_validation_images = 1
+    # # args.pretrained_model_name_or_path = "F:/Kolors"
+    # args.pretrained_model_name_or_path = "F:/T2ITrainer/flux_models/fill"
+    # args.model_path = ""
+    # # args.model_path = "F:/models/unet/flux1-dev-fp8-e4m3fn.safetensors"
+    # # args.use_fp8 = True
+    # args.resume_from_checkpoint = None
+    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/test/I-210618_I01001_W01"
+    # # args.train_data_dir = "F:/ImageSet/ObjectRemoval/Subject200K/images/f_padded"
+    # # F:\ImageSet\fashion_product_image_dataset\combined_test\Boys
+    # # args.train_data_dir = r"F:\ImageSet\ObjectRemoval\new_construct"
+    
+    # args.optimizer = "adamw"
+    # args.lr_warmup_steps = 1
+    # args.lr_scheduler = "constant"
+    # args.save_model_epochs = 1
+    # args.validation_epochs = 1
+    # args.train_batch_size = 1
+    # args.repeats = 1
+    # args.gradient_accumulation_steps = 1
+    # args.caption_dropout = 0.1
+    # # args.mask_dropout = 0.05 
+    # args.mask_dropout = 1
+    # args.allow_tf32 = True
+    # args.blocks_to_swap = 16
+    # args.resolution = 512
+    
+    # # args.reg_ratio = 0.7
+    # # # args.vae_path = "F:/models/VAE/sdxl_vae.safetensors"
+
+    # args.learning_rate = 1e-4
+    # args.num_train_epochs = 30
+    # args.train_data_dir = r"F:\ImageSet\ring\category\raw_resized"
+    # args.output_dir = 'F:/models/flux/ring_showcase'
+    # args.resume_from_checkpoint = r""
+    # args.save_name = "ring_showcase_redux_new_caption"
+    
+    # args.recreate_cache = True
+    
+    
+    
+    # freeze_double = True
+    # freeze_other_than = [7, 12, 17, 20] #7, 12, 17, 20
+    freeze_double = False
+    freeze_other_than = [] #7, 12, 17, 20
+    # stage 1
+    args.weighting_scheme = "logit_normal"
+    args.logit_mean = 0
+    args.logit_std = 1.0
+    pos_logit_mean = 0
+    pos_selection_lambda = 0
     reg_timestep = args.reg_timestep
     reg_ratio = args.reg_ratio
     
     
     transformer_subfolder = "transformer"
     
-    # enable_redux_training = False
-    image_1 = "train"
-    image_2 = "ref"
+    enable_redux_training = False
+    redux_lambda = 0.5
+    
+    enable_prior_loss = False
+    # enable_pixel_loss = False
+    prior_config = {
+        "predict_split": 2,
+        "prior_target_indexes" : [0]
+    }
+    prior_weighting = 0.5
+    
+    # image_3 = "30L"
+    # image_4 = "40L"
     
     embbeding_path_key = "npz_path"
     embbeding_md5 = f"{embbeding_path_key}_md5"
@@ -662,6 +841,9 @@ def main(args):
     latent_md5 = f'{latent_path_key}_md5'
     cache_ext=".npflux"
     latent_ext=".npfluxlatent"
+    
+    image_1 = "train"
+    image_2 = "reference"
     dataset_based_image = image_1
     image_configs = {
         image_1:{
@@ -679,26 +861,72 @@ def main(args):
             # "redux":[image_1,image_2]
         }
     }
-    training_layout_configs = {
+    if args.use_two_captions:
+        caption_configs[image_2] ={
+            "ext":"txt",
+            # "redux":[image_1,image_2]
+        }
+    
+    random_reference = False
+    
+    pos_training_layout_configs = {
         image_1: {
             "target": image_1,
-            "noised": True,
+            "noised": image_1
         },
-        # generation image on left and refs on right
         image_2: {
             "target": image_2,
+            # "noised": image_2,
+            "reference": image_2,
+        }
+    }
+    
+    pos_val_layout_configs = {
+        image_1: {
+            "target": image_1,
+            "noised": image_1
+        },
+        image_2: {
+            "target": image_2,
+            "reference": image_2,
         },
     }
     
-    captions_selection = {
-        "target": image_1,
-        "use_extra" : True,
-        "condition_extra": {
-            image_2: 0.5,
-            "dropout": 0.5,
+    neg_val_layout_configs = {
+        image_2: {
+            "target": image_2,
+            "noised": image_2
         },
+        image_1: {
+            "target": image_1,
+            "reference": image_1,
+        },
+    }
+    
+    
+    neg_training_layout_configs = {
+        image_2: {
+            "target": image_2,
+            "noised": image_2
+        },
+        image_1: {
+            "target": image_1,
+            "reference": image_1,
+        }
+    }
+    
+    pos_captions_selection = {
+        "target": image_1,
         "dropout": args.caption_dropout,
     }
+    
+    neg_captions_selection = pos_captions_selection
+    if args.use_two_captions:
+        neg_captions_selection = {
+            "target": image_2,
+            "dropout": args.caption_dropout,
+        } 
+    
     dataset_configs = {
         "caption_key":caption_key,
         "latent_key":"latent",
@@ -708,7 +936,7 @@ def main(args):
             prompt_embed_key:prompt_embed_key,
             pooled_prompt_embed_key:pooled_prompt_embed_key,
             txt_attention_mask_key:txt_attention_mask_key
-        },
+        }
     }
     
     # to avoid cache mutiple times on same embedding
@@ -909,10 +1137,10 @@ def main(args):
                     tokenizers = [tokenizer_one,tokenizer_two]
                     text_encoders = [text_encoder_one,text_encoder_two]
                     
-                    # repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
-                    # pipe_prior_redux = None
-                    # if enable_redux_training:
-                    #     pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(repo_redux, torch_dtype=weight_dtype).to(accelerator.device)
+                    repo_redux = "black-forest-labs/FLUX.1-Redux-dev"
+                    pipe_prior_redux = None
+                    if enable_redux_training:
+                        pipe_prior_redux = FluxPriorReduxPipeline.from_pretrained(repo_redux, torch_dtype=weight_dtype).to(accelerator.device)
                     
                     create_empty_embedding(tokenizers,text_encoders)
                     embedding_objects = {}
@@ -926,7 +1154,7 @@ def main(args):
                         for caption_config_key in caption_configs.keys():
                             caption_config = caption_configs[caption_config_key]
                             # redux_image_path = image_pair[dataset_based_image]
-                            image_file = image_pair[dataset_based_image]
+                            image_file = image_pair[caption_config_key]
                             
                                 
                             filename = os.path.basename(image_file)
@@ -957,7 +1185,7 @@ def main(args):
                                     content = replace_non_utf8_characters(content)
                                     # json_obj['prompt'] = content
                                     json_obj["text_path_md5"] = ""
-                            
+                                    
                             if not recreate_cache and os.path.exists(npz_path):
                                 if 'npz_path_md5' not in json_obj:
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
@@ -973,7 +1201,28 @@ def main(args):
                                     "txt_attention_mask": txt_attention_mask.cpu(),
                                 }
                                 
+                                if pipe_prior_redux is not None:
+                                    if "redux" in caption_config:
+                                        npz_dict["redux"] = {}
+                                        redux_list = caption_config["redux"]
+                                        for redux_image_key in redux_list:
+                                            npz_dict["redux"][redux_image_key] = {}
+                                            redux_image_path = image_pair[redux_image_key]
+                                            image = load_image(redux_image_path)
+                                            pipe_prior_output = pipe_prior_redux(image,
+                                                                                prompt_embeds=prompt_embeds,
+                                                                                pooled_prompt_embeds=pooled_prompt_embeds,
+                                                                                prompt_embeds_scale=redux_lambda,
+                                                                                pooled_prompt_embeds_scale=redux_lambda)
+                                            prompt_embed = pipe_prior_output.prompt_embeds.squeeze(0)
+                                            pooled_prompt_embed = pipe_prior_output.pooled_prompt_embeds.squeeze(0)
+                                            npz_dict["redux"][redux_image_key]["prompt_embed"] = prompt_embed.cpu()
+                                            npz_dict["redux"][redux_image_key]["pooled_prompt_embed"] = pooled_prompt_embed.cpu()
+                                # save latent to cache file
                                 torch.save(npz_dict, npz_path)
+                            
+                             
+                            
                             embedding_object[caption_key][caption_config_key] = json_obj
                             
                         for key in image_pair.keys():
@@ -1036,8 +1285,7 @@ def main(args):
                     
                     text_encoder_one.to("cpu")
                     text_encoder_two.to("cpu")
-                    # del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two, pipe_prior_redux
-                    del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two
+                    del vae, tokenizer_one, tokenizer_two, text_encoder_one, text_encoder_two, pipe_prior_redux
                 
             datarows = metadata_datarows
             # Handle validation split
@@ -1075,11 +1323,10 @@ def main(args):
     offload_device = accelerator.device
         
     if not (args.model_path is None or args.model_path == ""):
-        # config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
         transformer = MaskedFluxTransformer2DModel.from_single_file(args.model_path, 
-                            # config=config,  
                             torch_dtype=weight_dtype
                         ).to(offload_device)
+        
     else:
         if args.pretrained_model_name_or_path == "black-forest-labs/FLUX.1-dev":
             transformer = MaskedFluxTransformer2DModel.from_pretrained(
@@ -1087,28 +1334,29 @@ def main(args):
                 subfolder=transformer_subfolder,  
                 torch_dtype=weight_dtype
             ).to(offload_device)
+            
         else:
             # load from repo
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
             # weight_file = "diffusion_pytorch_model"
             variant = None
             transformer = MaskedFluxTransformer2DModel.from_pretrained(
-                        transformer_folder, variant=variant,  
+                        transformer_folder,
                         torch_dtype=weight_dtype
                     ).to(offload_device)
-    flush()
-
     if "quantization_config" in transformer.config:
         transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
     else:
         transformer = transformer.to(offload_device, dtype=weight_dtype)
-        transformer.requires_grad_(False)
-    
+    flush()
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
+
+
+    transformer.requires_grad_(False)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
@@ -1133,12 +1381,16 @@ def main(args):
     # Freeze the layers
     for name, param in transformer.named_parameters():
         layer_names.append(name)
-        if "transformer" in name:
+        if "transformer" in name and "lora" in name:
             if '_orig_mod.' in name:
                 name = name.replace('_orig_mod.', '')
             name_split = name.split(".")
-            layer_order = name_split[1]
-            if int(layer_order) in freezed_layers:
+            transformer_block_name = name_split[0]
+            if freeze_double and transformer_block_name == "transformer_blocks":
+                param.requires_grad = False
+                continue
+            layer_order = int(name_split[1])
+            if layer_order in freezed_layers or (len(freeze_other_than) > 0 and layer_order not in freeze_other_than):
                 param.requires_grad = False
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
@@ -1181,8 +1433,10 @@ def main(args):
             # save training_layout_configs, captions_selection and dataset_configs to output dir using json
             # create one json to save all configs
             configs = {
-                "training_layout_configs": training_layout_configs,
-                "captions_selection": captions_selection,
+                "pos_training_layout_configs": pos_training_layout_configs,
+                "pos_captions_selection": pos_captions_selection,
+                "neg_training_layout_configs": neg_training_layout_configs,
+                "neg_captions_selection": neg_captions_selection,
                 "dataset_configs": dataset_configs,
             }
             configs_file = os.path.join(output_dir, "config_details.json")
@@ -1306,14 +1560,14 @@ def main(args):
                 sample[key][caption_key] = {}
                 for npz_key in dataset_configs["npz_keys"]:
                     sample[key][caption_key][npz_key] = torch.stack([example[key][caption_key][npz_key] for example in examples])
-                # if "redux" in example[key][caption_key]:
-                #     sample[key][caption_key]["redux"] = {}
-                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                #     for npz_extra_key_group in npz_extra_key_groups:
-                #         sample[key][caption_key]["redux"][npz_extra_key_group] = {}
-                #         for npz_extra_key in dataset_configs["npz_extra_keys"][npz_extra_key_group].keys():
-                #             if npz_extra_key in example[key][caption_key]["redux"][npz_extra_key_group]:
-                #                 sample[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] = torch.stack([example[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] for example in examples])
+                if "redux" in example[key][caption_key]:
+                    sample[key][caption_key]["redux"] = {}
+                    npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
+                    for npz_extra_key_group in npz_extra_key_groups:
+                        sample[key][caption_key]["redux"][npz_extra_key_group] = {}
+                        for npz_extra_key in dataset_configs["npz_extra_keys"][npz_extra_key_group].keys():
+                            if npz_extra_key in example[key][caption_key]["redux"][npz_extra_key_group]:
+                                sample[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] = torch.stack([example[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] for example in examples])
                         
         return sample
     # create dataset based on input_dir
@@ -1546,9 +1800,8 @@ def main(args):
             dataset_configs,
             captions_selection,
             # enable_prior_loss=True
+            debug_print=False
         ):
-        
-        default_sample_size = 128
         
         accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
         accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
@@ -1560,7 +1813,9 @@ def main(args):
             batch_size=batch_size,
             logit_mean=args.logit_mean,
             logit_std=args.logit_std,
-            mode_scale=args.mode_scale
+            mode_scale=args.mode_scale,
+            pos_logit_mean=pos_logit_mean,
+            pos_selection_lambda=pos_selection_lambda
         )
         indices = (u * noise_scheduler_copy.config.num_train_timesteps).long()
         timesteps = noise_scheduler_copy.timesteps[indices].to(device=accelerator.device)
@@ -1571,8 +1826,12 @@ def main(args):
             latent = (latent - vae_config_shift_factor) * vae_config_scaling_factor
             batch[image_config_key][latent_key] = latent.to(device=accelerator.device,dtype=weight_dtype)
         
-        latent_list = []
+        reference_names = []
+        noised_latent_names = []
+        target_names = []
+        reference_list = []
         noised_latent_list = []
+        random_list = []
         target_list = []
         # masked_list = []
         # mask_list = []
@@ -1580,6 +1839,7 @@ def main(args):
             
         }
         
+        dropout_ref_list = []
         for training_layout_config_key in training_layout_configs.keys():
             training_layout_config = training_layout_configs[training_layout_config_key]
             
@@ -1592,18 +1852,22 @@ def main(args):
                 for npz_key in dataset_configs["npz_keys"].keys():
                     captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
                 # check extra keys in dataset
-                # if "npz_extra_keys" in dataset_configs:
-                #     captions[training_layout_config_key]["redux"] = {}
-                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                #     for npz_extra_key_group in npz_extra_key_groups:
-                #         # check extra keys in batch captions
-                #         if npz_extra_key_group in batch[training_layout_config_key][caption_key]["redux"]:
-                #             # npz_extra_key_group is redux or something else
-                #             npz_extra_keys = dataset_configs["npz_extra_keys"][npz_extra_key_group]
-                #             captions[training_layout_config_key]["redux"][npz_extra_key_group] = {}
-                #             for npz_extra_key in npz_extra_keys:
-                #                 captions[training_layout_config_key]["redux"][npz_extra_key_group][npz_extra_key] = batch[training_layout_config_key][caption_key]["redux"][npz_extra_key_group][npz_extra_key]
-
+                if "npz_extra_keys" in dataset_configs:
+                    captions[training_layout_config_key]["redux"] = {}
+                    npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
+                    for npz_extra_key_group in npz_extra_key_groups:
+                        # check extra keys in batch captions
+                        if npz_extra_key_group in batch[training_layout_config_key][caption_key]["redux"]:
+                            # npz_extra_key_group is redux or something else
+                            npz_extra_keys = dataset_configs["npz_extra_keys"][npz_extra_key_group]
+                            captions[training_layout_config_key]["redux"][npz_extra_key_group] = {}
+                            for npz_extra_key in npz_extra_keys:
+                                captions[training_layout_config_key]["redux"][npz_extra_key_group][npz_extra_key] = batch[training_layout_config_key][caption_key]["redux"][npz_extra_key_group][npz_extra_key]
+            target_key = ""
+            if "target" in training_layout_config:
+                target_key = training_layout_config["target"]
+                x = batch[target_key][latent_key]
+                
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
                 timesteps_config = transition_config["timesteps"]
@@ -1619,21 +1883,63 @@ def main(args):
                 
                 to_image_key =  images_config["to"]
                 to_image = batch[to_image_key][latent_key]
+                if debug_print:
+                    print(f"Shape of from_image: {from_image.shape}")
+                    print(f"Shape of to_image: {to_image.shape}")
+                    print(f"Shape of mask_for_latents: {mask_for_latents.shape}")
                 x = torch.where(mask_for_latents, from_image, to_image)
-            
-            if "target" in training_layout_config:
-                target_key = training_layout_config["target"]
-                x = batch[target_key][latent_key]
-            
+                
+                target_key = from_image_key
             x = x.to(device=accelerator.device,dtype=weight_dtype)
-            # control to noise which latent
-            if "noised" in training_layout_config and training_layout_config["noised"]:
+            # # control to noise which latent
+            if "noised" in training_layout_config:
                 noised_latent_list.append(x)
                 target_list.append(x)
-            else:        
-                latent_list.append(x)
+                noised_latent_names.append(target_key)
+                target_names.append(target_key)
                 
-        noised_latents = torch.cat(noised_latent_list, dim=0)
+            # else:
+            #     latent_list.append(x)
+            
+            if "reference" in training_layout_config:
+                reference_key = training_layout_config["reference"]
+                if "dropout" in training_layout_config:
+                    # the following logic is to keep the seq consistence
+                    # if there is no dropout, ref 3 could be dropout, if ref 3 remains, ref 4 could be dropout
+                    # if ref 3 is dropped, ref 4 shouldn't remains
+                    if len(dropout_ref_list) == 0:
+                        if random.random() < training_layout_config["dropout"]:
+                            dropout_ref_list.append(reference_key)
+                            continue
+                        
+                    else:
+                        continue
+                reference_names.append(reference_key)
+                x = batch[reference_key][latent_key]
+                reference_list.append(x)
+            
+            if "random_choice" in training_layout_config:
+                random_list.append(x)
+        
+        if len(random_list) > 0:
+            random_choice = random.choice(random_list)
+            reference_list.append(random_choice)
+        
+        if random_reference and len(reference_list) > 1:
+            print("shuffle reference")
+            # reorder reference_list randomly
+            reference_list = random.sample(reference_list, len(reference_list))
+        
+        # debug
+        if debug_print:
+            print("\n")
+            print(f"train layout:")
+            print(f"reference_names: {reference_names}")
+            print(f"noised_latent_names: {noised_latent_names}")
+            print(f"target_names: {target_names}")
+            debug_print = False
+
+        noised_latents = torch.cat(noised_latent_list, dim=-1)
         noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
         
         # Add noise according to flow matching.
@@ -1654,8 +1960,8 @@ def main(args):
         ref_image_ids = None
         packed_ref_latents = None
         # handle partial noised
-        if len(latent_list) > 0:
-            ref_latents = torch.cat(latent_list, dim=0)   
+        if len(reference_list) > 0:
+            ref_latents = torch.cat(reference_list, dim=-1)   
             # pack noisy latents
             packed_ref_latents = FluxKontextPipeline._pack_latents(
                 ref_latents,
@@ -1674,7 +1980,7 @@ def main(args):
             ref_image_ids[..., 0] = 1
         
         # cat factual_images as image guidance
-        learning_target = torch.cat(target_list, dim=0)
+        learning_target = torch.cat(target_list, dim=-1)
         
         latent_image_ids = FluxKontextPipeline._prepare_latent_image_ids(
             latents.shape[0],
@@ -1709,21 +2015,20 @@ def main(args):
             txt_attention_mask_key : selected_caption[txt_attention_mask_key]
         }
         # handle redux
-        # if "use_extra" in captions_selection and enable_redux_training:
-        #     assert "condition_extra" in captions_selection
-        #     conditions = captions_selection["condition_extra"]
+        if "use_extra" in captions_selection and enable_redux_training:
+            assert "condition_extra" in captions_selection
+            conditions = captions_selection["condition_extra"]
             
-        #     options = list(conditions.keys())
-        #     weights = list(conditions.values())
+            options = list(conditions.keys())
+            weights = list(conditions.values())
 
-        #     # Randomly select one option based on weights
-        #     condition_selection = random.choices(options, weights=weights, k=1)[0]
+            # Randomly select one option based on weights
+            condition_selection = random.choices(options, weights=weights, k=1)[0]
             
-        #     if condition_selection != "dropout":
-        #         final_caption = {}
-        #         if "npz_extra_keys" in dataset_configs:
-        #             for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
-        #                 final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
+            if condition_selection != "dropout":
+                final_caption = {}
+                for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
+                    final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
         
                 
         prompt_embeds = final_caption[prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
@@ -1742,7 +2047,6 @@ def main(args):
         text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
         
         with accelerator.autocast():
-            # Predict the noise residual
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
@@ -1797,32 +2101,85 @@ def main(args):
         
         total_loss = loss
         
+        predict_split = prior_config["predict_split"]
+        predict_list = model_pred.chunk(predict_split, dim=-1)
+        target_list = target.chunk(predict_split, dim=-1)
+        
+        del reference_list, noised_latent_list, target_list, captions
+        flush()
+        
+        prior_target_indexes = prior_config["prior_target_indexes"]
+        if enable_prior_loss:
+            for prior_target_index in prior_target_indexes:
+                prior_predict = predict_list[prior_target_index]
+                prior_target = target_list[prior_target_index]
+                
+                # Compute regular loss.
+                prior_loss = torch.mean(
+                    (weighting.float() * (prior_predict.float() - prior_target.float()) ** 2).reshape(prior_target.shape[0], -1),
+                    1,
+                )
+                
+                prior_loss = prior_loss.mean()
+                
+                total_loss = total_loss + prior_weighting * prior_loss
+        
         return total_loss
             
+    if debug_print:
+        # Predict the noise residual
+        for name, param in transformer.named_parameters():
+            print(f"{name:60}  requires_grad={param.requires_grad}")
+    
     for epoch in range(first_epoch, args.num_train_epochs):
         transformer.train()
-        
         for step, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             with accelerator.accumulate(transformer):
-                loss = train_process(
+                
+                set_adapters(transformer,["default"], weights=[args.slider_positive_scale])
+                pos_loss = train_process(
                     batch,
-                    training_layout_configs,
+                    pos_training_layout_configs,
                     dataset_configs,
-                    captions_selection,
-                    # enable_prior_loss=enable_prior_loss
-                    # ,
-                    # vae=vae
+                    pos_captions_selection,
+                    debug_print=debug_print
                 )
-
+                
+                debug_print = False
                 # Backpropagate
-                accelerator.backward(loss)
-                step_loss = loss.detach().item()
+                accelerator.backward(pos_loss)
+                pos_loss = pos_loss.detach().item()
+                
+                set_adapters(transformer,["default"], weights=[args.slider_negative_scale])
+                neg_loss = train_process(
+                    batch,
+                    neg_training_layout_configs,
+                    dataset_configs,
+                    neg_captions_selection,
+                    debug_print=debug_print
+                )
+                # Backpropagate
+                accelerator.backward(neg_loss)
+                neg_loss = neg_loss.detach().item()
+                
+                debug_print = False
+                
+                # loss = pos_loss + neg_loss
+                # step_loss = loss
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
-                    accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
+                    total_norm = accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
+                    
+                    # Convert to Python float and log/print
+                    total_norm = total_norm.item()
+                    
+                    # 记录梯度范数
+                    print(f"grad_norm: {total_norm}")
+                    accelerator.log({"grad_norm": total_norm}, step=global_step)
+                    
 
-                del loss
+                # del loss, pos_loss, neg_loss
                 flush()
                 # ensure model in cuda
                 transformer.to(accelerator.device)
@@ -1845,7 +2202,9 @@ def main(args):
                     else:
                         lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
-                logs = {"step_loss": step_loss, lr_name: lr}
+                logs = {"neg_loss": neg_loss,"pos_loss": pos_loss,
+                        # "step_loss": step_loss, 
+                        lr_name: lr}
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
                 
@@ -1892,7 +2251,8 @@ def main(args):
                             )
 
                             print("\nStart val_loss\n")
-                            total_loss = 0.0
+                            total_pos_loss = 0.0
+                            total_neg_loss = 0.0
                             num_batches = len(val_dataloader)
                             # if no val data, skip the following 
                             if num_batches == 0:
@@ -1901,30 +2261,41 @@ def main(args):
                                 # basically the as same as the training loop
                                 enumerate_val_dataloader = enumerate(val_dataloader)
                                 for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                                    loss = train_process(
+                                    
+                                    set_adapters(transformer,["default"], weights=[args.slider_positive_scale])
+                                    pos_loss = train_process(
                                         batch,
-                                        training_layout_configs,
+                                        pos_val_layout_configs,
                                         dataset_configs,
-                                        captions_selection,
-                                        # enable_prior_loss=enable_prior_loss
-                                        # ,
-                                        # vae=vae
+                                        pos_captions_selection,
+                                        debug_print=debug_print
                                     )
-                                    total_loss+=loss.detach()
+                                    pos_loss = pos_loss.detach().item()
+                                    
+                                    set_adapters(transformer,["default"], weights=[args.slider_negative_scale])
+                                    neg_loss = train_process(
+                                        batch,
+                                        neg_val_layout_configs,
+                                        dataset_configs,
+                                        neg_captions_selection,
+                                        debug_print=debug_print
+                                    )
+                                    neg_loss = neg_loss.detach().item()
+                                    
+                                    debug_print = False
+                                    
+                                    total_pos_loss += pos_loss 
+                                    total_neg_loss += neg_loss
+                                    
+                                    
+                                    # total_loss+=loss.detach()
                                     # del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                                     # flush()
                                     
-                                avg_loss = total_loss / num_batches
-                                # convert to float
-                                avg_loss = float(avg_loss.cpu().numpy())
-                                # adaptive_scheduler.update(avg_loss)
-                                
-                                # lr = lr_scheduler.get_last_lr()[0]
-                                # lr_name = "val_lr"
-                                # if args.optimizer == "prodigy":
-                                #     lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                                #     lr_name = "val_lr lr/d*lr"
-                                logs = {"val_loss": avg_loss, "epoch": epoch}
+                                # avg_loss = total_loss / num_batches
+                                avg_pos_loss = total_pos_loss / num_batches
+                                avg_neg_loss = total_neg_loss / num_batches
+                                logs = {"val_pos_loss": avg_pos_loss, "val_neg_loss": avg_neg_loss, "epoch": epoch}
                                 # print(logs)
                                 progress_bar.set_postfix(**logs)
                                 accelerator.log(logs, step=global_step)
@@ -2001,7 +2372,8 @@ def main(args):
 
                     print("\nStart val_loss\n")
                     
-                    total_loss = 0.0
+                    total_pos_loss = 0.0
+                    total_neg_loss = 0.0
                     num_batches = len(val_dataloader)
                     # if no val data, skip the following 
                     if num_batches == 0:
@@ -2010,26 +2382,39 @@ def main(args):
                         # basically the as same as the training loop
                         enumerate_val_dataloader = enumerate(val_dataloader)
                         for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                            loss = train_process(
+                            
+                            set_adapters(transformer,["default"], weights=[args.slider_positive_scale])
+                            pos_loss = train_process(
                                 batch,
-                                training_layout_configs,
+                                pos_val_layout_configs,
                                 dataset_configs,
-                                captions_selection,
-                                # enable_prior_loss=enable_prior_loss
-                                # ,
-                                # vae=vae
+                                pos_captions_selection,
+                                debug_print=debug_print
                             )
-
-                            total_loss+=loss.detach()
+                            # Backpropagate
+                            pos_loss = pos_loss.detach().item()
+                            
+                            set_adapters(transformer,["default"], weights=[args.slider_negative_scale])
+                            neg_loss = train_process(
+                                batch,
+                                neg_val_layout_configs,
+                                dataset_configs,
+                                neg_captions_selection,
+                                debug_print=debug_print
+                            )
+                            # Backpropagate
+                            neg_loss = neg_loss.detach().item()
+                            
+                            debug_print = False
+                            
+                            total_pos_loss += pos_loss 
+                            total_neg_loss += neg_loss
                             # del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
                             # flush()
                             
-                        avg_loss = total_loss / num_batches
-                        avg_loss = float(avg_loss.cpu().numpy())
-                        # adaptive_scheduler.update(avg_loss)
-                        
-                        lr = lr_scheduler.get_last_lr()[0]
-                        logs = {"val_loss": avg_loss, "epoch": epoch}
+                        avg_pos_loss = total_pos_loss / num_batches
+                        avg_neg_loss = total_neg_loss / num_batches
+                        logs = {"val_pos_loss": avg_pos_loss, "val_neg_loss": avg_neg_loss, "epoch": epoch}
                         print(logs)
                         progress_bar.set_postfix(**logs)
                         
