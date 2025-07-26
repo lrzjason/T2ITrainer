@@ -708,6 +708,7 @@ def parse_args(input_args=None):
         except Exception as e:
             print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
 
+    print(f"Using config: {args}")
     return args
 
 def main(args):
