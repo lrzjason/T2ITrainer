@@ -135,10 +135,6 @@ def closest_mod_64(value):
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
-    # if height==width and (width <= 1344 and height <= 1344):
-    #     closest_pixel = closest_mod_64(width)
-    #     return 1, (closest_pixel,closest_pixel)
-    
     resolution_set = RESOLUTION_CONFIG[resolution]
     
     # get ratio
@@ -147,7 +143,7 @@ def get_nearest_resolution(image, resolution=1024):
     target_set = resolution_set.copy()
     reversed_set = [(y, x) for x, y in target_set]
     target_set = sorted(set(target_set + reversed_set))
-    target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
+    target_ratio = list(set([round(width/height, 2) for width,height in target_set]))
     
     # Find the closest vertical ratio
     closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
