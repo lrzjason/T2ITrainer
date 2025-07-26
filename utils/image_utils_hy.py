@@ -23,7 +23,7 @@ T5_ENCODER = {
 
 BASE_RESOLUTION = 1024
 
-# RESOLUTION_SET = [
+# RESOLUTION_CONFIG = [
 #     (1024, 1024),
 #     (1152, 896),
 #     (1216, 832),
@@ -32,8 +32,8 @@ BASE_RESOLUTION = 1024
 # ]
 
 # def get_buckets():
-#     horizontal_resolution_set = RESOLUTION_SET
-#     vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
+#     horizontal_resolution_set = RESOLUTION_CONFIG
+#     vertical_resolution_set = [(height,width) for width,height in RESOLUTION_CONFIG]
 #     all_resolution_set = horizontal_resolution_set + vertical_resolution_set[1:]
 #     buckets = {}
 #     for resolution in all_resolution_set:
@@ -41,7 +41,7 @@ BASE_RESOLUTION = 1024
 #     return buckets
 
 # height / width for pixart
-# RESOLUTION_SET = [
+# RESOLUTION_CONFIG = [
 #     (1024, 1024), # 1:1
 #     (896, 1152),  # 0.7777 3:4 0.75
 #     (832, 1216),  # 0.6842 
@@ -50,7 +50,7 @@ BASE_RESOLUTION = 1024
 # ]
 
 
-RESOLUTION_SET = [
+RESOLUTION_CONFIG = [
     (1024, 1024),
     (768, 1280),  # 9:16
     (864, 1152),
@@ -59,8 +59,8 @@ RESOLUTION_SET = [
 
 def get_buckets():
     buckets = {}
-    horizontal_resolution_set = RESOLUTION_SET
-    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
+    horizontal_resolution_set = RESOLUTION_CONFIG
+    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_CONFIG]
     all_resolution_set = horizontal_resolution_set + vertical_resolution_set[1:]
     for resolution in all_resolution_set:
         buckets[f'{resolution[0]}x{resolution[1]}'] = []
@@ -68,31 +68,22 @@ def get_buckets():
 
 
 # return closest_ratio and width,height closest_resolution
-def get_nearest_resolution(image):
-    # width, height = image.size
-
+def get_nearest_resolution(image, resolution=1024):
     height, width, _ = image.shape
+    # if height==width and (width <= 1344 and height <= 1344):
+    #     closest_pixel = closest_mod_64(width)
+    #     return 1, (closest_pixel,closest_pixel)
+    
+    RESOLUTION_CONFIG = RESOLUTION_CONFIG[resolution]
     
     # get ratio
-    # image_ratio = width / height
-    image_ratio = height / width
+    image_ratio = width / height
 
-    horizontal_resolution_set = RESOLUTION_SET
-    # horizontal_ratio = [round(width/height, 2) for width,height in RESOLUTION_SET]
-    horizontal_ratio = [round(height/width, 2) for height,width in RESOLUTION_SET]
-
-    # vertical_resolution_set = [(height,width) for width,height in RESOLUTION_SET]
-    # reverse the list as vertical_resolution_set
-    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
-    vertical_ratio = [round(height/width, 2) for height,width in vertical_resolution_set]
-
-
-    target_ratio = horizontal_ratio
-    target_set = horizontal_resolution_set
-    if width<height:
-        target_ratio = vertical_ratio
-        target_set = vertical_resolution_set
-
+    target_set = RESOLUTION_CONFIG.copy()
+    reversed_set = [(y, x) for x, y in target_set]
+    target_set = sorted(set(target_set + reversed_set))
+    target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
+    
     # Find the closest vertical ratio
     closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
     closest_resolution = target_set[target_ratio.index(closest_ratio)]
@@ -342,8 +333,8 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".nphy",recreate=
     # ]
     
     
-    horizontal_resolution_set = RESOLUTION_SET
-    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_SET]
+    horizontal_resolution_set = RESOLUTION_CONFIG
+    vertical_resolution_set = [(width,height) for height,width in RESOLUTION_CONFIG]
     resolutions = horizontal_resolution_set + vertical_resolution_set[1:]
     rope_img="base512"
     patch_size=2

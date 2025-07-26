@@ -106,18 +106,11 @@ def get_nearest_resolution(image, resolution=1024):
     # get ratio
     image_ratio = width / height
 
-    horizontal_resolution_set = resolution_set
-    horizontal_ratio = [round(width/height, 2) for width,height in resolution_set]
-
-    vertical_resolution_set = [(height,width) for width,height in resolution_set]
-    vertical_ratio = [round(height/width, 2) for height,width in vertical_resolution_set]
-
-    target_ratio = horizontal_ratio
-    target_set = horizontal_resolution_set
-    if width<height:
-        target_ratio = vertical_ratio
-        target_set = vertical_resolution_set
-
+    target_set = resolution_set.copy()
+    reversed_set = [(y, x) for x, y in target_set]
+    target_set = sorted(set(target_set + reversed_set))
+    target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
+    
     # Find the closest vertical ratio
     closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
     closest_resolution = target_set[target_ratio.index(closest_ratio)]
