@@ -588,6 +588,12 @@ def parse_args(input_args=None):
         help="Convolutional LoRA alpha",
     )
     parser.add_argument(
+        "--config_path",
+        type=str,
+        default="config.json",
+        help="Path to the config file.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Run a couple of iterations then exit",
@@ -598,6 +604,39 @@ def parse_args(input_args=None):
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+
+    # Load config file if provided
+    if args.config_path and os.path.exists(args.config_path):
+        try:
+            with open(args.config_path, 'r', encoding='utf-8') as f:
+                config_args = json.load(f)
+            # Update args with values from config file
+            for key, value in config_args.items():
+                if hasattr(args, key):
+                    arg_type = type(value)
+                    if arg_type == bool:
+                        if isinstance(value, str):
+                            if value.lower() in ('true', '1', 'yes'):
+                                setattr(args, key, True)
+                            elif value.lower() in ('false', '0', 'no'):
+                                setattr(args, key, False)
+                            else:
+                                print(
+                                    f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default."\
+                                )
+                        else:
+                            setattr(args, key, bool(value))
+                    else:
+                        try:
+                            setattr(args, key, arg_type(value))
+                        except ValueError:
+                            print(
+                                f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default."\
+                            )
+                else:
+                    print(f"Config file contains unknown argument: '{key}'. Ignoring.")
+        except Exception as e:
+            print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
 
     # env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     # if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -1130,9 +1169,16 @@ def main(args):
             last_part = os.path.basename(os.path.normpath(output_dir))
             file_path = f"{output_dir}/{last_part}.safetensors"
             ori_file = f"{output_dir}/pytorch_lora_weights.safetensors"
-            if os.path.exists(ori_file): 
+            if os.path.exists(ori_file):
                 # copy ori to new name
                 shutil.copy(ori_file, file_path)
+
+            # save config to output dir for reproducibility
+            if args.config_path:
+                try:
+                    shutil.copy(args.config_path, output_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to copy config file: {e}")
             
             # # save to kohya
             # peft_state_dict = convert_all_state_dict_to_peft(transformer_lora_layers_to_save)
