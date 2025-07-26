@@ -569,6 +569,29 @@ def parse_args(input_args=None):
         default=900,
         help="As regularization of objective transfer learning. You could try different value.",
     )
+    parser.add_argument(
+        "--algo",
+        type=str,
+        default="locon",
+        help="LoRA algorithm to use (locon, loha, lokr, lora)",
+    )
+    parser.add_argument(
+        "--conv_dim",
+        type=int,
+        default=16,
+        help="Convolutional LoRA dimension",
+    )
+    parser.add_argument(
+        "--conv_alpha",
+        type=float,
+        default=0.5,
+        help="Convolutional LoRA alpha",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run a couple of iterations then exit",
+    )
     
     
     if input_args is not None:
@@ -1029,15 +1052,29 @@ def main(args):
         transformer.enable_gradient_checkpointing()
 
     # now we will add new LoRA weights to the attention layers
-    transformer_lora_config = LoraConfig(
-        # use_dora=args.use_dora,
-        r=args.rank,
-        lora_alpha=args.rank,
-        init_lora_weights="gaussian",
-        # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-        target_modules=target_modules,
-    )
-    transformer.add_adapter(transformer_lora_config)
+    if args.algo.lower() in ["locon", "loha", "lokr"]:
+        import lycoris.kohya as lyco
+
+        lyco_network = lyco.create_network(
+            1.0,
+            args.rank,
+            args.rank,
+            None,
+            None,
+            transformer,
+            algo=args.algo,
+            conv_dim=args.conv_dim,
+            conv_alpha=args.conv_alpha,
+        )
+        lyco_network.apply_to()
+    else:
+        transformer_lora_config = LoraConfig(
+            r=args.rank,
+            lora_alpha=args.rank,
+            init_lora_weights="gaussian",
+            target_modules=target_modules,
+        )
+        transformer.add_adapter(transformer_lora_config)
     layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
@@ -1146,8 +1183,9 @@ def main(args):
         #     cast_training_params(models)
 
 
-    accelerator.register_save_state_pre_hook(save_model_hook)
-    accelerator.register_load_state_pre_hook(load_model_hook)
+    if args.algo.lower() not in ["locon", "loha", "lokr"]:
+        accelerator.register_save_state_pre_hook(save_model_hook)
+        accelerator.register_load_state_pre_hook(load_model_hook)
 
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
@@ -1607,6 +1645,8 @@ def main(args):
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
+                    if args.dry_run and global_step >= 2:
+                        break
                 
                 lr = lr_scheduler.get_last_lr()[0]
                 lr_name = "lr"
@@ -1621,6 +1661,8 @@ def main(args):
                 progress_bar.set_postfix(**logs)
                 
                 if global_step >= max_train_steps:
+                    break
+                if args.dry_run and global_step >= 2:
                     break
                 del step_loss
                 gc.collect()
