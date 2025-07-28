@@ -16,7 +16,7 @@ from hashlib import md5
 import cv2
 import numpy as np
 
-def smart_resize(img: np.ndarray, resolution) -> np.ndarray:
+def resize(img: np.ndarray, resolution) -> np.ndarray:
     f_width, f_height = resolution
     h, w = img.shape[:2]
     if (w, h) == (f_width, f_height):
