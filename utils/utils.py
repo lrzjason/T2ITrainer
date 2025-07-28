@@ -13,6 +13,22 @@ from torchvision import transforms as T
 import random
 from PIL import Image
 from hashlib import md5
+import cv2
+
+def resize(img,resolution):
+    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+    # return cv2.resize(img,resolution, interpolation=cv2.INTER_CUBIC)
+    
+    # 20250728 use different interpolation on different image size 
+    f_width, f_height = resolution
+    h, w = img.shape[:2]
+    if (w, h) == (f_width, f_height):
+        return img
+
+    target_area = f_width * f_height
+    original_area = w * h
+    inter_flag = cv2.INTER_AREA if target_area < original_area else cv2.INTER_LANCZOS4
+    return cv2.resize(img, (f_width, f_height), interpolation=inter_flag)
 
 def find_index_from_right(lst, value):
     try:

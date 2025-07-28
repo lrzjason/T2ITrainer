@@ -10,7 +10,8 @@ import cv2
 import numpy
 from utils.utils import (
     replace_non_utf8_characters,
-    get_md5_by_path
+    get_md5_by_path,
+    resize
 )
 import glob
 from utils.dist_utils import flush
@@ -73,25 +74,25 @@ RESOLUTION_CONFIG = {
     512: [
         (512, 512),
         (336, 784),
-        (344, 752),
-        (360, 728),
-        (376, 696),
-        (400, 664),
+        (352, 752),
+        (368, 736),
+        (384, 704),
+        (400, 672),
         (416, 624),
-        (440, 592),
-        (472, 552),
+        (432, 592),
+        (480, 560),
     ],
     # based on 512 to create 256
     256: [
-        (256, 256),
-        (168, 392),
-        (172, 376),
-        (180, 364),
-        (188, 348),
-        (200, 332),
-        (208, 312),
-        (220, 296),
-        (236, 276),
+        (256,256),
+        (176,400),
+        (176,384),
+        (176,368),
+        (192,352),
+        (208,336),
+        (208,320),
+        (224,304),
+        (240,272)
     ]
 }
 
@@ -1351,8 +1352,6 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     
 #     return image,crop_x,crop_y
 
-def resize(img,resolution):
-    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    return cv2.resize(img,resolution, interpolation=cv2.INTER_CUBIC)
+
 
     

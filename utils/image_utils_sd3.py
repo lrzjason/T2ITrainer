@@ -9,6 +9,12 @@ from tqdm import tqdm
 import cv2
 import numpy
 
+from utils.utils import (
+    replace_non_utf8_characters,
+    get_md5_by_path,
+    resize
+)
+
 BASE_RESOLUTION = 1024
 
 RESOLUTION_CONFIG = [
@@ -523,9 +529,9 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     return resize(cropped_image,closest_resolution)
 
 
-def resize(img,resolution):
-    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    return cv2.resize(img,resolution)
+# def resize(img,resolution):
+#     # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
+#     return cv2.resize(img,resolution)
 
 if __name__ == "__main__":
     image = Image.open("F:/ImageSet/handpick_high_quality/animal/blue-jay-8075346.jpg")

@@ -570,6 +570,12 @@ def parse_args(input_args=None):
         help="As regularization of objective transfer learning. You could try different value.",
     )
     
+    parser.add_argument(
+        "--config_path",
+        type=str,
+        default="config_fill.json",
+        help="Path to the config file.",
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -592,6 +598,40 @@ def parse_args(input_args=None):
     #     if args.class_prompt is not None:
     #         warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
 
+    # Load config file if provided
+    if args.config_path and os.path.exists(args.config_path):
+        try:
+            with open(args.config_path, 'r', encoding='utf-8') as f:
+                config_args = json.load(f)
+            # Update args with values from config file
+            # Ensure that config values override command-line arguments
+            # Convert config values to the correct types if necessary
+            for key, value in config_args.items():
+                if hasattr(args, key):
+                    # Attempt to convert value to the type of the existing argument
+                    arg_type = type(value)
+                    if arg_type == bool:
+                        # Handle boolean conversion carefully
+                        if isinstance(value, str):
+                            if value.lower() in ('true', '1', 'yes'):
+                                setattr(args, key, True)
+                            elif value.lower() in ('false', '0', 'no'):
+                                setattr(args, key, False)
+                            else:
+                                print(f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default.")
+                        else:
+                            setattr(args, key, bool(value))
+                    else:
+                        try:
+                            setattr(args, key, arg_type(value))
+                        except ValueError:
+                            print(f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default.")
+                else:
+                    print(f"Config file contains unknown argument: '{key}'. Ignoring.")
+        except Exception as e:
+            print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
+
+    print(f"Using config: {args}")
     return args
 
 def main(args):
