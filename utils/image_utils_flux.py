@@ -10,7 +10,8 @@ import cv2
 import numpy
 from utils.utils import (
     replace_non_utf8_characters,
-    get_md5_by_path
+    get_md5_by_path,
+    resize
 )
 import glob
 from utils.dist_utils import flush
@@ -1351,8 +1352,6 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     
 #     return image,crop_x,crop_y
 
-def resize(img,resolution):
-    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    return cv2.resize(img,resolution, interpolation=cv2.INTER_CUBIC)
+
 
     
