@@ -14,12 +14,9 @@ import random
 from PIL import Image
 from hashlib import md5
 import cv2
+import numpy as np
 
-def resize(img,resolution):
-    # return cv2.resize(img,resolution,interpolation=cv2.INTER_AREA)
-    # return cv2.resize(img,resolution, interpolation=cv2.INTER_CUBIC)
-    
-    # 20250728 use different interpolation on different image size 
+def smart_resize(img: np.ndarray, resolution) -> np.ndarray:
     f_width, f_height = resolution
     h, w = img.shape[:2]
     if (w, h) == (f_width, f_height):
@@ -27,8 +24,17 @@ def resize(img,resolution):
 
     target_area = f_width * f_height
     original_area = w * h
-    inter_flag = cv2.INTER_AREA if target_area < original_area else cv2.INTER_LANCZOS4
-    return cv2.resize(img, (f_width, f_height), interpolation=inter_flag)
+
+    # ---- 缩小：2-step downsample + 抗锯齿 ----
+    if target_area < original_area:
+        # 计算缩放因子
+        k = min(f_width / w, f_height / h)
+        # 先高斯模糊，sigma ≈ 0.5*downscale_factor（经验值）
+        sigma = 0.5 * (1 / k)
+        blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=sigma, sigmaY=sigma)
+        return cv2.resize(blurred, (f_width, f_height), interpolation=cv2.INTER_AREA)
+    else:
+        return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
 
 def find_index_from_right(lst, value):
     try:
