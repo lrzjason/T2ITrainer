@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 def resize(img: np.ndarray, resolution) -> np.ndarray:
+    f_width, f_height = resolution
     return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
 
 def find_index_from_right(lst, value):
