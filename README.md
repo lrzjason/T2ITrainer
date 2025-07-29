@@ -4,13 +4,8 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-07-16:**  
-add `--config_path` argument to `train_flux_lora_ui_kontext.py`
-support config file to start the kontext training
-```bash
-    python train_flux_lora_ui_kontext.py --config_path config.json
-```
----
+- **2025-07-30:** 
+- **Fix**: Remove text attention mask in lora training.
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
@@ -203,21 +198,8 @@ tensorboard --logdir=.\logs
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
-- **2025-07-25:** 
-Add kontext slider training.
-- **2025-07-20:** 
-Support to user original kontext repo to train lora.
- --exclude "*.safetensors" skip the big one model file which is not needed.
-```bash
-huggingface-cli download "black-forest-labs/FLUX.1-Kontext-dev" --local-dir flux_models/kontext_full/ --exclude "*.safetensors"
-```
-
-- **2025-07-16:**  
-add `--config_path` argument to `train_flux_lora_ui_kontext.py`
-support config file to start the kontext training
-```bash
-    python train_flux_lora_ui_kontext.py --config_path config.json
-```
+- **2025-07-30:** 
+- **Fix**: Remove text attention mask in lora training.
 
 ## Sponsor:
 * Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.

@@ -15,10 +15,82 @@ from PIL import Image
 from hashlib import md5
 import cv2
 import numpy as np
+from typing import Tuple
 
 def resize(img: np.ndarray, resolution) -> np.ndarray:
     f_width, f_height = resolution
     return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+# def resize(img: np.ndarray, resolution) -> np.ndarray:
+#     f_width, f_height = resolution
+#     h, w = img.shape[:2]
+#     if (w, h) == (f_width, f_height):
+#         return img
+
+#     target_area = f_width * f_height
+#     original_area = w * h
+
+#     # ---- 缩小：2-step downsample + 抗锯齿 ----
+#     if target_area < original_area:
+#         # 计算缩放因子
+#         k = min(f_width / w, f_height / h)
+#         # 先高斯模糊，sigma ≈ 0.5*downscale_factor（经验值）
+#         sigma = 0.5 * (1 / k)
+#         blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=sigma, sigmaY=sigma)
+#         return cv2.resize(blurred, (f_width, f_height), interpolation=cv2.INTER_AREA)
+#     else:
+#         return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+
+# def resize(
+#     img: np.ndarray,
+#     resolution: Tuple[int, int],
+#     *,
+#     reduce_texture: bool = True   # True=抑制细碎纹理；False=完全保留
+# ) -> np.ndarray:
+#     """
+#     缩小：保留高频细节 + 可选抑制背景细碎纹理
+#     放大：Lanczos
+#     """
+#     f_width, f_height = resolution
+#     h, w = img.shape[:2]
+#     if (w, h) == (f_width, f_height):
+#         return img
+
+#     target_area = f_width * f_height
+#     original_area = w * h
+
+#     if target_area < original_area:          # 缩小
+#         k = min(f_width / w, f_height / h)
+#         sigma = 0.5 * (1 / k)
+
+#         # ---------- 可选：纹理抑制 ----------
+#         if reduce_texture:
+#             # 轻量双边滤波，仅削弱极细碎纹理
+#             src = cv2.bilateralFilter(img, d=5, sigmaColor=15, sigmaSpace=15)
+#         else:
+#             src = img
+
+#         # ---------- 低频（边缘保持） ----------
+#         low = cv2.edgePreservingFilter(src, flags=1, sigma_s=45, sigma_r=0.15)
+#         low_small = cv2.resize(low, (f_width, f_height), interpolation=cv2.INTER_AREA)
+
+#         # ---------- 高频 ----------
+#         high = src.astype(np.float32) - low.astype(np.float32)
+#         high_small = cv2.resize(high, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+
+#         # 防止 ringing，同时保留足够细节
+#         clamp = 8 if reduce_texture else 20
+#         high_small = np.clip(high_small, -clamp, clamp)
+
+#         # 能量衰减：k^1.2 介于 k 与 k^1.5 之间，锐而不燥
+#         high_small *= k ** 1.2
+
+#         # 合并
+#         result = low_small.astype(np.float32) + high_small
+#         return np.clip(result, 0, 255).astype(np.uint8)
+
+#     else:                                   # 放大
+#         return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+
 
 def find_index_from_right(lst, value):
     try:

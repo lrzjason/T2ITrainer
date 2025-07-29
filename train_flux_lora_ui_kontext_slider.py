@@ -2035,7 +2035,7 @@ def main(args):
         prompt_embeds = final_caption[prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
         pooled_prompt_embeds = final_caption[pooled_prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
         
-        txt_attention_masks = None
+        # txt_attention_masks = None
         # if txt_attention_mask_key in final_caption:
         #     txt_attention_masks = final_caption[txt_attention_mask_key].to(device=accelerator.device, dtype=weight_dtype)
             
@@ -2051,7 +2051,7 @@ def main(args):
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
-                joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                # joint_attention_kwargs = {'attention_mask': txt_attention_masks},
                 # txt_attention_masks=txt_attention_masks,
                 pooled_projections=pooled_prompt_embeds,
                 # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)

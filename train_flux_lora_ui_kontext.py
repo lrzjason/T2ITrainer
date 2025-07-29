@@ -1747,7 +1747,7 @@ def main(args):
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
-                joint_attention_kwargs = {'attention_mask': txt_attention_masks},
+                # joint_attention_kwargs = {'attention_mask': txt_attention_masks},
                 # txt_attention_masks=txt_attention_masks,
                 pooled_projections=pooled_prompt_embeds,
                 # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
