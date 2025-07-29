@@ -99,21 +99,23 @@ class MaskedFluxAttnProcessor2_0:
             query = apply_rotary_emb(query, image_rotary_emb)
             key = apply_rotary_emb(key, image_rotary_emb)
 
+        # 20250730 mismatch attention_mask in lora training would cause the vertical lines in image
         # refer from kohya ss flux_models.py
-        if attention_mask is not None:
-            target_length = query.shape[2]
-            current_length: int = attention_mask.shape[-1]
-            remaining_length: int = target_length - current_length
-            attention_mask = attention_mask.to(torch.bool)  # b, seq_len
-            attention_mask = torch.cat(
-                (attention_mask, torch.ones(attention_mask.shape[0], remaining_length, device=attention_mask.device, dtype=torch.bool)), dim=1
-            )  # b, seq_len + img_len
+        # if attention_mask is not None:
+        #     target_length = query.shape[2]
+        #     current_length: int = attention_mask.shape[-1]
+        #     remaining_length: int = target_length - current_length
+        #     attention_mask = attention_mask.to(torch.bool)  # b, seq_len
+        #     attention_mask = torch.cat(
+        #         (attention_mask, torch.ones(attention_mask.shape[0], remaining_length, device=attention_mask.device, dtype=torch.bool)), dim=1
+        #     )  # b, seq_len + img_len
             
-            # broadcast attn_mask to all heads
-            attention_mask = attention_mask[:, None, None, :].expand(-1, query.shape[1], query.shape[2], -1)
+        #     # broadcast attn_mask to all heads
+        #     attention_mask = attention_mask[:, None, None, :].expand(-1, query.shape[1], query.shape[2], -1)
 
         # add attention mask parameter 
-        hidden_states = F.scaled_dot_product_attention(query, key, value, dropout_p=0.0, is_causal=False, attn_mask=attention_mask)
+        # hidden_states = F.scaled_dot_product_attention(query, key, value, dropout_p=0.0, is_causal=False, attn_mask=attention_mask)
+        hidden_states = F.scaled_dot_product_attention(query, key, value, dropout_p=0.0, is_causal=False)
         hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
         hidden_states = hidden_states.to(query.dtype)
 

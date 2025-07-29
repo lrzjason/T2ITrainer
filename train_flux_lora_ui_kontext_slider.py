@@ -2036,14 +2036,14 @@ def main(args):
         pooled_prompt_embeds = final_caption[pooled_prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
         
         txt_attention_masks = None
-        if txt_attention_mask_key in final_caption:
-            txt_attention_masks = final_caption[txt_attention_mask_key].to(device=accelerator.device, dtype=weight_dtype)
+        # if txt_attention_mask_key in final_caption:
+        #     txt_attention_masks = final_caption[txt_attention_mask_key].to(device=accelerator.device, dtype=weight_dtype)
             
         if random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
             pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds)
-            if txt_attention_masks is not None:
-                txt_attention_masks = torch.zeros_like(txt_attention_masks)
+            # if txt_attention_masks is not None:
+            #     txt_attention_masks = torch.zeros_like(txt_attention_masks)
         
         text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
         
