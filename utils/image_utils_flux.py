@@ -20,6 +20,7 @@ import pandas as pd
 from diffusers.image_processor import VaeImageProcessor
 from diffusers.utils import load_image
 
+from utils.utils import ToTensorUniversal
 
 # BASE_RESOLUTION = 1024
 
@@ -775,7 +776,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npf
             json_obj['npz_path_md5'] = get_md5_by_path(npz_path)
         return json_obj
     
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    train_transforms = transforms.Compose([ToTensorUniversal, transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent
@@ -902,7 +903,7 @@ def cache_multiple(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext="
     f_height = 0
     f_width = 0
     
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
     
     for image_class,image_path in image_files:
         filename, _ = os.path.splitext(image_path)

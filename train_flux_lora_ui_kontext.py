@@ -136,7 +136,9 @@ from torchvision import transforms
 
 from diffusers.image_processor import VaeImageProcessor
 
-from utils.utils import find_index_from_right
+from utils.utils import find_index_from_right, ToTensorUniversal
+
+
 
 
 def load_text_encoders(class_one, class_two):
@@ -994,7 +996,8 @@ def main(args):
                     print("Cache latent")
                     for embedding_object_key in tqdm(embedding_objects.keys()):
                         json_obj = embedding_objects[embedding_object_key]
-                        train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+                        train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
+                        
                         temp_image_pool = { }
                         for image_config_key in image_configs.keys():
                             image_config = image_configs[image_config_key]

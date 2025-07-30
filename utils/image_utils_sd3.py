@@ -303,7 +303,8 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
             print(e)
             print(f"{npz_path} is corrupted, regenerating...")
     
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    from utils.utils import ToTensorUniversal
+    train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent

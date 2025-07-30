@@ -488,7 +488,8 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npsd35",latent_ext=".nps
             json_obj['npz_path_md5'] = get_md5_by_path(npz_path)
         return json_obj
     
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    from utils.utils import ToTensorUniversal
+    train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent

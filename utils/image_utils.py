@@ -271,7 +271,8 @@ def cache_file(compel,vae,json_obj,cache_ext=".npz",recreate=False):
     # json_obj["original_size"] = (image_height,image_width)
     # json_obj["crop_top_left"] = (0,0)
 
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    from utils.utils import ToTensorUniversal
+    train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent

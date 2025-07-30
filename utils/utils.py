@@ -17,6 +17,44 @@ import cv2
 import numpy as np
 from typing import Tuple
 
+from torchvision.transforms import functional as T_F
+
+class ToTensorUniversal:
+    """
+    Convert PIL Image, NumPy array or torch tensor
+    (uint8 or uint16, HWC or CHW) → float32 CHW tensor in [0, 1].
+    """
+    def __call__(self, pic):
+        # --- PIL Image -------------------------------------------------------
+        if isinstance(pic, Image.Image):
+            return F.to_tensor(pic)          # already returns CHW float32/255
+
+        # --- NumPy array -----------------------------------------------------
+        if isinstance(pic, np.ndarray):
+            if pic.ndim == 3 and pic.shape[-1] in (3, 1):   # HWC
+                pic = pic.transpose(2, 0, 1)                # → CHW
+            if pic.dtype == np.uint8:
+                pic = pic.astype(np.float32) / 255.0
+            elif pic.dtype == np.uint16:
+                pic = pic.astype(np.float32) / 65535.0
+            else:
+                pic = pic.astype(np.float32)
+            return torch.from_numpy(pic)
+
+        # --- torch tensor ----------------------------------------------------
+        if isinstance(pic, torch.Tensor):
+            if pic.ndim == 3 and pic.shape[-1] in (3, 1):   # HWC
+                pic = pic.permute(2, 0, 1)                  # → CHW
+            if pic.dtype == torch.uint8:
+                pic = pic.float() / 255.0
+            elif pic.dtype == torch.uint16:
+                pic = pic.float() / 65535.0
+            else:
+                pic = pic.float()
+            return pic
+
+        raise TypeError(f"Unsupported input type: {type(pic)}")
+
 def resize(img: np.ndarray, resolution) -> np.ndarray:
     f_width, f_height = resolution
     return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
