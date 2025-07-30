@@ -17,8 +17,6 @@ import cv2
 import numpy as np
 from typing import Tuple
 
-from torchvision.transforms import functional as T_F
-
 class ToTensorUniversal:
     """
     Convert PIL Image, NumPy array or torch tensor
