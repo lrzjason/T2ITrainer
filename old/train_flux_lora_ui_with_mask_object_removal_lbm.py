@@ -97,7 +97,8 @@ import json
 
 # import sys
 # from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
-from utils.image_utils_flux import BucketBatchSampler, CachedMaskedPairsDataset
+from utils.image_utils_flux import CachedMaskedPairsDataset
+from utils.bucket.bucket_batch_sampler import BucketBatchSampler
 
 # from prodigyopt import Prodigy
 
@@ -1310,7 +1311,7 @@ def main(args):
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
-    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
+    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(

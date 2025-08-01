@@ -214,7 +214,7 @@ default_config = {
     "caption_dropout":0.1,
     "config_path":"config.json",
     "resolution":"512",
-    "resolution_choices":["512","256","1024"],
+    "resolution_choices":["1024","768","512","256"],
     "use_debias":False,
     "snr_gamma":0,
     "cosine_restarts":1,
