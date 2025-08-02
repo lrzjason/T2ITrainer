@@ -1181,7 +1181,7 @@ def main(args):
 
                 # referenced from everyDream discord minienglish1 shared script
                 #create bucket batch sampler
-                validation_bucket_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=val_bs, drop_last=True)
+                validation_bucket_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=val_bs)
 
                 #initialize the DataLoader with the bucket batch sampler
                 validation_dataloader = torch.utils.data.DataLoader(

@@ -2245,7 +2245,7 @@ def main(args):
                         if len(validation_datarows)>0:
                             validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
                             batch_size  = 1
-                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
                             val_dataloader = torch.utils.data.DataLoader(
                                 validation_dataset,
                                 batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
@@ -2363,7 +2363,7 @@ def main(args):
                     
                     batch_size  = 1
                     
-                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
 
                     #initialize the DataLoader with the bucket batch sampler
                     val_dataloader = torch.utils.data.DataLoader(

@@ -1779,7 +1779,7 @@ def main(args):
                             # if batch_size > len(validation_datarows):
                             #     batch_size = 1
                             
-                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
 
                             #initialize the DataLoader with the bucket batch sampler
                             val_dataloader = torch.utils.data.DataLoader(
@@ -2038,7 +2038,7 @@ def main(args):
                         # if batch_size > len(validation_datarows):
                         #     batch_size = 1
                         
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
 
                         #initialize the DataLoader with the bucket batch sampler
                         val_dataloader = torch.utils.data.DataLoader(

@@ -983,7 +983,7 @@ def main(args):
                     if len(validation_datarows)>0:
                         validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                         
-                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
+                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
 
                         #initialize the DataLoader with the bucket batch sampler
                         val_dataloader = torch.utils.data.DataLoader(
