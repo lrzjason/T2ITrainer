@@ -1,7 +1,16 @@
 import random
 import math
 from collections import defaultdict
-from typing import Dict, List, Iterator, Any
+from typing import Dict, List, Iterator, Any, Tuple
+
+
+class _FakeDataset:
+    def __init__(self, rows: List[Dict[str, Any]]):
+        self.datarows = rows
+
+    def __len__(self):
+        return len(self.datarows)
+
 
 class BucketBatchSampler:
     def __init__(self, dataset, batch_size: int):
@@ -10,8 +19,7 @@ class BucketBatchSampler:
         self.dataset = dataset
         self.datarows = dataset.datarows
         self.batch_size = batch_size
-        self.leftover_items: List[int] = []
-        self.bucket_indices: Dict[str, List[int]] = self._bucket_indices()
+        self.leftover_items: Dict[str, List[int]] = defaultdict(list)
 
     # -------------------------------------------------------------
     def _bucket_indices(self) -> Dict[str, List[int]]:
@@ -24,40 +32,33 @@ class BucketBatchSampler:
         return dict(buckets)
 
     def __len__(self) -> int:
-        """
-        Estimates the number of batches in one epoch.
-        """
         return math.ceil(len(self.datarows) / self.batch_size)
 
     def __iter__(self) -> Iterator[List[int]]:
-        # 1. Start with fresh buckets from the dataset
-        buckets = self._bucket_indices()
+        # 1. Start with fresh buckets
+        buckets = defaultdict(list, self._bucket_indices())
 
-        # 2. Prepend leftover items from the previous epoch
-        for idx in self.leftover_items:
-            key = self.datarows[idx]['bucket']
-            buckets.setdefault(key, []).insert(0, idx)
+        # 2. Re-insert leftovers into their respective buckets
+        for key, indices in self.leftover_items.items():
+            buckets[key][:0] = indices  # prepend
         self.leftover_items.clear()
 
         # 3. Shuffle bucket order
         bucket_list = list(buckets.items())
         random.shuffle(bucket_list)
 
-        # 4. Yield batches from each bucket
-        for _, indices in bucket_list:
-            indices = list(indices)  # Work on a copy
+        # 4. Yield full batches per bucket
+        for key, indices in bucket_list:
+            indices = list(indices)  # copy
             start = 0
-            while start < len(indices):
-                end = start + self.batch_size
-                batch = indices[start:end]
-                if end <= len(indices):  # Full batch
-                    yield batch
-                else:  # Leftover items
-                    self.leftover_items.extend(batch)
-                start = end
+            while start + self.batch_size <= len(indices):
+                yield indices[start:start + self.batch_size]
+                start += self.batch_size
+            if start < len(indices):
+                self.leftover_items[key].extend(indices[start:])
 
-        # 5. Flush any remaining leftovers in correct-sized chunks
-        while self.leftover_items:
-            batch = self.leftover_items[:self.batch_size]
-            yield batch
-            self.leftover_items = self.leftover_items[self.batch_size:]
+        # 5. Flush leftovers bucket-by-bucket
+        for key, indices in self.leftover_items.items():
+            for i in range(0, len(indices), self.batch_size):
+                yield indices[i:i + self.batch_size]
+        self.leftover_items.clear()
