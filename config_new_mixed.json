@@ -70,7 +70,8 @@
                 },
                 "captions_selection": {
                     "target": "train"
-                }
+                },
+                "weight": 0.5
             },
             {
                 "training_layout_configs":{
@@ -93,7 +94,8 @@
                 },
                 "val_captions_selection": {
                     "target": "train"
-                }
+                },
+                "weight": 0.5
             }
         ]
     }

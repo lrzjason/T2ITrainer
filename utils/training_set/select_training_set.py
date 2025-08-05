@@ -30,7 +30,7 @@ def get_training_set(training_set: List[Dict[str, Any]]) -> Dict[str, Any]:
             weights[idx] = float(w)
 
     # 保证已知权重之和不超过 1
-    assert 0.0 <= known_total < 1.0, f"Sum of explicit weights must be in [0, 1), got {known_total}"
+    assert 0.0 <= known_total <= 1.0, f"Sum of explicit weights must be in [0, 1), got {known_total}"
 
     # 剩余权重平均分配给缺失 weight 的元素
     if missing_idx:

@@ -4,8 +4,15 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-07-30:** 
-- **Fix**: Remove text attention mask in lora training.
+- **2025-08-05:** 
+- **Update**: Adding new training train_flux_lora_ui_kontext_new.py which able to set training layout in config.json
+| Config       | Usage          |
+|------------------|----------------------------|
+| config_new_single.json | Training kontext with single image, able to set suffix to empty use all images without suffix |
+| config_new_pairs.json | Tranditional kontext training with suffix _T and _R images |
+| config_new_pairs_multiple.json | Able to set multiple reference images for training, For example: _T, _R and _G |
+| config_new_mixed.json | Able to training kontext with mixed training layout. For example: tranditional training mixed with single image training. |
+
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
