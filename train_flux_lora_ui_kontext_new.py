@@ -184,7 +184,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_new_pairs_multiple.json",
+        default="config_new_pairs.json",
         help="Path to the config file.",
     )
     

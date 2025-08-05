@@ -18,7 +18,7 @@
         "logging_dir": "logs",
         "report_to": "wandb",
         "mixed_precision": "bf16",
-        "train_data_dir": "F:\\ImageSet\\tryon\\demo_dataset_single",
+        "train_data_dir": "F:\\ImageSet\\0outsource\\digital human\\3d_human_test",
         "rank": 32,
         "save_model_epochs": 1,
         "save_model_steps": -1,
@@ -40,12 +40,21 @@
         "blocks_to_swap": 0,
         "image_configs": {
             "train":{
-                "suffix":""
+                "suffix":"_T"
+            },
+            "reference":{
+                "suffix":"_R"
+            },
+            "train_single":{
+                "suffix":"_T"
             }
         },
         "caption_configs": {
             "train":{
                 "ext":".txt"
+            },
+            "train_single":{
+                "ext":"1.txt"
             }
         },
         "training_set":[
@@ -54,9 +63,35 @@
                     "train": {
                         "target": "train",
                         "noised": true
+                    },
+                    "reference": {
+                        "target": "reference"
                     }
                 },
                 "captions_selection": {
+                    "target": "train"
+                }
+            },
+            {
+                "training_layout_configs":{
+                    "train_single": {
+                        "target": "train_single",
+                        "noised": true
+                    }
+                },
+                "captions_selection": {
+                    "target": "train_single"
+                },
+                "val_layout_configs": {
+                    "train": {
+                        "target": "train",
+                        "noised": true
+                    },
+                    "reference": {
+                        "target": "reference"
+                    }
+                },
+                "val_captions_selection": {
                     "target": "train"
                 }
             }
