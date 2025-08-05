@@ -97,7 +97,6 @@ import json
 
 
 # import sys
-# from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
 from utils.image_utils_flux import CachedMutiImageDataset
 from utils.bucket.bucket_batch_sampler import BucketBatchSampler
 
@@ -127,7 +126,7 @@ import glob
 import shutil
 from collections import defaultdict
 
-from utils.image_utils_flux import load_image, compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, get_empty_embedding, cache_file, cache_multiple, crop_image,get_md5_by_path,vae_encode,read_image
+from utils.image_utils_flux import compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, crop_image,get_md5_by_path,vae_encode
 
 
 # from diffusers import FluxPriorReduxPipeline
@@ -139,8 +138,7 @@ from diffusers.image_processor import VaeImageProcessor
 
 from utils.utils import find_index_from_right, ToTensorUniversal
 
-
-
+from utils.training_set.select_training_set import get_training_set
 
 def load_text_encoders(class_one, class_two):
     text_encoder_one = class_one.from_pretrained(
@@ -184,394 +182,11 @@ def memory_stats():
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
-        "--pretrained_model_name_or_path",
-        type=str,
-        default=None,
-        required=False,
-        help="Path to pretrained model or model identifier from huggingface.co/models.",
-    )
-    parser.add_argument("--repeats", type=int, default=1, help="How many times to repeat the training data.")
-    parser.add_argument(
-        "--validation_epochs",
-        type=int,
-        default=1,
-        help=(
-            "Run validation every X epochs."
-        ),
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="flux-dreambooth",
-        help="The output directory where the model predictions and checkpoints will be written.",
-    )
-    parser.add_argument("--seed", type=int, default=42, help="A seed for reproducible training.")
-    parser.add_argument(
-        "--train_batch_size", type=int, default=1, help="Batch size (per device) for the training dataloader."
-    )
-    parser.add_argument("--num_train_epochs", type=int, default=1)
-    parser.add_argument(
-        "--resume_from_checkpoint",
-        type=str,
-        default=None,
-        help=(
-            "Whether training should be resumed from a previous checkpoint. Use a path saved by"
-            ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
-        ),
-    )
-    
-    parser.add_argument(
-        "--save_name",
-        type=str,
-        default="flux_",
-        help=(
-            "save name prefix for saving checkpoints"
-        ),
-    )
-    
-    parser.add_argument(
-        "--gradient_accumulation_steps",
-        type=int,
-        default=1,
-        help="Number of updates steps to accumulate before performing a backward/update pass.",
-    )
-    parser.add_argument(
-        "--gradient_checkpointing",
-        action="store_true",
-        help="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.",
-    )
-    parser.add_argument(
-        "--learning_rate",
-        type=float,
-        default=1e-4,
-        help="Initial learning rate (after the potential warmup period) to use.",
-    )
-
-    # parser.add_argument(
-    #     "--scale_lr",
-    #     action="store_true",
-    #     default=False,
-    #     help="Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.",
-    # )
-    parser.add_argument(
-        "--lr_scheduler",
-        type=str,
-        default="cosine",
-        help=(
-            'The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial",'
-            ' "constant", "constant_with_warmup"]'
-        ),
-    )
-    parser.add_argument(
-        "--cosine_restarts",
-        type=int,
-        default=1,
-        help=(
-            'for lr_scheduler cosine_with_restarts'
-        ),
-    )
-    
-    
-    parser.add_argument(
-        "--lr_warmup_steps", type=int, default=50, help="Number of steps for the warmup in the lr scheduler."
-    )
-    parser.add_argument(
-        "--optimizer",
-        type=str,
-        default="AdamW",
-        help=('The optimizer type to use. Choose between ["AdamW", "prodigy"]'),
-    )
-
-    parser.add_argument(
-        "--use_8bit_adam",
-        action="store_true",
-        help="Whether or not to use 8-bit Adam from bitsandbytes. Ignored if optimizer is not set to AdamW",
-    )
-
-    parser.add_argument(
-        "--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam and Prodigy optimizers."
-    )
-    parser.add_argument(
-        "--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam and Prodigy optimizers."
-    )
-    parser.add_argument(
-        "--prodigy_beta3",
-        type=float,
-        default=None,
-        help="coefficients for computing the Prodidy stepsize using running averages. If set to None, "
-        "uses the value of square root of beta2. Ignored if optimizer is adamW",
-    )
-    parser.add_argument("--prodigy_decouple", type=bool, default=True, help="Use AdamW style decoupled weight decay")
-    parser.add_argument("--adam_weight_decay", type=float, default=1e-02, help="Weight decay to use for unet params")
-    parser.add_argument(
-        "--adam_weight_decay_text_encoder", type=float, default=1e-03, help="Weight decay to use for text_encoder"
-    )
-
-    parser.add_argument(
-        "--adam_epsilon",
-        type=float,
-        default=1e-08,
-        help="Epsilon value for the Adam optimizer and Prodigy optimizers.",
-    )
-
-    parser.add_argument(
-        "--prodigy_use_bias_correction",
-        type=bool,
-        default=True,
-        help="Turn on Adam's bias correction. True by default. Ignored if optimizer is adamW",
-    )
-    parser.add_argument(
-        "--prodigy_safeguard_warmup",
-        type=bool,
-        default=True,
-        help="Remove lr from the denominator of D estimate to avoid issues during warm-up stage. True by default. "
-        "Ignored if optimizer is adamW",
-    )
-    parser.add_argument(
-        "--prodigy_d_coef",
-        type=float,
-        default=2,
-        help=("The dimension of the LoRA update matrices."),
-    )
-    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
-    parser.add_argument(
-        "--logging_dir",
-        type=str,
-        default="logs",
-        help=(
-            "[TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to"
-            " *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***."
-        ),
-    )
-    parser.add_argument(
-        "--report_to",
-        type=str,
-        default="wandb",
-        help=(
-            'The integration to report the results and logs to. Supported platforms are `"tensorboard"`'
-            ' (default), `"wandb"` and `"comet_ml"`. Use `"all"` to report to all integrations.'
-        ),
-    )
-    parser.add_argument(
-        "--mixed_precision",
-        type=str,
-        default=None,
-        choices=["bf16", "fp8"],
-        help=(
-            "Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
-            " 1.10.and an Nvidia Ampere GPU.  Default to the value of accelerate config of the current system or the"
-            " flag passed with the `accelerate.launch` command. Use this argument to override the accelerate config."
-        ),
-    )
-    parser.add_argument(
-        "--train_data_dir",
-        type=str,
-        default="",
-        help=(
-            "train data image folder"
-        ),
-    )
-    
-    
-    # parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
-
-    parser.add_argument(
-        "--rank",
-        type=int,
-        default=4,
-        help=("The dimension of the LoRA update matrices."),
-    )
-    parser.add_argument(
-        "--save_model_epochs",
-        type=int,
-        default=1,
-        help=("Save model when x epochs"),
-    )
-    parser.add_argument(
-        "--save_model_steps",
-        type=int,
-        default=-1,
-        help=("Save model when x steps"),
-    )
-    parser.add_argument(
-        "--skip_epoch",
-        type=int,
-        default=0,
-        help=("skip val and save model before x epochs"),
-    )
-    parser.add_argument(
-        "--skip_step",
-        type=int,
-        default=0,
-        help=("skip val and save model before x step"),
-    )
-    
-    # parser.add_argument(
-    #     "--break_epoch",
-    #     type=int,
-    #     default=0,
-    #     help=("break training after x epochs"),
-    # )
-    parser.add_argument(
-        "--validation_ratio",
-        type=float,
-        default=0.1,
-        help=("dataset split ratio for validation"),
-    )
-    parser.add_argument(
-        "--model_path",
-        type=str,
-        default=None,
-        help=("seperate model path"),
-    )
-    parser.add_argument(
-        "--allow_tf32",
-        action="store_true",
-        help=(
-            "Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see"
-            " https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices"
-        ),
-    )
-    parser.add_argument(
-        "--recreate_cache",
-        action="store_true",
-        help="recreate all cache",
-    )
-    parser.add_argument(
-        "--caption_dropout",
-        type=float,
-        default=0.1,
-        help=("caption_dropout ratio which drop the caption and update the unconditional space"),
-    )
-    parser.add_argument(
-        "--mask_dropout",
-        type=float,
-        default=0.01,
-        help=("mask_dropout ratio which replace the mask with all 0"),
-    )
-    parser.add_argument(
-        "--vae_path",
-        type=str,
-        default=None,
-        help=("seperate vae path"),
-    )
-    parser.add_argument(
-        "--resolution",
-        type=str,
-        default='512',
-        help=("default: '1024', accept str: '1024', '512'"),
-    )
-    parser.add_argument(
-        "--use_debias",
-        action="store_true",
-        help="Use debiased estimation loss",
-    )
-    
-    parser.add_argument(
-        "--snr_gamma",
-        type=float,
-        default=5,
-        help="SNR weighting gamma to be used if rebalancing the loss. Recommended value is 5.0. "
-        "More details here: https://arxiv.org/abs/2303.09556.",
-    )
-    parser.add_argument(
-        "--max_time_steps",
-        type=int,
-        default=1000,
-        help="Max time steps limitation. The training timesteps would limited as this value. 0 to max_time_steps",
-    )
-    parser.add_argument(
-        "--weighting_scheme",
-        type=str,
-        default="logit_normal",
-        choices=["sigma_sqrt", "logit_normal", "mode", "cosmap", "logit_snr"],
-    )
-    parser.add_argument(
-        "--logit_mean", type=float, default=0.0, help="mean to use when using the `'logit_normal'` weighting scheme."
-    )
-    parser.add_argument(
-        "--logit_std", type=float, default=1.0, help="std to use when using the `'logit_normal'` weighting scheme."
-    )
-    parser.add_argument(
-        "--mode_scale",
-        type=float,
-        default=1.29,
-        help="Scale of mode weighting scheme. Only effective when using the `'mode'` as the `weighting_scheme`.",
-    )
-    parser.add_argument(
-        "--freeze_transformer_layers",
-        type=str,
-        default='',
-        help="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19"
-    )
-    parser.add_argument(
-        "--lora_layers",
-        type=str,
-        default=None,
-        help=(
-            'The transformer modules to apply LoRA training on. Please specify the layers in a comma seperated. E.g. - "to_k,to_q,to_v,to_out.0" will result in lora training of attention layers only'
-        ),
-    )
-    parser.add_argument(
-        "--guidance_scale",
-        type=float,
-        default=1,
-        help="the FLUX.1 dev variant is a guidance distilled model. default 1 to preserve distillation.",
-    )
-    # parser.add_argument(
-    #     "--use_fp8",
-    #     action="store_true",
-    #     help="Use fp8 model",
-    # )
-    parser.add_argument(
-        "--blocks_to_swap",
-        type=int,
-        default=10,
-        help="Suggest to 10-20 depends on VRAM",
-    )
-    parser.add_argument(
-        "--noise_offset",
-        type=float,
-        default=0.01,
-        help="noise offset in initial noise",
-    )
-    parser.add_argument(
-        "--reg_ratio",
-        type=float,
-        default=0.0,
-        help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
-    )
-    parser.add_argument(
-        "--reg_timestep",
-        type=int,
-        default=0,
-        help="As regularization of objective transfer learning. You could try different value.",
-    )
-    
-    parser.add_argument(
         "--config_path",
         type=str,
-        default="config.json",
+        default="config_new.json",
         help="Path to the config file.",
     )
-    parser.add_argument(
-        "--use_two_captions",
-        action="store_true",
-        help="Use _T caption and _R caption to train each direction",
-    )
-    parser.add_argument(
-        "--slider_positive_scale",
-        type=float,
-        default=1.0,
-        help="Slider Training positive target scale",
-    )
-    parser.add_argument(
-        "--slider_negative_scale",
-        type=float,
-        default=-1.0,
-        help="Slider Training negative target scale",
-    )
-    
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -587,34 +202,34 @@ def parse_args(input_args=None):
             # Ensure that config values override command-line arguments
             # Convert config values to the correct types if necessary
             for key, value in config_args.items():
-                if hasattr(args, key):
-                    # Attempt to convert value to the type of the existing argument
-                    arg_type = type(value)
-                    if arg_type == bool:
-                        # Handle boolean conversion carefully
-                        if isinstance(value, str):
-                            if value.lower() in ('true', '1', 'yes'):
-                                setattr(args, key, True)
-                            elif value.lower() in ('false', '0', 'no'):
-                                setattr(args, key, False)
-                            else:
-                                print(f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default.")
+                # if hasattr(args, key):
+                # Attempt to convert value to the type of the existing argument
+                arg_type = type(value)
+                if arg_type == bool:
+                    # Handle boolean conversion carefully
+                    if isinstance(value, str):
+                        if value.lower() in ('true', '1', 'yes'):
+                            setattr(args, key, True)
+                        elif value.lower() in ('false', '0', 'no'):
+                            setattr(args, key, False)
                         else:
-                            setattr(args, key, bool(value))
+                            print(f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default.")
                     else:
-                        try:
-                            setattr(args, key, arg_type(value))
-                        except ValueError:
-                            print(f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default.")
+                        setattr(args, key, bool(value))
                 else:
-                    print(f"Config file contains unknown argument: '{key}'. Ignoring.")
+                    try:
+                        setattr(args, key, arg_type(value))
+                    except ValueError:
+                        print(f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default.")
+                # else:
+                #     print(f"Config file contains unknown argument: '{key}'. Ignoring.")
         except Exception as e:
             print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
 
     print(f"Using config: {args}")
-    return args
+    return args, config_args
 
-def main(args):
+def main(args, config_args):
     
     # args.scale_lr = False
     use_8bit_adam = True
@@ -643,16 +258,11 @@ def main(args):
     # val_seed = random.randint(1, 100)
     val_seed = 42
     
-    # not use
-    reg_timestep = args.reg_timestep
-    reg_ratio = args.reg_ratio
-    
-    
     transformer_subfolder = "transformer"
     
     # enable_redux_training = False
-    image_1 = "train"
-    image_2 = "ref"
+    # image_1 = "train"
+    # image_2 = "ref"
     
     embbeding_path_key = "npz_path"
     embbeding_md5 = f"{embbeding_path_key}_md5"
@@ -666,43 +276,49 @@ def main(args):
     latent_md5 = f'{latent_path_key}_md5'
     cache_ext=".npflux"
     latent_ext=".npfluxlatent"
-    dataset_based_image = image_1
-    image_configs = {
-        image_1:{
-            "suffix":"_T"
-        },
-        image_2:{
-            "suffix":"_R"
-        },
-    }
+    dataset_based_image = "train"
+    image_configs = config_args['image_configs']
+    image_configs_keys = list(image_configs.keys())
+    if len(image_configs_keys) > 0:
+        dataset_based_image = image_configs_keys[0]
+    # dataset_based_image = image_1
+    # image_configs = {
+    #     image_1:{
+    #         "suffix":"_T"
+    #     },
+    #     image_2:{
+    #         "suffix":"_R"
+    #     },
+    # }
     merge_configs = {**image_configs}
     exclude_base_image_keys = [key for key in merge_configs.keys() if key != dataset_based_image]
-    caption_configs = {
-        image_1:{
-            "ext":"txt",
-            # "redux":[image_1,image_2]
-        }
-    }
-    training_layout_configs = {
-        image_1: {
-            "target": image_1,
-            "noised": True,
-        },
-        # generation image on left and refs on right
-        image_2: {
-            "target": image_2,
-        },
-    }
+    # caption_configs = {
+    #     image_1:{
+    #         "ext":".txt",
+    #         # "redux":[image_1,image_2]
+    #     }
+    # }
+    caption_configs = config_args['caption_configs']
+    # training_layout_configs = {
+    #     image_1: {
+    #         "target": image_1,
+    #         "noised": True,
+    #     },
+    #     # generation image on left and refs on right
+    #     image_2: {
+    #         "target": image_2,
+    #     },
+    # }
+    # training_layout_configs = config_args['training_layout_configs']
     
-    captions_selection = {
-        "target": image_1,
-        # "use_extra" : True,
-        # "condition_extra": {
-        #     image_2: 0.5,
-        #     "dropout": 0.5,
-        # },
-        "dropout": args.caption_dropout,
-    }
+    # captions_selection = {
+    #     "target": image_1,
+    #     "dropout": args.caption_dropout,
+    # }
+    # captions_selection = config_args['captions_selection']
+    
+    training_set = config_args['training_set']
+    
     dataset_configs = {
         "caption_key":caption_key,
         "latent_key":"latent",
@@ -731,8 +347,8 @@ def main(args):
     metadata_path = os.path.join(args.train_data_dir, f'metadata_{metadata_suffix}.json')
     val_metadata_path =  os.path.join(args.train_data_dir, f'val_metadata_{metadata_suffix}.json')
     
-    logging_dir = "logs"
-    accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
+    # logging_dir = "logs"
+    accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=args.logging_dir)
     kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     # run name is save name + datetime
     run_name = f"{args.save_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -760,7 +376,7 @@ def main(args):
     )
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
-    if args.lora_layers is not None:
+    if args.lora_layers is not None and args.lora_layers != "":
         target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
         target_modules = [
@@ -781,7 +397,12 @@ def main(args):
     if args.train_data_dir is not None:
         input_dir = args.train_data_dir
         recreate_cache = args.recreate_cache
-
+        
+        if recreate_cache:
+            # remove metadata and val_metadata_path
+            if os.path.exists(metadata_path): os.remove(metadata_path)
+            if os.path.exists(val_metadata_path): os.remove(val_metadata_path)
+            
         SUPPORTED_IMAGE_TYPES = ['.jpg','.jpeg','.png','.webp']
         # files = glob.glob(f"{input_dir}/**", recursive=True)
         # image_files = [f for f in files if os.path.splitext(f)[-1].lower() in supported_image_types]
@@ -941,7 +562,8 @@ def main(args):
                             json_obj = {
                             }
                             # read caption
-                            caption_ext = '.txt'
+                            # caption_ext = '.txt'
+                            caption_ext = caption_config['ext']
                             text_path = os.path.join(folder_path, f'{filename}{caption_ext}')
                             content = ''
 
@@ -1186,8 +808,7 @@ def main(args):
             # save training_layout_configs, captions_selection and dataset_configs to output dir using json
             # create one json to save all configs
             configs = {
-                "training_layout_configs": training_layout_configs,
-                "captions_selection": captions_selection,
+                "training_set": training_set,
                 "dataset_configs": dataset_configs,
             }
             configs_file = os.path.join(output_dir, "config_details.json")
@@ -1305,21 +926,11 @@ def main(args):
                 continue
             sample[key] = {}
             sample[key][latent_key] = torch.stack([example[key][latent_key] for example in examples])
-            # if masked_latent_key in example[key]:
-            #     sample[key][masked_latent_key] = torch.stack([example[key][masked_latent_key] for example in examples])
             if caption_key in example[key]:
                 sample[key][caption_key] = {}
                 for npz_key in dataset_configs["npz_keys"]:
                     sample[key][caption_key][npz_key] = torch.stack([example[key][caption_key][npz_key] for example in examples])
-                # if "redux" in example[key][caption_key]:
-                #     sample[key][caption_key]["redux"] = {}
-                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                #     for npz_extra_key_group in npz_extra_key_groups:
-                #         sample[key][caption_key]["redux"][npz_extra_key_group] = {}
-                #         for npz_extra_key in dataset_configs["npz_extra_keys"][npz_extra_key_group].keys():
-                #             if npz_extra_key in example[key][caption_key]["redux"][npz_extra_key_group]:
-                #                 sample[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] = torch.stack([example[key][caption_key]["redux"][npz_extra_key_group][npz_extra_key] for example in examples])
-                        
+
         return sample
     # create dataset based on input_dir
     train_dataset = CachedMutiImageDataset(datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
@@ -1524,11 +1135,6 @@ def main(args):
         disable=not accelerator.is_local_main_process,
     )
     
-    # max_time_steps = noise_scheduler.config.num_train_timesteps
-    # if args.max_time_steps is not None and args.max_time_steps > 0:
-    #     max_time_steps = args.max_time_steps
-        
-                    
     # handle guidance
     if accelerator.unwrap_model(transformer).config.guidance_embeds:
         handle_guidance = True
@@ -1596,18 +1202,6 @@ def main(args):
                 captions[training_layout_config_key] = {}
                 for npz_key in dataset_configs["npz_keys"].keys():
                     captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
-                # check extra keys in dataset
-                # if "npz_extra_keys" in dataset_configs:
-                #     captions[training_layout_config_key]["redux"] = {}
-                #     npz_extra_key_groups = dataset_configs["npz_extra_keys"].keys()
-                #     for npz_extra_key_group in npz_extra_key_groups:
-                #         # check extra keys in batch captions
-                #         if npz_extra_key_group in batch[training_layout_config_key][caption_key]["redux"]:
-                #             # npz_extra_key_group is redux or something else
-                #             npz_extra_keys = dataset_configs["npz_extra_keys"][npz_extra_key_group]
-                #             captions[training_layout_config_key]["redux"][npz_extra_key_group] = {}
-                #             for npz_extra_key in npz_extra_keys:
-                #                 captions[training_layout_config_key]["redux"][npz_extra_key_group][npz_extra_key] = batch[training_layout_config_key][caption_key]["redux"][npz_extra_key_group][npz_extra_key]
 
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
@@ -1639,8 +1233,8 @@ def main(args):
                 latent_list.append(x)
                 
         noised_latents = torch.cat(noised_latent_list, dim=0)
-        noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
-        
+        # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
+        noise = torch.randn_like(noised_latents).to(accelerator.device)
         # Add noise according to flow matching.
         # zt = (1 - texp) * x + texp * z1
         sigmas = get_sigmas(timesteps, n_dim=noised_latents.ndim, dtype=noised_latents.dtype)
@@ -1713,36 +1307,12 @@ def main(args):
             pooled_prompt_embed_key : selected_caption[pooled_prompt_embed_key],
             txt_attention_mask_key : selected_caption[txt_attention_mask_key]
         }
-        # handle redux
-        # if "use_extra" in captions_selection and enable_redux_training:
-        #     assert "condition_extra" in captions_selection
-        #     conditions = captions_selection["condition_extra"]
-            
-        #     options = list(conditions.keys())
-        #     weights = list(conditions.values())
-
-        #     # Randomly select one option based on weights
-        #     condition_selection = random.choices(options, weights=weights, k=1)[0]
-            
-        #     if condition_selection != "dropout":
-        #         final_caption = {}
-        #         if "npz_extra_keys" in dataset_configs:
-        #             for npz_extra_key in dataset_configs["npz_extra_keys"][condition_selection]:
-        #                 final_caption[npz_extra_key] = selected_caption["redux"][condition_selection][npz_extra_key]
-        
-                
         prompt_embeds = final_caption[prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
         pooled_prompt_embeds = final_caption[pooled_prompt_embed_key].to(device=accelerator.device, dtype=weight_dtype)
         
-        txt_attention_masks = None
-        # if txt_attention_mask_key in final_caption:
-        #     txt_attention_masks = final_caption[txt_attention_mask_key].to(device=accelerator.device, dtype=weight_dtype)
-            
-        if random.random() < captions_selection["dropout"]:
+        if "dropout" in captions_selection and random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
             pooled_prompt_embeds = torch.zeros_like(pooled_prompt_embeds)
-            # if txt_attention_masks is not None:
-            #     txt_attention_masks = torch.zeros_like(txt_attention_masks)
         
         text_ids = torch.zeros(prompt_embeds.shape[1], 3).to(device=accelerator.device, dtype=weight_dtype)
         
@@ -1751,8 +1321,6 @@ def main(args):
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
-                # joint_attention_kwargs = {'attention_mask': txt_attention_masks},
-                # txt_attention_masks=txt_attention_masks,
                 pooled_projections=pooled_prompt_embeds,
                 # YiYi notes: divide it by 1000 for now because we scale it by 1000 in the transforme rmodel (we should not keep it but I want to keep the inputs same for the model for testing)
                 timestep=timesteps / 1000,
@@ -1810,14 +1378,14 @@ def main(args):
         for step, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             with accelerator.accumulate(transformer):
+                target_set = get_training_set(training_set)
+                training_layout_configs = target_set["training_layout_configs"]
+                captions_selection = target_set["captions_selection"]
                 loss = train_process(
                     batch,
                     training_layout_configs,
                     dataset_configs,
                     captions_selection,
-                    # enable_prior_loss=enable_prior_loss
-                    # ,
-                    # vae=vae
                 )
 
                 # Backpropagate
@@ -1887,8 +1455,8 @@ def main(args):
                         
                         if len(validation_datarows)>0:
                             validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
-                            batch_size  = 1
-                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
+                            # batch_size  = 1
+                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
                             val_dataloader = torch.utils.data.DataLoader(
                                 validation_dataset,
                                 batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
@@ -1906,39 +1474,30 @@ def main(args):
                                 # basically the as same as the training loop
                                 enumerate_val_dataloader = enumerate(val_dataloader)
                                 for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                                    target_set = get_training_set(training_set)
+                                    training_layout_configs = target_set["training_layout_configs"]
+                                    captions_selection = target_set["captions_selection"]
+                                    if "val_layout_configs" in target_set:
+                                        training_layout_configs = target_set["val_layout_configs"]
+                                    if "val_captions_selection" in target_set:
+                                        captions_selection = target_set["val_captions_selection"]
                                     loss = train_process(
                                         batch,
                                         training_layout_configs,
                                         dataset_configs,
-                                        captions_selection,
-                                        # enable_prior_loss=enable_prior_loss
-                                        # ,
-                                        # vae=vae
+                                        captions_selection
                                     )
                                     total_loss+=loss.detach()
-                                    # del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
-                                    # flush()
                                     
                                 avg_loss = total_loss / num_batches
                                 # convert to float
                                 avg_loss = float(avg_loss.cpu().numpy())
-                                # adaptive_scheduler.update(avg_loss)
                                 
-                                # lr = lr_scheduler.get_last_lr()[0]
-                                # lr_name = "val_lr"
-                                # if args.optimizer == "prodigy":
-                                #     lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
-                                #     lr_name = "val_lr lr/d*lr"
                                 logs = {"val_loss": avg_loss, "epoch": epoch}
                                 # print(logs)
                                 progress_bar.set_postfix(**logs)
                                 accelerator.log(logs, step=global_step)
                                 
-                                
-                                # current_logit_mean, current_logit_std = adaptive_scheduler.get_current_params()
-                                # accelerator.log({"val_current_logit_mean":current_logit_mean}, step=global_step)
-                                # del num_batches, avg_loss, total_loss
-                            # del validation_datarows, validation_dataset, val_batch_sampler, val_dataloader
                             flush()
                             print("\nEnd val_loss\n")
                         
@@ -1992,9 +1551,7 @@ def main(args):
                 if len(validation_datarows)>0:
                     validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
                     
-                    batch_size  = 1
-                    
-                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
 
                     #initialize the DataLoader with the bucket batch sampler
                     val_dataloader = torch.utils.data.DataLoader(
@@ -2015,19 +1572,21 @@ def main(args):
                         # basically the as same as the training loop
                         enumerate_val_dataloader = enumerate(val_dataloader)
                         for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                            target_set = get_training_set(training_set)
+                            training_layout_configs = target_set["training_layout_configs"]
+                            captions_selection = target_set["captions_selection"]
+                            if "val_layout_configs" in target_set:
+                                training_layout_configs = target_set["val_layout_configs"]
+                            if "val_captions_selection" in target_set:
+                                captions_selection = target_set["val_captions_selection"]
                             loss = train_process(
                                 batch,
                                 training_layout_configs,
                                 dataset_configs,
-                                captions_selection,
-                                # enable_prior_loss=enable_prior_loss
-                                # ,
-                                # vae=vae
+                                captions_selection
                             )
 
                             total_loss+=loss.detach()
-                            # del latents, target, loss, model_pred,  timesteps,  bsz, noise, packed_noisy_latents
-                            # flush()
                             
                         avg_loss = total_loss / num_batches
                         avg_loss = float(avg_loss.cpu().numpy())
@@ -2040,12 +1599,9 @@ def main(args):
                         
                         accelerator.log(logs, step=global_step)
                         
-                        
                     flush()
                     print("\nEnd val_loss\n")
 
-                
-            
         # restore rng before validation
         np.random.seed(np_seed)
         torch.random.set_rng_state(before_state)
@@ -2068,5 +1624,5 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    main(args)
+    args, config_args = parse_args()
+    main(args, config_args)
