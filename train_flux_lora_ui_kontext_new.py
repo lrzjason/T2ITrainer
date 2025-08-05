@@ -184,7 +184,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_new.json",
+        default="config_new_pairs_multiple.json",
         help="Path to the config file.",
     )
     
@@ -1232,7 +1232,7 @@ def main(args, config_args):
             else:        
                 latent_list.append(x)
                 
-        noised_latents = torch.cat(noised_latent_list, dim=0)
+        noised_latents = torch.cat(noised_latent_list, dim=-1)
         # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
         noise = torch.randn_like(noised_latents).to(accelerator.device)
         # Add noise according to flow matching.
@@ -1254,7 +1254,7 @@ def main(args, config_args):
         packed_ref_latents = None
         # handle partial noised
         if len(latent_list) > 0:
-            ref_latents = torch.cat(latent_list, dim=0)   
+            ref_latents = torch.cat(latent_list, dim=-1)      
             # pack noisy latents
             packed_ref_latents = FluxKontextPipeline._pack_latents(
                 ref_latents,
@@ -1273,7 +1273,7 @@ def main(args, config_args):
             ref_image_ids[..., 0] = 1
         
         # cat factual_images as image guidance
-        learning_target = torch.cat(target_list, dim=0)
+        learning_target = torch.cat(target_list, dim=-1)
         
         latent_image_ids = FluxKontextPipeline._prepare_latent_image_ids(
             latents.shape[0],
@@ -1352,11 +1352,11 @@ def main(args, config_args):
         # ====================Debug latent====================
         
         target = noise - learning_target
-        _,_,_,t_w = target.shape
-        _,_,_,p_w = model_pred.shape
-        # split model_pred based on target width
-        if p_w != t_w:
-            model_pred = model_pred[..., :t_w]
+        # _,_,_,t_w = target.shape
+        # _,_,_,p_w = model_pred.shape
+        # # split model_pred based on target width
+        # if p_w != t_w:
+        #     model_pred = model_pred[..., :t_w]
         
         weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
         
