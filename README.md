@@ -4,14 +4,15 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 ## 📅 Recent Updates
-- **2025-08-05:** 
-- **Update**: Adding new training train_flux_lora_ui_kontext_new.py which able to set training layout in config.json
+- **2025-08-05:**  
+  - **Update**: Added new training script `train_flux_lora_ui_kontext_new.py` which allows setting the training layout in `config.json`.
+
 | Config | Usage |
-|---|---|
-| `config_new_single.json` | Training Kontext with a single image; able to set suffix to empty to use all images without suffix. |
-| `config_new_pairs.json` | Traditional Kontext training with `_T` and `_R` suffixed images. |
-| `config_new_pairs_multiple.json` | Able to set multiple reference images for training, e.g., `_T`, `_R`, and `_G`. |
-| `config_new_mixed.json` | Able to train Kontext with a mixed training layout, e.g., traditional training mixed with single-image training. |
+|--------|-------|
+| `config_new_single.json` | Train Kontext with a single image; leave the suffix empty to use all images without a suffix. |
+| `config_new_pairs.json` | Traditional Kontext training using `_T` and `_R` suffixed images. |
+| `config_new_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
+| `config_new_mixed.json` | Train Kontext using a mixed layout—e.g., combine traditional pair training with single-image training. |
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
