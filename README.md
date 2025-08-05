@@ -14,6 +14,9 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 | `config_new_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
 | `config_new_mixed.json` | Train Kontext using a mixed layout—e.g., combine traditional pair training with single-image training. |
 
+- Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
+- Not support UI selection yet.
+
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
 
