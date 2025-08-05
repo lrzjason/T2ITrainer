@@ -6,12 +6,13 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 ## 📅 Recent Updates
 - **2025-08-05:** 
 - **Update**: Adding new training train_flux_lora_ui_kontext_new.py which able to set training layout in config.json
-| Config       | Usage          |
-|------------------|----------------------------|
-| config_new_single.json | Training kontext with single image, able to set suffix to empty use all images without suffix |
-| config_new_pairs.json | Tranditional kontext training with suffix _T and _R images |
-| config_new_pairs_multiple.json | Able to set multiple reference images for training, For example: _T, _R and _G |
-| config_new_mixed.json | Able to training kontext with mixed training layout. For example: tranditional training mixed with single image training. |
+| Config                           | Usage                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `config_new_single.json`         | Train Kontext with a single image; set suffix to empty to use all images without a suffix.  |
+| `config_new_pairs.json`          | Traditional Kontext training using images with `_T` and `_R` suffixes.                      |
+| `config_new_pairs_multiple.json` | Train with multiple reference images (e.g., `_T`, `_R`, and `_G`).                          |
+| `config_new_mixed.json`          | Train Kontext with a mixed layout—traditional training combined with single-image training. |
+
 
 
 ## 🛡️ Prerequisites
