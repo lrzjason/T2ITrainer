@@ -254,27 +254,27 @@ class MaskedFluxTransformer2DModel(FluxTransformer2DModel):
         self.num_single_blocks = len(self.single_transformer_blocks)
         
         
-        self.transformer_blocks = nn.ModuleList(
-            [
-                MaskedFluxTransformerBlock(
-                    dim=self.inner_dim,
-                    num_attention_heads=self.config.num_attention_heads,
-                    attention_head_dim=self.config.attention_head_dim,
-                )
-                for i in range(self.config.num_layers)
-            ]
-        )
+        # self.transformer_blocks = nn.ModuleList(
+        #     [
+        #         MaskedFluxTransformerBlock(
+        #             dim=self.inner_dim,
+        #             num_attention_heads=self.config.num_attention_heads,
+        #             attention_head_dim=self.config.attention_head_dim,
+        #         )
+        #         for i in range(self.config.num_layers)
+        #     ]
+        # )
 
-        self.single_transformer_blocks = nn.ModuleList(
-            [
-                MaskedFluxSingleTransformerBlock(
-                    dim=self.inner_dim,
-                    num_attention_heads=self.config.num_attention_heads,
-                    attention_head_dim=self.config.attention_head_dim,
-                )
-                for i in range(self.config.num_single_layers)
-            ]
-        )
+        # self.single_transformer_blocks = nn.ModuleList(
+        #     [
+        #         MaskedFluxSingleTransformerBlock(
+        #             dim=self.inner_dim,
+        #             num_attention_heads=self.config.num_attention_heads,
+        #             attention_head_dim=self.config.attention_head_dim,
+        #         )
+        #         for i in range(self.config.num_single_layers)
+        #     ]
+        # )
 
 
     def enable_block_swap(self, num_blocks: int, device: torch.device):
@@ -422,26 +422,34 @@ class MaskedFluxTransformer2DModel(FluxTransformer2DModel):
                 self.offloader_double.wait_for_block(index_block)
             
             if torch.is_grad_enabled() and self.gradient_checkpointing:
-                def create_custom_forward(module, return_dict=None):
-                    def custom_forward(*inputs):
-                        if return_dict is not None:
-                            return module(*inputs, return_dict=return_dict)
-                        else:
-                            return module(*inputs)
+                # def create_custom_forward(module, return_dict=None):
+                #     def custom_forward(*inputs):
+                #         if return_dict is not None:
+                #             return module(*inputs, return_dict=return_dict)
+                #         else:
+                #             return module(*inputs)
 
-                    return custom_forward
+                #     return custom_forward
 
-                ckpt_kwargs: Dict[str, Any] = {"use_reentrant": False} if is_torch_version(">=", "1.11.0") else {}
+                # ckpt_kwargs: Dict[str, Any] = {"use_reentrant": False} if is_torch_version(">=", "1.11.0") else {}
                 
-                encoder_hidden_states, hidden_states = torch.utils.checkpoint.checkpoint(
-                    create_custom_forward(block),
+                # encoder_hidden_states, hidden_states = torch.utils.checkpoint.checkpoint(
+                #     create_custom_forward(block),
+                #     hidden_states,
+                #     encoder_hidden_states,
+                #     temb,
+                #     image_rotary_emb,
+                #     joint_attention_kwargs,
+                #     # txt_attention_masks,
+                #     **ckpt_kwargs,
+                # )
+                encoder_hidden_states, hidden_states = self._gradient_checkpointing_func(
+                    block,
                     hidden_states,
                     encoder_hidden_states,
                     temb,
                     image_rotary_emb,
                     joint_attention_kwargs,
-                    # txt_attention_masks,
-                    **ckpt_kwargs,
                 )
 
             else:
@@ -450,7 +458,6 @@ class MaskedFluxTransformer2DModel(FluxTransformer2DModel):
                     encoder_hidden_states=encoder_hidden_states,
                     temb=temb,
                     image_rotary_emb=image_rotary_emb,
-                    # txt_attention_masks=txt_attention_masks,
                     joint_attention_kwargs=joint_attention_kwargs,
                 )
 
@@ -470,68 +477,75 @@ class MaskedFluxTransformer2DModel(FluxTransformer2DModel):
                 self.offloader_double.submit_move_blocks(self.transformer_blocks, index_block)
 
             
-        hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
+        # 20250805 new version transformer didn't concat encoder_hidden_states and hidden_states before single block
+        # hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
 
         for index_block, block in enumerate(self.single_transformer_blocks):
             if self.blocks_to_swap:
                 self.offloader_single.wait_for_block(index_block)
                 
-            if torch.is_grad_enabled() and self.gradient_checkpointing:
+            # if torch.is_grad_enabled() and self.gradient_checkpointing:
 
-                def create_custom_forward(module, return_dict=None):
-                    def custom_forward(*inputs):
-                        if return_dict is not None:
-                            return module(*inputs, return_dict=return_dict)
-                        else:
-                            return module(*inputs)
+            #     def create_custom_forward(module, return_dict=None):
+            #         def custom_forward(*inputs):
+            #             if return_dict is not None:
+            #                 return module(*inputs, return_dict=return_dict)
+            #             else:
+            #                 return module(*inputs)
 
-                    return custom_forward
+            #         return custom_forward
 
-                ckpt_kwargs: Dict[str, Any] = {"use_reentrant": False} if is_torch_version(">=", "1.11.0") else {}
+            #     ckpt_kwargs: Dict[str, Any] = {"use_reentrant": False} if is_torch_version(">=", "1.11.0") else {}
                 
-                # merge ckpt_kwargs with joint_attention_kwargs
-                # ckpt_kwargs = {**ckpt_kwargs, **joint_attention_kwargs}
-                try:
-                    hidden_states = torch.utils.checkpoint.checkpoint(
-                        create_custom_forward(block),
-                        hidden_states,
-                        temb,
-                        image_rotary_emb,
-                        # txt_attention_masks,
-                        joint_attention_kwargs,
-                        **ckpt_kwargs,
-                    )
-                except Exception as e:
-                    print(e)
-
+            #     # merge ckpt_kwargs with joint_attention_kwargs
+            #     # ckpt_kwargs = {**ckpt_kwargs, **joint_attention_kwargs}
+            #     try:
+            #         hidden_states = torch.utils.checkpoint.checkpoint(
+            #             create_custom_forward(block),
+            #             hidden_states,
+            #             temb,
+            #             image_rotary_emb,
+            #             # txt_attention_masks,
+            #             joint_attention_kwargs,
+            #             **ckpt_kwargs,
+            #         )
+            #     except Exception as e:
+            #         print(e)
+            if torch.is_grad_enabled() and self.gradient_checkpointing:
+                encoder_hidden_states, hidden_states = self._gradient_checkpointing_func(
+                    block,
+                    hidden_states,
+                    encoder_hidden_states,
+                    temb,
+                    image_rotary_emb,
+                    joint_attention_kwargs,
+                )
             else:
-                hidden_states = block(
+                encoder_hidden_states, hidden_states = block(
                     hidden_states=hidden_states,
+                    encoder_hidden_states=encoder_hidden_states,
                     temb=temb,
                     image_rotary_emb=image_rotary_emb,
-                    # txt_attention_masks=txt_attention_masks,
-                    joint_attention_kwargs=joint_attention_kwargs
+                    joint_attention_kwargs=joint_attention_kwargs,
                 )
 
             # controlnet residual
             if controlnet_single_block_samples is not None:
                 interval_control = len(self.single_transformer_blocks) / len(controlnet_single_block_samples)
                 interval_control = int(np.ceil(interval_control))
-                hidden_states[:, encoder_hidden_states.shape[1] :, ...] = (
-                    hidden_states[:, encoder_hidden_states.shape[1] :, ...]
-                    + controlnet_single_block_samples[index_block // interval_control]
-                )
+                hidden_states = hidden_states + controlnet_single_block_samples[index_block // interval_control]
+
                 
             if self.blocks_to_swap:
                 self.offloader_single.submit_move_blocks(self.single_transformer_blocks, index_block)
 
 
-        hidden_states = hidden_states[:, encoder_hidden_states.shape[1] :, ...]
+        # hidden_states = hidden_states[:, encoder_hidden_states.shape[1] :, ...]
 
 
-        if self.training:
-            hidden_states = hidden_states.to(self.device)
-            temb = temb.to(self.device)
+        # if self.training:
+        #     hidden_states = hidden_states.to(self.device)
+        #     temb = temb.to(self.device)
 
         hidden_states = self.norm_out(hidden_states, temb)
         output = self.proj_out(hidden_states)

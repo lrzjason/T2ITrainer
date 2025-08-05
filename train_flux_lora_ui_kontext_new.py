@@ -1182,7 +1182,7 @@ def main(args, config_args):
             latent = (latent - vae_config_shift_factor) * vae_config_scaling_factor
             batch[image_config_key][latent_key] = latent.to(device=accelerator.device,dtype=weight_dtype)
         
-        latent_list = []
+        reference_list = []
         noised_latent_list = []
         target_list = []
         # masked_list = []
@@ -1230,7 +1230,7 @@ def main(args, config_args):
                 noised_latent_list.append(x)
                 target_list.append(x)
             else:        
-                latent_list.append(x)
+                reference_list.append(x)
                 
         noised_latents = torch.cat(noised_latent_list, dim=-1)
         # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
@@ -1253,8 +1253,8 @@ def main(args, config_args):
         ref_image_ids = None
         packed_ref_latents = None
         # handle partial noised
-        if len(latent_list) > 0:
-            ref_latents = torch.cat(latent_list, dim=-1)      
+        if len(reference_list) > 0:
+            ref_latents = torch.cat(reference_list, dim=-1)      
             # pack noisy latents
             packed_ref_latents = FluxKontextPipeline._pack_latents(
                 ref_latents,
