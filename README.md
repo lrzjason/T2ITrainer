@@ -16,6 +16,7 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 
 - Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
 - Not support UI selection yet.
+- ❗ **Mandatory:** Update diffusers to v0.34.0 version for updated flux logic in diffusers library.
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)

@@ -1184,6 +1184,7 @@ def main(args, config_args):
         
         reference_list = []
         noised_latent_list = []
+        dropout_ref_list = []
         target_list = []
         # masked_list = []
         # mask_list = []
@@ -1229,7 +1230,20 @@ def main(args, config_args):
             if "noised" in training_layout_config and training_layout_config["noised"]:
                 noised_latent_list.append(x)
                 target_list.append(x)
-            else:        
+            else:
+                reference_key = training_layout_config["target"]
+                if "dropout" in training_layout_config:
+                    # the following logic is to keep the seq consistence
+                    # if there is no dropout, ref 3 could be dropout, if ref 3 remains, ref 4 could be dropout
+                    # if ref 3 is dropped, ref 4 shouldn't remains
+                    if len(dropout_ref_list) == 0:
+                        if random.random() < training_layout_config["dropout"]:
+                            dropout_ref_list.append(reference_key)
+                            continue
+                        
+                    else:
+                        continue
+                        
                 reference_list.append(x)
                 
         noised_latents = torch.cat(noised_latent_list, dim=-1)

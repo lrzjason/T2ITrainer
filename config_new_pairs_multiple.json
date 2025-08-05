@@ -65,7 +65,8 @@
                         "target": "reference"
                     },
                     "grey": {
-                        "target": "grey"
+                        "target": "grey",
+                        "dropout": 0.5
                     }
                 },
                 "captions_selection": {
