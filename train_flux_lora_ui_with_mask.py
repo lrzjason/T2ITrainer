@@ -570,6 +570,35 @@ def parse_args(input_args=None):
         default=900,
         help="As regularization of objective transfer learning. You could try different value.",
     )
+    parser.add_argument(
+        "--algo",
+        type=str,
+        default="locon",
+        help="LoRA algorithm to use (locon, loha, lokr, lora)",
+    )
+    parser.add_argument(
+        "--conv_dim",
+        type=int,
+        default=16,
+        help="Convolutional LoRA dimension",
+    )
+    parser.add_argument(
+        "--conv_alpha",
+        type=float,
+        default=0.5,
+        help="Convolutional LoRA alpha",
+    )
+    parser.add_argument(
+        "--config_path",
+        type=str,
+        default="config.json",
+        help="Path to the config file.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run a couple of iterations then exit",
+    )
     
     parser.add_argument(
         "--config_path",
@@ -582,6 +611,39 @@ def parse_args(input_args=None):
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
+
+    # Load config file if provided
+    if args.config_path and os.path.exists(args.config_path):
+        try:
+            with open(args.config_path, 'r', encoding='utf-8') as f:
+                config_args = json.load(f)
+            # Update args with values from config file
+            for key, value in config_args.items():
+                if hasattr(args, key):
+                    arg_type = type(value)
+                    if arg_type == bool:
+                        if isinstance(value, str):
+                            if value.lower() in ('true', '1', 'yes'):
+                                setattr(args, key, True)
+                            elif value.lower() in ('false', '0', 'no'):
+                                setattr(args, key, False)
+                            else:
+                                print(
+                                    f"Could not convert '{value}' to boolean for argument '{key}'. Keeping default."\
+                                )
+                        else:
+                            setattr(args, key, bool(value))
+                    else:
+                        try:
+                            setattr(args, key, arg_type(value))
+                        except ValueError:
+                            print(
+                                f"Could not convert '{value}' to type {arg_type.__name__} for argument '{key}'. Keeping default."\
+                            )
+                else:
+                    print(f"Config file contains unknown argument: '{key}'. Ignoring.")
+        except Exception as e:
+            print(f"Could not load config file '{args.config_path}': {e}. Using command-line arguments.")
 
     # env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     # if env_local_rank != -1 and env_local_rank != args.local_rank:
@@ -1070,15 +1132,29 @@ def main(args):
         transformer.enable_gradient_checkpointing()
 
     # now we will add new LoRA weights to the attention layers
-    transformer_lora_config = LoraConfig(
-        # use_dora=args.use_dora,
-        r=args.rank,
-        lora_alpha=args.rank,
-        init_lora_weights="gaussian",
-        # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-        target_modules=target_modules,
-    )
-    transformer.add_adapter(transformer_lora_config)
+    if args.algo.lower() in ["locon", "loha", "lokr"]:
+        import lycoris.kohya as lyco
+
+        lyco_network = lyco.create_network(
+            1.0,
+            args.rank,
+            args.rank,
+            None,
+            None,
+            transformer,
+            algo=args.algo,
+            conv_dim=args.conv_dim,
+            conv_alpha=args.conv_alpha,
+        )
+        lyco_network.apply_to()
+    else:
+        transformer_lora_config = LoraConfig(
+            r=args.rank,
+            lora_alpha=args.rank,
+            init_lora_weights="gaussian",
+            target_modules=target_modules,
+        )
+        transformer.add_adapter(transformer_lora_config)
     layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
@@ -1134,9 +1210,16 @@ def main(args):
             last_part = os.path.basename(os.path.normpath(output_dir))
             file_path = f"{output_dir}/{last_part}.safetensors"
             ori_file = f"{output_dir}/pytorch_lora_weights.safetensors"
-            if os.path.exists(ori_file): 
+            if os.path.exists(ori_file):
                 # copy ori to new name
                 shutil.copy(ori_file, file_path)
+
+            # save config to output dir for reproducibility
+            if args.config_path:
+                try:
+                    shutil.copy(args.config_path, output_dir)
+                except Exception as e:
+                    logger.warning(f"Failed to copy config file: {e}")
             
             # # save to kohya
             # peft_state_dict = convert_all_state_dict_to_peft(transformer_lora_layers_to_save)
@@ -1187,8 +1270,9 @@ def main(args):
         #     cast_training_params(models)
 
 
-    accelerator.register_save_state_pre_hook(save_model_hook)
-    accelerator.register_load_state_pre_hook(load_model_hook)
+    if args.algo.lower() not in ["locon", "loha", "lokr"]:
+        accelerator.register_save_state_pre_hook(save_model_hook)
+        accelerator.register_load_state_pre_hook(load_model_hook)
 
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
@@ -1648,6 +1732,8 @@ def main(args):
                 if accelerator.sync_gradients:
                     progress_bar.update(1)
                     global_step += 1
+                    if args.dry_run and global_step >= 2:
+                        break
                 
                 lr = lr_scheduler.get_last_lr()[0]
                 lr_name = "lr"
@@ -1662,6 +1748,8 @@ def main(args):
                 progress_bar.set_postfix(**logs)
                 
                 if global_step >= max_train_steps:
+                    break
+                if args.dry_run and global_step >= 2:
                     break
                 del step_loss
                 gc.collect()

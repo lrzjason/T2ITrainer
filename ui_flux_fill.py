@@ -32,6 +32,9 @@ TRANSLATIONS = {
         'lora_config': 'LoRA 配置',
         'rank': '秩',
         'rank_info': '建议对小于100的训练集使用秩4',
+        'algo': '算法',
+        'conv_dim': '卷积维度',
+        'conv_alpha': '卷积Alpha',
         'train_batch_size': '训练批次大小',
         'batch_size_info': '批次大小1使用18GB。请使用小批次大小以避免内存不足',
         'repeats': '重复次数',
@@ -107,6 +110,9 @@ TRANSLATIONS = {
         'lora_config': 'Lora Config',
         'rank': 'rank',
         'rank_info': 'Recommanded to use rank 4 for training set small than 100.',
+        'algo': 'algo',
+        'conv_dim': 'conv dim',
+        'conv_alpha': 'conv alpha',
         'train_batch_size': 'train_batch_size',
         'batch_size_info': 'Batch size 1 is using 18GB. Please use small batch size to avoid oom.',
         'repeats': 'repeats',
@@ -190,8 +196,11 @@ default_config = {
     "resume_from_checkpoint":None,
     "model_path":None, 
     # "logging_dir":"logs",
-    "report_to":"all", 
+    "report_to":"all",
     "rank":16,
+    "algo":"locon",
+    "conv_dim":16,
+    "conv_alpha":0.5,
     "train_batch_size":1,
     "repeats":1,
     "gradient_accumulation_steps":1,
@@ -253,6 +262,9 @@ def save_config(
         save_model_epochs,
         validation_epochs,
         rank,
+        algo,
+        conv_dim,
+        conv_alpha,
         skip_epoch,
         # break_epoch,
         skip_step,
@@ -300,6 +312,9 @@ def save_config(
         "save_model_epochs":save_model_epochs,
         "validation_epochs":validation_epochs,
         "rank":rank,
+        "algo":algo,
+        "conv_dim":conv_dim,
+        "conv_alpha":conv_alpha,
         "skip_epoch":skip_epoch,
         # "break_epoch":break_epoch,
         "skip_step":skip_step,
@@ -370,7 +385,7 @@ def load_config(config_path):
             default_config['optimizer'],default_config['lr_scheduler'],default_config['learning_rate'], \
             default_config['train_batch_size'],default_config['repeats'],default_config['gradient_accumulation_steps'], \
             default_config['num_train_epochs'],default_config['save_model_epochs'],default_config['validation_epochs'], \
-            default_config['rank'],default_config['skip_epoch'], \
+            default_config['rank'],default_config['algo'],default_config['conv_dim'],default_config['conv_alpha'],default_config['skip_epoch'], \
             default_config['skip_step'],default_config['gradient_checkpointing'],default_config['validation_ratio'], \
             default_config['pretrained_model_name_or_path'],default_config['model_path'],default_config['resume_from_checkpoint'], \
             default_config['recreate_cache'],default_config['resolution'], \
@@ -405,6 +420,9 @@ def run(
         save_model_epochs,
         validation_epochs,
         rank,
+        algo,
+        conv_dim,
+        conv_alpha,
         skip_epoch,
         skip_step,
         gradient_checkpointing,
@@ -446,6 +464,9 @@ def run(
         save_model_epochs,
         validation_epochs,
         rank,
+        algo,
+        conv_dim,
+        conv_alpha,
         skip_epoch,
         skip_step,
         gradient_checkpointing,
@@ -534,6 +555,9 @@ with gr.Blocks() as demo:
         # 训练相关设置
         with gr.Row():
             rank = gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info'))
+            algo = gr.Textbox(label=get_text('algo'), value=default_config["algo"])
+            conv_dim = gr.Number(label=get_text('conv_dim'), value=default_config["conv_dim"])
+            conv_alpha = gr.Number(label=get_text('conv_alpha'), value=default_config["conv_alpha"])
             train_batch_size = gr.Number(label=get_text('train_batch_size'), value=default_config["train_batch_size"], info=get_text('train_batch_size_info'))
         with gr.Row():
             repeats = gr.Number(label=get_text('repeats'), value=default_config["repeats"])
@@ -611,6 +635,9 @@ with gr.Blocks() as demo:
         save_model_epochs,
         validation_epochs,
         rank,
+        algo,
+        conv_dim,
+        conv_alpha,
         skip_epoch,
         # break_epoch,
         skip_step,
@@ -668,6 +695,9 @@ with gr.Blocks() as demo:
             
             # LoRA配置部分的组件
             gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info')),  # 排名
+            gr.Textbox(label=get_text('algo'), value=default_config["algo"]),
+            gr.Number(label=get_text('conv_dim'), value=default_config["conv_dim"]),
+            gr.Number(label=get_text('conv_alpha'), value=default_config["conv_alpha"]),
             gr.Number(label=get_text('train_batch_size'), value=default_config["train_batch_size"], info=get_text('train_batch_size_info')),  # 训练批次大小
             gr.Number(label=get_text('repeats'), value=default_config["repeats"]),  # 重复次数
             gr.Number(label=get_text('gradient_accumulation_steps'), value=default_config["gradient_accumulation_steps"]),  # 梯度累积步数
@@ -723,12 +753,12 @@ with gr.Blocks() as demo:
             directory_accordion, lora_accordion, misc_accordion,  # 添加Accordion组件
             output_dir, save_name, pretrained_model_name_or_path, resume_from_checkpoint, 
             train_data_dir, model_path, report_to,
-            rank, train_batch_size, repeats, gradient_accumulation_steps, mixed_precision, gradient_checkpointing,
+            rank, algo, conv_dim, conv_alpha, train_batch_size, repeats, gradient_accumulation_steps, mixed_precision, gradient_checkpointing,
             optimizer, lr_scheduler, cosine_restarts, learning_rate, lr_warmup_steps, seed,
             blocks_to_swap, mask_dropout, reg_ratio, reg_timestep,
             num_train_epochs, save_model_epochs, validation_epochs, skip_epoch, skip_step, validation_ratio,
             recreate_cache, caption_dropout, max_time_steps, resolution_md, resolution,
-            output, run_btn, 
+            output, run_btn,
             use_two_captions, slider_positive_scale,slider_negative_scale
         ]
     )
