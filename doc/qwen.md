@@ -60,7 +60,7 @@ or
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_20.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_20.png" width="400">
       </td>
     </tr>
   </table>
@@ -72,7 +72,7 @@ or
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_0.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_0.png" width="400">
       </td>
     </tr>
   </table>
