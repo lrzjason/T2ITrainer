@@ -13,6 +13,7 @@ pip install git+https://github.com/huggingface/diffusers.git
 - **2025-08-10:**  
   - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
   - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
+  - ❗ **Notice:** The new training script is not supported in UI yet. It needs to run with command line.
   
 | Config | Usage |
 |--------|-------|
@@ -95,22 +96,6 @@ You could find the download scripts in download_xxx.txt
     # SD3.5 Models
     hf download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
 ```
-
-### Folder Structure
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <p>flux_models:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/folder_structure.png" alt="flux_models" width="400" />
-      </td>
-      <td align="center">
-        <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/kontext.png" alt="kontext" width="400" />
-      </td>
-    </tr>
-  </table>
-</div>
 
 ## 🚀 Launch Options
 | Model          | Command                  | Special Notes                     |
