@@ -73,23 +73,24 @@ Recommended Method
     pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-**Model Downloads** 📥
+**Model Downloads** 📥 
+❗ **Notice:** Only download the models you want to train. Install huggingface-cli if you haven't (or update the huggingface-cli if you have an old version).
+You could find the download scripts in download_xxx.txt
 ```bash
-    # Kolors
-    huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
-
-    # NF4 Flux Fill for low gpu
-    huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/
-
-    # skip if downloaded nf 4 Flux Fill
-    huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
-    
-    # SD3.5 Models
-    huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+    # NF4 Qwen Image
+    hf download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 
     # NF4 Flux kontext
-    huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+    hf download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 
+    # NF4 Flux Fill for low gpu
+    hf download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/
+
+    # Kolors
+    hf download Kwai-Kolors/Kolors --local-dir kolors_models/
+
+    # SD3.5 Models
+    hf download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
 ```
 
 ### Folder Structure
@@ -109,8 +110,9 @@ Recommended Method
 </div>
 
 ## 🚀 Launch Options
-| Script          | Command                  | Special Notes                     |
+| Model          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
+| Qwen Image    | `python train_qwen_image.py` | Requires diffusers>=0.35.0dev, 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
 | Flux kontext    | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
@@ -120,6 +122,68 @@ Recommended Method
 [![CivitAI Article](https://img.shields.io/badge/📖-Detailed_Parameter_Guide-purple)](https://civitai.com/articles/7743)
 
 ---
+## 🌌 Qwen Model Management
+
+### Qwen Model Installation
+Inpainting Model Setup
+```bash
+  huggingface-cli download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
+```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen.md
+
+## ⚙️ Qwen Recommended Parameters
+## NF4
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
+| 24GB GPU          | 512 resolution, Batch Size 1  |
+| Precision         | bf16      |
+
+## Original Model
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32~64, AdamW, Learn Rate 1e-4       |
+| 48GB GPU          | 1024 resolution, Batch Size 1  |
+| Precision         | bf16      |
+
+
+## 💻 VRAM Usage (nf4, bs1,  blocks_to_swap=20)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_20.png" width="400">
+      </td>
+    </tr>
+  </table>
+</div>
+
+## 💻 VRAM Usage (nf4, bs1,  blocks_to_swap=0)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_0.png" width="400">
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+## 💻 VRAM Usage (Original, bf16, bs1, blocks_to_swap=0)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <strong>Around 43GB</strong>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ## 🌌 Flux Model Management
 
