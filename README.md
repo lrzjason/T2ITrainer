@@ -4,6 +4,9 @@
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
 - ❗ **Mandatory:** Update diffusers to v0.35.0 version for qwen related classes
+```bash
+pip install git+https://github.com/huggingface/diffusers.git
+```
 
 
 ## 📅 Recent Updates
