@@ -41,9 +41,10 @@ pip install git+https://github.com/huggingface/diffusers.git
 ## 💻 Supported Training Configurations
 | Model Type       | VRAM Requirements          | Status       |
 |------------------|----------------------------|--------------|
-| Kolors           | 11GB GPU                   | ✅ Supported  |
-| SD3.5 (FP16 BS1) | 24GB GPU                   | ✅ Supported  |
+| Qwen Image | 24GB GPU                   | ✅ Supported  |
 | Flux Fill,Kontext| 24GB GPU                   | ✅ Supported  |
+| SD3.5 | 24GB GPU                   | ✅ Supported  |
+| Kolors           | 11GB GPU                   | ✅ Supported  |
 
 ---
 
