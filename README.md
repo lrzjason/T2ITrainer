@@ -127,10 +127,10 @@ You could find the download scripts in download_xxx.txt
 ### Qwen Model Installation
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
+  hf download"lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen.md
+- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/qwen.md
 
 ## ⚙️ Qwen Recommended Parameters
 ## NF4
@@ -190,7 +190,7 @@ For more details (example dataset):
 ### Kontext Model Installation
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+  hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_kontext.md
@@ -199,7 +199,7 @@ For more details (example dataset):
 ### Fill Model Installation (Skip if train kontext)
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+  hf download"lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
 ```
 For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_fill.md
@@ -208,7 +208,7 @@ For more details (example dataset):
 ### Dev Model Download (Skip if train fill and kontext)
 Dev Model Installation
 ```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
+  hf download"black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
 ```
 
 ## ⚙️ Flux Training Recommended Parameters

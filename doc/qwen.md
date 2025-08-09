@@ -4,12 +4,12 @@
 ## Download Qwen Image diffusers structure models
 For 24GB GPU
 ```bash
-huggingface-cli download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
+hf download"lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 ```
 
 For 48GB GPU
 ```bash
-huggingface-cli download "Qwen/Qwen-Image" --local-dir qwen_models/qwen_image_nf4/
+hf download"Qwen/Qwen-Image" --local-dir qwen_models/qwen_image_nf4/
 ```
 
 

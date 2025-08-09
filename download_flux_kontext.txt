@@ -1,4 +1,4 @@
-huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 
 
-huggingface-cli download "black-forest-labs/FLUX.1-Kontext-dev" --local-dir flux_models/kontext_full/ --include "transformer/*"
+hf download"black-forest-labs/FLUX.1-Kontext-dev" --local-dir flux_models/kontext_full/ --include "transformer/*"

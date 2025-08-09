@@ -1,4 +1,4 @@
-huggingface-cli download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
+hf download"lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 
 
-huggingface-cli download "Qwen/Qwen-Image" --local-dir qwen_models/qwen_image_nf4/
+hf download"Qwen/Qwen-Image" --local-dir qwen_models/qwen_image_nf4/

@@ -4,7 +4,7 @@
 ### Kontext Model Installation
 Kontext Model Setup
 ```bash
-  huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+  hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/flux_kontext.md
