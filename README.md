@@ -3,7 +3,18 @@
 ---
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
+- ❗ **Mandatory:** Update diffusers to v0.35.0 version for qwen related classes
+
+
 ## 📅 Recent Updates
+- **2025-08-10:**  
+  - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
+  - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
+  
+| Config | Usage |
+|--------|-------|
+| `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
+
 - **2025-08-05:**  
   - **Update**: Added new training script `train_flux_lora_ui_kontext_new.py` which allows setting the training layout in `config.json`.
 
@@ -16,7 +27,6 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 
 - Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
 - Not support UI selection yet.
-- ❗ **Mandatory:** Update diffusers to v0.34.0 version for updated flux logic in diffusers library.
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
