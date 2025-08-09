@@ -40,11 +40,11 @@ Folder structure example:
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_peak.png" width="400">
       </td>
       <td align="center">
         <strong>VRAM Low</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>

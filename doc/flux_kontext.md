@@ -16,11 +16,11 @@ For more details (example dataset):
     <tr>
       <td align="center">
         <p>flux_models:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="flux_models" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/folder_structure.png" alt="flux_models" width="400" />
       </td>
       <td align="center">
         <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/kontext.png" alt="kontext" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/kontext.png" alt="kontext" width="400" />
       </td>
     </tr>
   </table>
@@ -83,7 +83,7 @@ Folder structure example:
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/nf4_example.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/nf4_example.png" width="400">
       </td>
     </tr>
   </table>

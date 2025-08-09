@@ -27,7 +27,7 @@
         "validation_ratio": 0.1,
         "model_path": "",
         "allow_tf32": true,
-        "recreate_cache": true,
+        "recreate_cache": false,
         "caption_dropout": 0.1,
         "resolution": "512",
         "weighting_scheme": "logit_normal",
@@ -37,7 +37,7 @@
         "freeze_transformer_layers": "",
         "lora_layers": "",
         "guidance_scale": 1,
-        "blocks_to_swap": 20,
+        "blocks_to_swap": 0,
         "image_configs": {
             "train":{
                 "suffix":""

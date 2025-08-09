@@ -98,11 +98,11 @@ Recommended Method
     <tr>
       <td align="center">
         <p>flux_models:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="flux_models" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/folder_structure.png" alt="flux_models" width="400" />
       </td>
       <td align="center">
         <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/kontext.png" alt="kontext" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/kontext.png" alt="kontext" width="400" />
       </td>
     </tr>
   </table>
@@ -129,7 +129,7 @@ Inpainting Model Setup
   huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
 ### Fill Model Installation (Skip if train kontext)
@@ -138,7 +138,7 @@ Inpainting Model Setup
   huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/flux_fill.md
 - https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
 
 ### Dev Model Download (Skip if train fill and kontext)
@@ -161,7 +161,7 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/nf4_example.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/nf4_example.png" width="400">
       </td>
     </tr>
   </table>
@@ -173,11 +173,11 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_peak.png" width="400">
       </td>
       <td align="center">
         <strong>VRAM Low</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>
