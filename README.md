@@ -18,6 +18,8 @@ pip install git+https://github.com/huggingface/diffusers.git
 |--------|-------|
 | `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
 
+- Usage: `python train_qwen_image.py --config_path config_qwen_single.json`
+
 - **2025-08-05:**  
   - **Update**: Added new training script `train_flux_lora_ui_kontext_new.py` which allows setting the training layout in `config.json`.
 
