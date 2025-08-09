@@ -53,80 +53,111 @@ class ToTensorUniversal:
 
         raise TypeError(f"Unsupported input type: {type(pic)}")
 
-def resize(img: np.ndarray, resolution) -> np.ndarray:
+# resize_method: str, "fs_resize" or "lanczos"
+def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
     f_width, f_height = resolution
-    return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
-# def resize(img: np.ndarray, resolution) -> np.ndarray:
-#     f_width, f_height = resolution
-#     h, w = img.shape[:2]
-#     if (w, h) == (f_width, f_height):
-#         return img
+    if resize_method == "lanczos":
+        resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+    else:
+        # --- 1. 设置设备 ---
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if not torch.cuda.is_available():
+            print("Warning: CUDA is not available. Running on CPU. This might not be faster than NumPy.")
+        # print(f"Using device: {device}") # 可选：打印使用的设备
 
-#     target_area = f_width * f_height
-#     original_area = w * h
+        h, w = img.shape[:2]
+        # if (w, h) == (f_width, f_height): # 简单处理，即使尺寸相同也执行后续逻辑
+        #     pass
 
-#     # ---- 缩小：2-step downsample + 抗锯齿 ----
-#     if target_area < original_area:
-#         # 计算缩放因子
-#         k = min(f_width / w, f_height / h)
-#         # 先高斯模糊，sigma ≈ 0.5*downscale_factor（经验值）
-#         sigma = 0.5 * (1 / k)
-#         blurred = cv2.GaussianBlur(img, (0, 0), sigmaX=sigma, sigmaY=sigma)
-#         return cv2.resize(blurred, (f_width, f_height), interpolation=cv2.INTER_AREA)
-#     else:
-#         return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        # --- 2. 预处理 (在 CPU 上使用 OpenCV) ---
+        img_for_filtering = img # 保留原始 img 用于后续色彩校正参考
+        # if reduce_texture and pre_sigma > 0:
+        #     img_blur_input = img_for_filtering.astype(np.float32) if img_for_filtering.dtype != np.float32 else img_for_filtering
+        #     img_for_filtering = cv2.GaussianBlur(img_blur_input, (0, 0), pre_sigma, borderType=cv2.BORDER_REFLECT)
+        #     if img_blur_input.dtype == np.uint8 and img_for_filtering.dtype != np.uint8:
+        #          img_for_filtering = np.clip(img_for_filtering, 0, 255).astype(np.uint8)
 
-# def resize(
-#     img: np.ndarray,
-#     resolution: Tuple[int, int],
-#     *,
-#     reduce_texture: bool = True   # True=抑制细碎纹理；False=完全保留
-# ) -> np.ndarray:
-#     """
-#     缩小：保留高频细节 + 可选抑制背景细碎纹理
-#     放大：Lanczos
-#     """
-#     f_width, f_height = resolution
-#     h, w = img.shape[:2]
-#     if (w, h) == (f_width, f_height):
-#         return img
+        # --- 3. 转换到频域 (在 GPU 上使用 PyTorch) ---
+        # 确保输入是 float32 以便于 PyTorch 处理
+        img_float32 = img_for_filtering.astype(np.float32) if img_for_filtering.dtype != np.float32 else img_for_filtering
 
-#     target_area = f_width * f_height
-#     original_area = w * h
+        # 分离通道 (NumPy)
+        if len(img_float32.shape) == 3:
+            channels = cv2.split(img_float32)
+        else:
+            channels = [img_float32]
 
-#     if target_area < original_area:          # 缩小
-#         k = min(f_width / w, f_height / h)
-#         sigma = 0.5 * (1 / k)
+        # --- 4. 创建滤波器掩膜 (在 GPU 上使用 PyTorch) ---
+        # rows, cols = h, w
+        # crow, ccol = rows // 2, cols // 2
 
-#         # ---------- 可选：纹理抑制 ----------
-#         if reduce_texture:
-#             # 轻量双边滤波，仅削弱极细碎纹理
-#             src = cv2.bilateralFilter(img, d=5, sigmaColor=15, sigmaSpace=15)
-#         else:
-#             src = img
+        k_w = f_width / w
+        k_h = f_height / h
+        k = min(k_w, k_h)
+        # dynamic_cutoff = cutoff_ratio * min(k, 1.0)
+        # dynamic_cutoff = max(dynamic_cutoff, 0.05) # 防止截止频率过低
+        # D0 = dynamic_cutoff * (min(rows, cols) / 2)
 
-#         # ---------- 低频（边缘保持） ----------
-#         low = cv2.edgePreservingFilter(src, flags=1, sigma_s=45, sigma_r=0.15)
-#         low_small = cv2.resize(low, (f_width, f_height), interpolation=cv2.INTER_AREA)
+        # # 在 GPU 上创建网格和距离矩阵
+        # u = torch.arange(rows, dtype=torch.float32, device=device)
+        # v = torch.arange(cols, dtype=torch.float32, device=device)
+        # U, V = torch.meshgrid(u, v, indexing='ij')
+        # D = torch.sqrt((U - crow)**2 + (V - ccol)**2 + 1e-10) # 添加小量防止 sqrt(0)
 
-#         # ---------- 高频 ----------
-#         high = src.astype(np.float32) - low.astype(np.float32)
-#         high_small = cv2.resize(high, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        # 在 GPU 上创建滤波器掩膜
+        # if filter_type == 'gaussian':
+        #     mask = torch.exp(- (D**2) / (2 * (D0**2) + 1e-10))
+        # elif filter_type == 'ideal':
+        #     mask = (D <= D0).float() # 使用 .float() 转换布尔值为 0/1
+        # elif filter_type == 'butterworth':
+        #     # 使用 torch.where 处理除零情况
+        #     mask = torch.where(
+        #         D > 1e-10, # 避免除以零
+        #         1.0 / (1.0 + (D / (D0 + 1e-10))**(2 * order)),
+        #         torch.tensor(1.0, dtype=torch.float32, device=device) # D=0 时为 1
+        #     )
+        # else:
+        #     raise ValueError("filter_type must be 'ideal', 'butterworth', or 'gaussian'")
 
-#         # 防止 ringing，同时保留足够细节
-#         clamp = 8 if reduce_texture else 20
-#         high_small = np.clip(high_small, -clamp, clamp)
+        # --- 5. 对每个通道应用滤波器 (在 GPU 上) ---
+        filtered_channels_out = []
+        for ch in channels:
+            # NumPy -> PyTorch Tensor -> GPU
+            ch_tensor = torch.from_numpy(ch).to(device)
 
-#         # 能量衰减：k^1.2 介于 k 与 k^1.5 之间，锐而不燥
-#         high_small *= k ** 1.2
+            # FFT (PyTorch)
+            F = torch.fft.fft2(ch_tensor)
+            F_shifted = torch.fft.fftshift(F)
 
-#         # 合并
-#         result = low_small.astype(np.float32) + high_small
-#         return np.clip(result, 0, 255).astype(np.uint8)
+            # Apply filter (PyTorch, broadcasting)
+            # F_filtered_shifted = F_shifted * mask
+            F_filtered_shifted = F_shifted
 
-#     else:                                   # 放大
-#         return cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+            # IFFT (PyTorch)
+            F_filtered = torch.fft.ifftshift(F_filtered_shifted)
+            f_filtered = torch.fft.ifft2(F_filtered)
 
+            # 获取实部并转换回 CPU NumPy
+            img_filtered_ch = torch.real(f_filtered).cpu().numpy()
+            filtered_channels_out.append(img_filtered_ch)
+
+        # --- 6. 后处理 (在 CPU 上使用 NumPy/OpenCV) ---
+        # 合并通道
+        if len(img.shape) == 3:
+            img_filtered = cv2.merge(filtered_channels_out)
+        else:
+            img_filtered = filtered_channels_out[0]
+
+        # 裁剪和类型转换
+        img_filtered = np.clip(img_filtered, 0, 255).astype(np.uint8)
+
+        # --- 7. 调整尺寸到目标分辨率 (在 CPU 上使用 OpenCV) ---
+        if k < 1: # 缩小
+            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        else: # 放大
+            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+
+        return resized_img # 返回最终（可能已校正）的图像
 
 def find_index_from_right(lst, value):
     try:
