@@ -720,7 +720,7 @@ def main(args, config_args):
             "attn.add_k_proj",
             "attn.add_q_proj",
             "attn.add_v_proj",
-            "attn.to_add_out",
+            "attn.to_add_out",            
             # refer to https://github.com/modelscope/DiffSynth-Studio/blob/main/examples/qwen_image/model_training/lora/Qwen-Image.sh
             "img_mlp.net.2",
             "img_mod.1",
@@ -1299,45 +1299,45 @@ def main(args, config_args):
     # vae config from vae config file
     # latents_mean = 0.1159
     # latents_std = 0.3611
-    c_latents_mean = [
-        -0.7571,
-        -0.7089,
-        -0.9113,
-        0.1075,
-        -0.1745,
-        0.9653,
-        -0.1517,
-        1.5508,
-        0.4134,
-        -0.0715,
-        0.5517,
-        -0.3632,
-        -0.1922,
-        -0.9497,
-        0.2503,
-        -0.2921
-    ],
-    c_latents_std = [
-        2.8184,
-        1.4541,
-        2.3275,
-        2.6558,
-        1.2196,
-        1.7708,
-        2.6052,
-        2.0743,
-        3.2687,
-        2.1526,
-        2.8652,
-        1.5579,
-        1.6382,
-        1.1253,
-        2.8251,
-        1.916
-    ],
-    c_z_dim = 16
-    latents_mean = (torch.tensor(c_latents_mean).view(1, c_z_dim, 1, 1, 1)).to(accelerator.device)
-    latents_std = 1.0 / torch.tensor(c_latents_std).view(1, c_z_dim, 1, 1, 1).to(accelerator.device)
+    # c_latents_mean = [
+    #     -0.7571,
+    #     -0.7089,
+    #     -0.9113,
+    #     0.1075,
+    #     -0.1745,
+    #     0.9653,
+    #     -0.1517,
+    #     1.5508,
+    #     0.4134,
+    #     -0.0715,
+    #     0.5517,
+    #     -0.3632,
+    #     -0.1922,
+    #     -0.9497,
+    #     0.2503,
+    #     -0.2921
+    # ],
+    # c_latents_std = [
+    #     2.8184,
+    #     1.4541,
+    #     2.3275,
+    #     2.6558,
+    #     1.2196,
+    #     1.7708,
+    #     2.6052,
+    #     2.0743,
+    #     3.2687,
+    #     2.1526,
+    #     2.8652,
+    #     1.5579,
+    #     1.6382,
+    #     1.1253,
+    #     2.8251,
+    #     1.916
+    # ],
+    # c_z_dim = 16
+    # args.latents_mean = (torch.tensor(c_latents_mean).view(1, c_z_dim, 1, 1, 1)).to(accelerator.device)
+    # args.latents_std = 1.0 / torch.tensor(c_latents_std).view(1, c_z_dim, 1, 1, 1).to(accelerator.device)
     # vae_config_block_out_channels = [
     #     128,
     #     256,
@@ -1507,12 +1507,12 @@ def main(args, config_args):
     )
     
     # handle guidance
-    if accelerator.unwrap_model(transformer).config.guidance_embeds:
-        handle_guidance = True
-    else:
-        handle_guidance = False
-    def get_sigmas(timesteps, n_dim=4, dtype=torch.float32):
+    def get_sigmas(timesteps, n_dim=4, dtype=torch.float32, mu=0.8):
         sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
+        
+        # 
+        math.exp(mu) / (math.exp(mu) + (1 / inverted_diffusers_sigmas - 1))
+        
         schedule_timesteps = noise_scheduler_copy.timesteps.to(accelerator.device)
         timesteps = timesteps.to(accelerator.device)
         step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
