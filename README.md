@@ -10,11 +10,11 @@ pip install git+https://github.com/huggingface/diffusers.git
 
 
 ## 📅 Recent Updates
+- **2025-08-12:**  
+  - **Update**: Updated `ui_flux_fill.py` to support `train_flux_lora_ui_kontext_new.py` and `train_qwen_image.py`
 - **2025-08-10:**  
   - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
   - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
-  - ❗ **Notice:** The new training script is not supported in UI yet. It needs to run with command line.
-  
 | Config | Usage |
 |--------|-------|
 | `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |

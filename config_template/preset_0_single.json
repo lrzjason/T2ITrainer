@@ -1,0 +1,25 @@
+{
+    "image_configs": {
+        "train":{
+            "suffix":""
+        }
+    },
+    "caption_configs": {
+        "train":{
+            "ext":".txt"
+        }
+    },
+    "training_set":[
+        {
+            "training_layout_configs":{
+                "train": {
+                    "target": "train",
+                    "noised": true
+                }
+            },
+            "captions_selection": {
+                "target": "train"
+            }
+        }
+    ]
+}
