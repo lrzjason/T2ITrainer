@@ -80,7 +80,7 @@ TRANSLATIONS = {
         'use_two_captions': '使用两对应文本标注',
         'slider_positive_scale': '滑块正向目标强度',
         'slider_negative_scale': '滑块负面目标强度',
-        'config_template': '训练排版配置模板',
+        'config_template': '训练排版配置模板(Kontext_new & qwen image)',
         'select_template': '选择配置模板',
         'save_edited_json': '保存编辑后的JSON到Config'
     },
@@ -157,7 +157,7 @@ TRANSLATIONS = {
         'use_two_captions': 'Use two captions for each direction',
         'slider_positive_scale': 'Slider positive scale',
         'slider_negative_scale': 'Slider negative scale',
-        'config_template': 'Train Layout Config Template',
+        'config_template': 'Train Layout Config Template (Kontext_new & qwen image)',
         'select_template': 'Select config template',
         'save_edited_json': 'Save Edited JSON to Config'
     }
