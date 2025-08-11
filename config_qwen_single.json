@@ -1,0 +1,64 @@
+{
+        "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_nf4",
+        "repeats": 10,
+        "validation_epochs": 1,
+        "output_dir": "F:\\models\\qwen\\qwen_test",
+        "seed": 4321,
+        "train_batch_size": 1,
+        "num_train_epochs": 10,
+        "resume_from_checkpoint": "",
+        "save_name": "qwen_test",
+        "gradient_accumulation_steps": 1,
+        "gradient_checkpointing": true,
+        "learning_rate": 0.0001,
+        "lr_scheduler": "constant",
+        "cosine_restarts": 1,
+        "lr_warmup_steps": 0,
+        "optimizer": "adamw",
+        "logging_dir": "logs",
+        "report_to": "wandb",
+        "mixed_precision": "bf16",
+        "train_data_dir": "F:\\ImageSet\\0outsource\\digital human\\qwen_test",
+        "rank": 32,
+        "save_model_epochs": 1,
+        "save_model_steps": -1,
+        "skip_epoch": 0,
+        "skip_step": 0,
+        "validation_ratio": 0.1,
+        "model_path": "",
+        "allow_tf32": true,
+        "recreate_cache": false,
+        "caption_dropout": 0.1,
+        "resolution": "512",
+        "weighting_scheme": "logit_normal",
+        "logit_mean": 0.0,
+        "logit_std": 1.0,
+        "mode_scale": 1.29,
+        "freeze_transformer_layers": "",
+        "lora_layers": "",
+        "guidance_scale": 1,
+        "blocks_to_swap": 0,
+        "image_configs": {
+            "train":{
+                "suffix":""
+            }
+        },
+        "caption_configs": {
+            "train":{
+                "ext":".txt"
+            }
+        },
+        "training_set":[
+            {
+                "training_layout_configs":{
+                    "train": {
+                        "target": "train",
+                        "noised": true
+                    }
+                },
+                "captions_selection": {
+                    "target": "train"
+                }
+            }
+        ]
+    }

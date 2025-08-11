@@ -3,9 +3,36 @@
 ---
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
+- ❗ **Mandatory:** Update diffusers to v0.35.0 version for qwen related classes
+```bash
+pip install git+https://github.com/huggingface/diffusers.git
+```
+
+
 ## 📅 Recent Updates
-- **2025-07-30:** 
-- **Fix**: Remove text attention mask in lora training.
+- **2025-08-12:**  
+  - **Update**: Updated `ui_flux_fill.py` to support `train_flux_lora_ui_kontext_new.py` and `train_qwen_image.py`
+- **2025-08-10:**  
+  - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
+  - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
+| Config | Usage |
+|--------|-------|
+| `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
+
+- Usage: `python train_qwen_image.py --config_path config_qwen_single.json`
+
+- **2025-08-05:**  
+  - **Update**: Added new training script `train_flux_lora_ui_kontext_new.py` which allows setting the training layout in `config.json`.
+
+| Config | Usage |
+|--------|-------|
+| `config_new_single.json` | Train Kontext with a single image; leave the suffix empty to use all images without a suffix. |
+| `config_new_pairs.json` | Traditional Kontext training using `_T` and `_R` suffixed images. |
+| `config_new_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
+| `config_new_mixed.json` | Train Kontext using a mixed layout—e.g., combine traditional pair training with single-image training. |
+
+- Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
+- Not support UI selection yet.
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
@@ -15,9 +42,10 @@ T2ITrainer is a diffusers based training script. It aims to provide simple yet i
 ## 💻 Supported Training Configurations
 | Model Type       | VRAM Requirements          | Status       |
 |------------------|----------------------------|--------------|
+| Qwen Image | 24GB GPU (nf4) 48GB GPU (bf16)| ✅ Supported  |
+| Flux Fill, Kontext| 24GB GPU                   | ✅ Supported  |
+| SD3.5 | 24GB GPU                   | ✅ Supported  |
 | Kolors           | 11GB GPU                   | ✅ Supported  |
-| SD3.5 (FP16 BS1) | 24GB GPU                   | ✅ Supported  |
-| Flux Fill,Kontext| 24GB GPU                   | ✅ Supported  |
 
 ---
 
@@ -49,44 +77,30 @@ Recommended Method
     pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-**Model Downloads** 📥
+**Model Downloads** 📥 
+❗ **Notice:** Only download the models you want to train. Install huggingface-cli if you haven't (or update the huggingface-cli if you have an old version).
+You could find the download scripts in download_xxx.txt
 ```bash
-    # Kolors
-    huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
-
-    # NF4 Flux Fill for low gpu
-    huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/
-
-    # skip if downloaded nf 4 Flux Fill
-    huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir flux_models/fill/
-    
-    # SD3.5 Models
-    huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+    # NF4 Qwen Image
+    hf download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 
     # NF4 Flux kontext
-    huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+    hf download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 
+    # NF4 Flux Fill for low gpu
+    hf download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/
+
+    # Kolors
+    hf download Kwai-Kolors/Kolors --local-dir kolors_models/
+
+    # SD3.5 Models
+    hf download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
 ```
 
-### Folder Structure
-<div align="center">
-  <table>
-    <tr>
-      <td align="center">
-        <p>flux_models:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/folder_structure.png" alt="flux_models" width="400" />
-      </td>
-      <td align="center">
-        <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/kontext.png" alt="kontext" width="400" />
-      </td>
-    </tr>
-  </table>
-</div>
-
 ## 🚀 Launch Options
-| Script          | Command                  | Special Notes                     |
+| Model          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
+| Qwen Image    | `python train_qwen_image.py` | Requires diffusers>=0.35.0dev, 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
 | Flux kontext    | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
 | Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
@@ -96,31 +110,93 @@ Recommended Method
 [![CivitAI Article](https://img.shields.io/badge/📖-Detailed_Parameter_Guide-purple)](https://civitai.com/articles/7743)
 
 ---
+## 🌌 Qwen Model Management
+
+### Qwen Model Installation
+Inpainting Model Setup
+```bash
+  hf download"lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
+```
+For more details (example dataset):
+- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/qwen.md
+
+## ⚙️ Qwen Recommended Parameters
+## NF4
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
+| 24GB GPU          | 512 resolution, Batch Size 1  |
+| Precision         | bf16      |
+
+## Original Model
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32~64, AdamW, Learn Rate 1e-4       |
+| 48GB GPU          | 1024 resolution, Batch Size 1  |
+| Precision         | bf16      |
+
+
+## 💻 VRAM Usage (nf4, bs1,  blocks_to_swap=20)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_20.png" width="400">
+      </td>
+    </tr>
+  </table>
+</div>
+
+## 💻 VRAM Usage (nf4, bs1,  blocks_to_swap=0)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_0.png" width="400">
+      </td>
+    </tr>
+  </table>
+</div>
+
+
+## 💻 VRAM Usage (Original, bf16, bs1, blocks_to_swap=0)
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <strong>VRAM Peak</strong><br>
+        <strong>Around 43GB</strong>
+      </td>
+    </tr>
+  </table>
+</div>
 
 ## 🌌 Flux Model Management
 
 ### Kontext Model Installation
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
+  hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
+- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
 ### Fill Model Installation (Skip if train kontext)
 Inpainting Model Setup
 ```bash
-  huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+  hf download"lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_fill.md
+- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_fill.md
 - https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
 
 ### Dev Model Download (Skip if train fill and kontext)
 Dev Model Installation
 ```bash
-  huggingface-cli download "black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
+  hf download"black-forest-labs/FLUX.1-dev" --local-dir flux_models/dev/
 ```
 
 ## ⚙️ Flux Training Recommended Parameters
@@ -137,7 +213,7 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/nf4_example.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/nf4_example.png" width="400">
       </td>
     </tr>
   </table>
@@ -149,11 +225,11 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_peak.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/fill_example_peak.png" width="400">
       </td>
       <td align="center">
         <strong>VRAM Low</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/flux_example/fill_example_low.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>
@@ -195,7 +271,7 @@ tensorboard --logdir=.\logs
 [![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
 
 ## Old Change logs: 
-- https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
+- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/change_logs.md
 
 ## Recent Change Logs:
 - **2025-07-30:** 

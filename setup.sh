@@ -36,7 +36,7 @@ if [ "$install_kolors_model" == "y" ]; then
       echo "huggingface-cli is not installed. Installing now..."
       pip install --upgrade huggingface_hub
    fi
-   huggingface-cli download Kwai-Kolors/Kolors --local-dir kolors_models/
+   hf downloadKwai-Kolors/Kolors --local-dir kolors_models/
 fi
 
 
@@ -48,7 +48,7 @@ if [ "$install_sd35_model" == "y" ]; then
       echo "huggingface-cli is not installed. Installing now..."
       pip install --upgrade huggingface_hub
    fi
-   huggingface-cli download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+   hf download"stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
 fi
 
 
@@ -60,5 +60,5 @@ if [ "$install_fill_model" == "y" ]; then
       echo "huggingface-cli is not installed. Installing now..."
       pip install --upgrade huggingface_hub
    fi
-   huggingface-cli download "black-forest-labs/FLUX.1-fill-dev" --local-dir "flux_models/fill/"
+   hf download"black-forest-labs/FLUX.1-fill-dev" --local-dir "flux_models/fill/"
 fi

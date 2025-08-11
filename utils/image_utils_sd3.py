@@ -58,71 +58,6 @@ def get_nearest_resolution(image, resolution=1024):
     return closest_ratio,closest_resolution
 
 
-#referenced from everyDream discord minienglish1 shared script
-#group indices by their corresponding aspect ratio buckets before sampling batches.
-class BucketBatchSampler(Sampler):
-    def __init__(self, dataset, batch_size, drop_last=True):
-        self.dataset = dataset
-        self.datarows = dataset.datarows
-        self.batch_size = batch_size
-        self.drop_last = drop_last
-        self.leftover_items = []  #tracks leftover items, without modifying the dataset
-        self.bucket_indices = self._bucket_indices_by_aspect_ratio() 
-
-    #groups dataset indices into buckets based on aspect ratio
-    def _bucket_indices_by_aspect_ratio(self):
-        buckets = {}
-        for idx in range(len(self.datarows)): #iterates whole dataset
-            closest_bucket_key = self.datarows[idx]['bucket']
-            if closest_bucket_key not in buckets: #creates bucket if needed
-                buckets[closest_bucket_key] = []
-            buckets[closest_bucket_key].append(idx) #adds item to bucket
-
-        for bucket in buckets.values(): #shuffles each bucket's contents
-            random.shuffle(bucket)
-        return buckets #returns organized buckets
-
-    def __iter__(self): #makes sampler iterable, to be used by PyTorch DataLoader
-        #reinitialize bucket_indices - to include leftover items
-        self.bucket_indices = self._bucket_indices_by_aspect_ratio()
-
-        #leftover items are distributed to bucket_indices
-        if self.leftover_items:
-            #same as in def _bucket_indices_by_aspect_ratio(self):
-            for leftover_idx in self.leftover_items:
-                # closest_bucket = self.dataset[leftover_idx]['bucket']
-                closest_bucket_key = self.datarows[leftover_idx]['bucket']
-                if closest_bucket_key in self.bucket_indices:
-                    self.bucket_indices[closest_bucket_key].insert(0, leftover_idx)
-                else:
-                    self.bucket_indices[closest_bucket_key] = [leftover_idx]
-            self.leftover_items = []  #reset leftover items
-        
-        all_buckets = list(self.bucket_indices.items())
-        random.shuffle(all_buckets)  #shuffle buckets' order, random bucket each batch
-
-        #iterates over buckets, yields when len(batch) == batch size
-        for _, bucket_indices in all_buckets: #iterate each bucket
-            batch = []
-            for idx in bucket_indices: #for a bucket, try to make batch
-                batch.append(idx)
-                if len(batch) == self.batch_size:
-                    yield batch 
-                    batch = []
-            if not self.drop_last and batch: #if too small
-                yield batch  #yield last batch if drop_last is False
-            elif batch:  #else store leftovers for the next epoch
-                self.leftover_items.extend(batch)  
-
-    def __len__(self):
-        #calculates total batches
-        total_batches = sum(len(indices) // self.batch_size for indices in self.bucket_indices.values())
-        #if using leftovers, append leftovers to total batches
-        if not self.drop_last:
-            leftovers = sum(len(indices) % self.batch_size for indices in self.bucket_indices.values())
-            total_batches += bool(leftovers)  #add one more batch if there are leftovers
-        return total_batches
-    
 
 ##input: datarows -> output: metadata
 #looks like leftover code from leftover_idx, check, then delete
@@ -301,7 +236,8 @@ def cache_file(tokenizers,text_encoders,vae,json_obj,cache_ext=".npsd3",recreate
             print(e)
             print(f"{npz_path} is corrupted, regenerating...")
     
-    train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    from utils.utils import ToTensorUniversal
+    train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
     image = train_transforms(image)
     
     # create tensor latent

@@ -80,25 +80,9 @@ from diffusers.utils.torch_utils import is_compiled_module
 from diffusers import StableDiffusionXLPipeline
 from kolors.pipelines.pipeline_stable_diffusion_xl_chatglm_256 import StableDiffusionXLPipeline as KolorsPipeline
 from tqdm import tqdm 
-# from PIL import Image 
-
-from sklearn.model_selection import train_test_split
 
 import json
 
-
-# import sys
-from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
-
-# from prodigyopt import Prodigy
-
-
-# https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
-from random import getstate as python_get_rng_state
-from random import setstate as python_set_rng_state
-
-from peft import LoraConfig
-from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 from kolors.models.modeling_chatglm import ChatGLMModel
 from kolors.models.tokenization_chatglm import ChatGLMTokenizer
 # try:

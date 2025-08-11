@@ -94,7 +94,8 @@ from utils.misc import set_random_seed
 from utils.builder import build_model
 
 import utils.pixart_image_utils
-from utils.pixart_image_utils import BucketBatchSampler, CachedImageDataset
+from utils.pixart_image_utils import CachedImageDataset
+from utils.bucket.bucket_batch_sampler import BucketBatchSampler
 
 from utils.iddpm import IDDPM
 from utils.dpm_solver import DPMS
@@ -901,7 +902,7 @@ def main(args):
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
-    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
+    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
@@ -1180,7 +1181,7 @@ def main(args):
 
                 # referenced from everyDream discord minienglish1 shared script
                 #create bucket batch sampler
-                validation_bucket_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=val_bs, drop_last=True)
+                validation_bucket_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=val_bs)
 
                 #initialize the DataLoader with the bucket batch sampler
                 validation_dataloader = torch.utils.data.DataLoader(

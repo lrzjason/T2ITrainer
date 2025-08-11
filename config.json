@@ -1,5 +1,5 @@
 {
-    "script": "train_flux_lora_ui_kontext.py",
+    "script": "train_qwen_image.py",
     "seed": 4321,
     "mixed_precision": "bf16",
     "report_to": "tensorboard",
@@ -34,7 +34,30 @@
     "mask_dropout": 1,
     "reg_ratio": 0.5,
     "reg_timestep": 900,
-    "use_two_captions": false,
+    "use_two_captions": true,
     "slider_positive_scale": 1,
-    "slider_negative_scale": -1
+    "slider_negative_scale": -1,
+    "image_configs": {
+        "train": {
+            "suffix": ""
+        }
+    },
+    "caption_configs": {
+        "train": {
+            "ext": ".txt"
+        }
+    },
+    "training_set": [
+        {
+            "training_layout_configs": {
+                "train": {
+                    "target": "train",
+                    "noised": true
+                }
+            },
+            "captions_selection": {
+                "target": "train"
+            }
+        }
+    ]
 }

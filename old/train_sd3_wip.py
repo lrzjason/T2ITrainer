@@ -63,7 +63,8 @@ from diffusers.utils.torch_utils import is_compiled_module
 import sys
 sys.path.append('F:/T2ITrainer/utils')
 import image_utils_sd3
-from image_utils_sd3 import BucketBatchSampler, CachedImageDataset
+from image_utils_sd3 import CachedImageDataset
+from utils.bucket.bucket_batch_sampler import BucketBatchSampler
 
 
 from sklearn.model_selection import train_test_split
@@ -1073,7 +1074,7 @@ def main(args):
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
-    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
+    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
@@ -1325,7 +1326,7 @@ def main(args):
                 if len(validation_datarows)>0:
                     validation_dataset = CachedImageDataset(validation_datarows,conditional_dropout_percent=0)
                     
-                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size, drop_last=True)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
 
                     #initialize the DataLoader with the bucket batch sampler
                     val_dataloader = torch.utils.data.DataLoader(

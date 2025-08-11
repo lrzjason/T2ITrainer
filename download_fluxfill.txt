@@ -1,1 +1,1 @@
-huggingface-cli download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+hf download"lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 

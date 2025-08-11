@@ -97,7 +97,9 @@ import json
 
 # import sys
 # from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
-from utils.image_utils_flux import BucketBatchSampler, CachedMutiImageDataset
+from utils.image_utils_flux import CachedMutiImageDataset
+
+from utils.bucket.bucket_batch_sampler import BucketBatchSampler
 
 # from prodigyopt import Prodigy
 
@@ -139,7 +141,7 @@ from diffusers.image_processor import VaeImageProcessor
 
 # from utils.adaptive_timestep_scheduler import AdaptiveTimeStepScheduler
 
-from utils.utils import find_index_from_right
+from utils.utils import find_index_from_right, ToTensorUniversal
 
 
 
@@ -1243,7 +1245,7 @@ def main(args):
                     print("Cache latent")
                     for embedding_object_key in tqdm(embedding_objects.keys()):
                         json_obj = embedding_objects[embedding_object_key]
-                        train_transforms = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+                        train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
                         temp_image_pool = { }
                         for image_config_key in image_configs.keys():
                             image_config = image_configs[image_config_key]
@@ -1576,7 +1578,7 @@ def main(args):
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
-    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size, drop_last=True)
+    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
@@ -2243,7 +2245,7 @@ def main(args):
                         if len(validation_datarows)>0:
                             validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
                             batch_size  = 1
-                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
                             val_dataloader = torch.utils.data.DataLoader(
                                 validation_dataset,
                                 batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
@@ -2361,7 +2363,7 @@ def main(args):
                     
                     batch_size  = 1
                     
-                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size, drop_last=True)
+                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=batch_size)
 
                     #initialize the DataLoader with the bucket batch sampler
                     val_dataloader = torch.utils.data.DataLoader(
