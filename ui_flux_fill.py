@@ -377,6 +377,7 @@ def save_config(
     slider_positive_scale, slider_negative_scale,
     json_editor        # 这里只放 json_editor 字符串
 ):
+    
     # 1️⃣ 先读原文件
     if os.path.isfile(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
@@ -441,6 +442,7 @@ def save_config(
             cfg[key] = {}
             cfg[key] = editor_partial[key]
 
+    print(f"save config to {config_path}")
     # 4️⃣ 写回
     os.makedirs(os.path.dirname(config_path) or ".", exist_ok=True)
     with open(config_path, "w", encoding="utf-8") as f:

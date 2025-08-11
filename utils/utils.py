@@ -57,7 +57,7 @@ class ToTensorUniversal:
 def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
     f_width, f_height = resolution
     if resize_method == "lanczos":
-        resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        resized_img = cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
     else:
         # --- 1. 设置设备 ---
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -157,7 +157,7 @@ def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
         else: # 放大
             resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
 
-        return resized_img # 返回最终（可能已校正）的图像
+    return resized_img # 返回最终（可能已校正）的图像
 
 def find_index_from_right(lst, value):
     try:
