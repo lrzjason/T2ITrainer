@@ -720,11 +720,12 @@ def main(args, config_args):
             "attn.add_k_proj",
             "attn.add_q_proj",
             "attn.add_v_proj",
-            "attn.to_add_out",
-            # "ff.net.0.proj",
-            # "ff.net.2",
-            # "ff_context.net.0.proj",
-            # "ff_context.net.2",
+            "attn.to_add_out",            
+            # refer to https://github.com/modelscope/DiffSynth-Studio/blob/main/examples/qwen_image/model_training/lora/Qwen-Image.sh
+            "img_mlp.net.2",
+            "img_mod.1",
+            "txt_mlp.net.2",
+            "txt_mod.1"
         ]
     
     if args.train_data_dir is not None:
