@@ -15,6 +15,7 @@ pip install git+https://github.com/huggingface/diffusers.git
 - **2025-08-10:**  
   - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
   - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
+    
 | Config | Usage |
 |--------|-------|
 | `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
