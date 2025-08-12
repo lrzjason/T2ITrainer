@@ -493,7 +493,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config.json",
+        default="config_qwen_single.json",
         help="Path to the config file.",
     )
     parser.add_argument(
