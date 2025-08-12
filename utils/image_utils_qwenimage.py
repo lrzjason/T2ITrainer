@@ -343,21 +343,21 @@ def encode_prompt_with_qwenvl(
     # ----------------------------------------------------------------
     # max_sequence_length from diffusers is 1024 but qwenvl shared the rope with image
     # the max_sequence_lenght couldn't be 1024
-    target_len = max_sequence_length // 2 + drop_idx
-    pad_len = target_len - txt_tokens.input_ids.size(1)
+    # target_len = max_sequence_length // 2 + drop_idx
+    # pad_len = target_len - txt_tokens.input_ids.size(1)
 
-    if pad_len > 0:
-        # padding on the right
-        txt_tokens.input_ids = torch.nn.functional.pad(
-            txt_tokens.input_ids,
-            (0, pad_len),
-            value=tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
-        )
-        txt_tokens.attention_mask = torch.nn.functional.pad(
-            txt_tokens.attention_mask,
-            (0, pad_len),
-            value=0
-        )
+    # if pad_len > 0:
+    #     # padding on the right
+    #     txt_tokens.input_ids = torch.nn.functional.pad(
+    #         txt_tokens.input_ids,
+    #         (0, pad_len),
+    #         value=tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+    #     )
+    #     txt_tokens.attention_mask = torch.nn.functional.pad(
+    #         txt_tokens.attention_mask,
+    #         (0, pad_len),
+    #         value=0
+    #     )
     # ----------------------------------------------------------------
     
     encoder_hidden_states = text_encoder(
@@ -366,9 +366,9 @@ def encode_prompt_with_qwenvl(
         output_hidden_states=True,
     )
     hidden_states = encoder_hidden_states.hidden_states[-1]
-    # split_hidden_states = extract_masked_hidden(hidden_states, txt_tokens.attention_mask)
-    # split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
-    split_hidden_states = [e[drop_idx:] for e in hidden_states]
+    split_hidden_states = extract_masked_hidden(hidden_states, txt_tokens.attention_mask)
+    split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
+    # split_hidden_states = [e[drop_idx:] for e in hidden_states]
     attn_mask_list = [torch.ones(e.size(0), dtype=torch.long, device=e.device) for e in split_hidden_states]
     max_seq_len = max([e.size(0) for e in split_hidden_states])
     prompt_embeds = torch.stack(
