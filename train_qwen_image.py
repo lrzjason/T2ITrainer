@@ -493,7 +493,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config.json",
+        default="config_qwen_single.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -1509,9 +1509,6 @@ def main(args, config_args):
     # handle guidance
     def get_sigmas(timesteps, n_dim=4, dtype=torch.float32, mu=0.8):
         sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
-        
-        # 
-        math.exp(mu) / (math.exp(mu) + (1 / inverted_diffusers_sigmas - 1))
         
         schedule_timesteps = noise_scheduler_copy.timesteps.to(accelerator.device)
         timesteps = timesteps.to(accelerator.device)

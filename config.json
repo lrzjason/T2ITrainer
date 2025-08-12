@@ -16,7 +16,7 @@
     "num_train_epochs": 10,
     "save_model_epochs": 1,
     "validation_epochs": 1,
-    "rank": 16,
+    "rank": 32,
     "skip_epoch": 0,
     "skip_step": 0,
     "gradient_checkpointing": true,
@@ -34,7 +34,7 @@
     "mask_dropout": 1,
     "reg_ratio": 0.5,
     "reg_timestep": 900,
-    "use_two_captions": true,
+    "use_two_captions": false,
     "slider_positive_scale": 1,
     "slider_negative_scale": -1,
     "image_configs": {
