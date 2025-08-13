@@ -232,6 +232,7 @@ os.makedirs(TEMPLATE_DIR, exist_ok=True)
 def list_templates(config_path):
     # return [os.path.basename(f) for f in glob.glob(os.path.join(TEMPLATE_DIR, "*.json"))]
     templates = [os.path.basename(f) for f in glob.glob(os.path.join(TEMPLATE_DIR, "*.json"))]
+    templates.sort()
     # 把 config_path 也加进去（只保留文件名，便于显示）
     config_name = os.path.basename(config_path) if os.path.isfile(config_path) else "config.json"
     choices = [config_name] + templates
