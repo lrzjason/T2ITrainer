@@ -1,0 +1,11 @@
+Kontext Original (For 48G)
+/datasets/studio/huggingface/models/black-forest/FLUX.1-Kontext-dev
+
+Qwen-Image Original (For 48G)
+/datasets/ai-toolkit/models/Qwen-Image
+
+Kontext NF4 (For 24G)
+/datasets/T2ITrainer/models/flux-kontext-nf4
+
+Qwen-Image NF4 (For 24G)
+/datasets/T2ITrainer/models/qwen_image_nf4
