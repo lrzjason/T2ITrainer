@@ -153,7 +153,7 @@ def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
 
         # --- 7. 调整尺寸到目标分辨率 (在 CPU 上使用 OpenCV) ---
         if k < 1: # 缩小
-            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_AREA)
         else: # 放大
             resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
 
