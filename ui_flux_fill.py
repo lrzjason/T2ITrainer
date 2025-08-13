@@ -235,7 +235,6 @@ def list_templates(config_path):
     templates.sort()
     # 把 config_path 也加进去（只保留文件名，便于显示）
     config_name = os.path.basename(config_path) if os.path.isfile(config_path) else "config.json"
-    templates = templates.sort()
     choices = [config_name] + templates
     return choices
 # ------------------------------------------------------------------
