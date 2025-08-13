@@ -226,7 +226,7 @@ def toggle_language():
     global current_language
     current_language = 'en' if current_language == 'zh' else 'zh'
 
-TEMPLATE_DIR = "config_template"
+TEMPLATE_DIR = "./config_template"
 os.makedirs(TEMPLATE_DIR, exist_ok=True)
 
 def list_templates(config_path):
