@@ -53,7 +53,7 @@ class TestBucketBatchSampler(unittest.TestCase):
     def test_empty_leftover_list_after_iteration(self):
         sampler = BucketBatchSampler(self.dataset, batch_size=4)
         _ = list(sampler)
-        self.assertEqual(sampler.leftover_items, [])
+        self.assertEqual(sampler.leftover_items, {})
 
     def test_len_estimate(self):
         sampler = BucketBatchSampler(self.dataset, batch_size=4)
@@ -109,6 +109,167 @@ class TestBucketBatchSampler(unittest.TestCase):
         # It's statistically very improbable for these to be identical
         # if shuffling is working correctly.
         self.assertNotEqual(batches1, batches2)
+
+    def test_no_mixed_buckets_in_batch(self):
+        """Ensure batches do not mix different bucket strings."""
+        rows = [
+            {'bucket': '832x1248'},
+            {'bucket': '880x1184'},
+            {'bucket': '880x1184'},
+            {'bucket': '800x1328'},
+            {'bucket': '944x1104'},
+            {'bucket': '944x1104'},
+            {'bucket': '1024x1024'},
+        ]
+        dataset = _FakeDataset(rows)
+        sampler = BucketBatchSampler(dataset, batch_size=3)
+        batches = self._collect_batches(sampler)
+
+        for batch in batches:
+            bucket_keys = {dataset.datarows[i]['bucket'] for i in batch}
+            self.assertEqual(len(bucket_keys), 1, f"Mixed buckets in batch: {bucket_keys}")
+
+    def test_realistic_bucket_distribution(self):
+        """Test with the provided real-world bucket list."""
+        bucket_strings = [
+            "432x592",
+            "480x560",
+            "512x512",
+            "512x512",
+            "480x560",
+            "432x592",
+            "560x480",
+            "480x560",
+            "512x512",
+            "384x704",
+            "512x512",
+            "512x512",
+            "416x624",
+            "480x560",
+            "432x592",
+            "480x560",
+            "512x512",
+            "416x624",
+            "432x592",
+            "480x560",
+            "432x592",
+            "512x512",
+            "512x512",
+            "512x512",
+            "432x592",
+            "480x560",
+            "560x480",
+            "352x752",
+            "480x560",
+            "384x704",
+            "512x512",
+            "368x736",
+            "384x704",
+            "432x592",
+            "432x592",
+            "416x624",
+            "512x512",
+            "416x624",
+            "368x736",
+            "480x560",
+            "512x512",
+            "416x624",
+            "512x512",
+            "432x592",
+            "512x512",
+            "512x512",
+            "416x624",
+            "368x736",
+            "560x480",
+            "416x624",
+            "512x512",
+            "480x560",
+            "512x512",
+            "512x512",
+            "512x512",
+            "480x560",
+            "432x592",
+            "416x624",
+            "432x592",
+            "480x560",
+            "480x560",
+            "432x592",
+            "512x512",
+            "512x512",
+            "480x560",
+            "432x592",
+            "384x704",
+            "432x592",
+            "432x592",
+            "512x512",
+            "512x512",
+            "480x560",
+            "368x736",
+            "784x336",
+            "384x704",
+            "512x512",
+            "512x512",
+            "432x592",
+            "512x512",
+            "400x672",
+            "560x480",
+            "512x512",
+            "416x624",
+            "512x512",
+            "368x736",
+            "512x512",
+            "480x560",
+            "512x512",
+            "384x704",
+            "512x512",
+            "512x512",
+            "432x592",
+            "432x592",
+            "512x512",
+            "512x512",
+            "432x592",
+            "512x512",
+            "432x592",
+            "432x592",
+            "512x512",
+            "432x592",
+            "480x560",
+            "512x512",
+            "512x512",
+            "416x624",
+            "432x592",
+            "432x592",
+            "512x512",
+            "432x592",
+            "480x560",
+            "480x560",
+            "512x512",
+            "512x512",
+            "560x480",
+            "432x592",
+            "480x560",
+            "432x592",
+            "512x512",
+            "480x560",
+            "512x512",
+            "368x736",
+            "512x512",
+            "480x560",
+            "432x592",
+            "416x624",
+            "416x624",
+            "400x672",
+            "416x624",
+            "432x592",
+        ]
+        rows = [{'bucket': k} for k in bucket_strings]
+        dataset = _FakeDataset(rows)
+        sampler = BucketBatchSampler(dataset, batch_size=4)
+        batches = self._collect_batches(sampler)
+
+        for batch in batches:
+            bucket_keys = {dataset.datarows[i]['bucket'] for i in batch}
+            self.assertEqual(len(bucket_keys), 1, f"Mixed buckets in batch: {bucket_keys}")
 
 
 if __name__ == '__main__':
