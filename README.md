@@ -279,7 +279,9 @@ tensorboard --logdir=.\logs
 - **Fix**: Remove text attention mask in lora training.
 
 ## Sponsor:
-* Thanks to [@sourceful](https://www.sourceful.com/) support me making flux fill lora training script.
+* Thanks to all the contributors and sponsors for improving the project!
+* Sponsor List:
+* https://github.com/lrzjason/T2ITrainer/blob/qwen/sponsor/sponsor_list.txt
 
 ## 📬 Contact
 - 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
