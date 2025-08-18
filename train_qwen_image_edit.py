@@ -493,7 +493,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_single.json",
+        default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -1722,8 +1722,8 @@ def main(args, config_args):
         if "dropout" in captions_selection and random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
         
-        # txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
-        txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
+        txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
+        # txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
         
         with accelerator.autocast():
             # Predict the noise residual
