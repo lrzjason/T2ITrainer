@@ -264,9 +264,9 @@ def crop_image(image_path,resolution):
     # set meta data
     return image
 
-def compute_text_embeddings(text_encoders, tokenizers, prompt, device):
+def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=None, processor=None):
     with torch.no_grad():
-        prompt_embeds, prompt_embeds_mask = encode_prompt(text_encoders, tokenizers, prompt, device=device)
+        prompt_embeds, prompt_embeds_mask = encode_prompt(text_encoders, tokenizers, prompt, device=device, image=image, processor=processor)
         prompt_embeds = prompt_embeds.to(device)
         # text_ids = text_ids.to(device)
     return prompt_embeds, prompt_embeds_mask #, text_ids
@@ -323,72 +323,72 @@ def encode_prompt_with_qwenvl(
     max_sequence_length,
     prompt=None,
     device=None,
+    image=None,
+    processor=None
 ):
     device = text_encoder.device
     dtype = text_encoder.dtype
     
     prompt = [prompt] if isinstance(prompt, str) else prompt
 
-    template = "<|im_start|>system\nDescribe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
-    drop_idx = 34
-    
-    txt = [template.format(e) for e in prompt]
-    
-    txt_tokens = tokenizer(
-        txt, max_length=max_sequence_length + drop_idx, padding=True, truncation=True, return_tensors="pt"
-    ).to(device)
-    
-    # ----------------------------------------------------------------
-    # pad the returned tensors to the intended length
-    # ----------------------------------------------------------------
-    # max_sequence_length from diffusers is 1024 but qwenvl shared the rope with image
-    # the max_sequence_lenght couldn't be 1024
-    target_len = max_sequence_length // 2 + drop_idx
-    pad_len = target_len - txt_tokens.input_ids.size(1)
-
-    if pad_len > 0:
-        # padding on the right
-        txt_tokens.input_ids = torch.nn.functional.pad(
-            txt_tokens.input_ids,
-            (0, pad_len),
-            value=tokenizer.pad_token_id if tokenizer.pad_token_id is not None else 0
+    if image is None and processor is None:
+        template = "<|im_start|>system\nDescribe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
+        drop_idx = 34
+        txt = [template.format(e) for e in prompt]
+        
+        model_inputs = tokenizer(
+            txt, max_length=max_sequence_length + drop_idx, padding=True, truncation=True, return_tensors="pt"
+        ).to(device) 
+        
+        outputs = text_encoder(
+            input_ids=model_inputs.input_ids,
+            attention_mask=model_inputs.attention_mask,
+            output_hidden_states=True,
         )
-        txt_tokens.attention_mask = torch.nn.functional.pad(
-            txt_tokens.attention_mask,
-            (0, pad_len),
-            value=0
+    else:
+        template = "<|im_start|>system\nDescribe the key features of the input image (color, shape, size, texture, objects, background), then explain how the user's text instruction should alter or modify the image. Generate a new image that meets the user's requirements while maintaining consistency with the original input where appropriate.<|im_end|>\n<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>{}<|im_end|>\n<|im_start|>assistant\n"
+        drop_idx = 64
+        txt = [template.format(e) for e in prompt]
+        
+        model_inputs = processor(
+            text=txt,
+            images=image,
+            padding=True,
+            return_tensors="pt",
+        ).to(device)
+        
+        outputs = text_encoder(
+            input_ids=model_inputs.input_ids,
+            attention_mask=model_inputs.attention_mask,
+            pixel_values=model_inputs.pixel_values,
+            image_grid_thw=model_inputs.image_grid_thw,
+            output_hidden_states=True,
         )
-    # ----------------------------------------------------------------
-    
-    encoder_hidden_states = text_encoder(
-        input_ids=txt_tokens.input_ids,
-        attention_mask=txt_tokens.attention_mask,
-        output_hidden_states=True,
-    )
-    hidden_states = encoder_hidden_states.hidden_states[-1]
-    # split_hidden_states = extract_masked_hidden(hidden_states, txt_tokens.attention_mask)
-    # split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
-    split_hidden_states = [e[drop_idx:] for e in hidden_states]
+       
+    hidden_states = outputs.hidden_states[-1]
+    split_hidden_states = extract_masked_hidden(hidden_states, model_inputs.attention_mask)
+    split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
     attn_mask_list = [torch.ones(e.size(0), dtype=torch.long, device=e.device) for e in split_hidden_states]
     max_seq_len = max([e.size(0) for e in split_hidden_states])
     prompt_embeds = torch.stack(
         [torch.cat([u, u.new_zeros(max_seq_len - u.size(0), u.size(1))]) for u in split_hidden_states]
     )
-    prompt_embeds_mask = torch.stack(
+    encoder_attention_mask = torch.stack(
         [torch.cat([u, u.new_zeros(max_seq_len - u.size(0))]) for u in attn_mask_list]
     )
 
     prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
-    return prompt_embeds, prompt_embeds_mask
+    return prompt_embeds, encoder_attention_mask
 
 def encode_prompt(
     text_encoders,
     tokenizers,
     prompt: str,
     max_sequence_length=1024,
-    
     device=None,
+    image=None,
+    processor=None
 ):
     prompt = [prompt] if isinstance(prompt, str) else prompt
     prompt_embeds, prompt_embeds_mask = encode_prompt_with_qwenvl(
@@ -397,6 +397,8 @@ def encode_prompt(
         max_sequence_length=max_sequence_length,
         prompt=prompt,
         device=device if device is not None else text_encoders[-1].device,
+        image=image,
+        processor=processor
     )
     return prompt_embeds, prompt_embeds_mask
     

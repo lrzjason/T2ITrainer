@@ -95,7 +95,7 @@ from random import setstate as python_set_rng_state
 from peft import LoraConfig, prepare_model_for_kbit_training
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 
-from transformers import Qwen2Tokenizer, Qwen2_5_VLForConditionalGeneration
+from transformers import Qwen2Tokenizer, Qwen2VLProcessor, Qwen2_5_VLForConditionalGeneration
 
 if is_wandb_available():
     import wandb
@@ -845,6 +845,10 @@ def main(args, config_args):
                         subfolder="tokenizer",
                     )
 
+                    processor = Qwen2VLProcessor.from_pretrained(
+                        args.pretrained_model_name_or_path
+                    )
+                    
                     text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                         args.pretrained_model_name_or_path, subfolder="text_encoder"
                     )
@@ -910,7 +914,15 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
+                                image = crop_image(image_file,resolution=resolution)
+                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
+                                    text_encoders,
+                                    tokenizers,
+                                    content,
+                                    device=text_encoders[0].device,
+                                    image=image,
+                                    processor=processor
+                                )
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                 npz_dict = {
