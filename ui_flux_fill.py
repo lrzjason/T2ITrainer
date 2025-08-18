@@ -317,6 +317,7 @@ def load_template(template_name, config_path):
 default_config = {
     "script": "train_flux_lora_ui_kontext.py",
     "script_choices": [
+        "train_qwen_image_edit.py",
         "train_qwen_image.py",
         "train_flux_lora_ui_kontext_new.py",
         "train_flux_lora_ui_kontext.py",
@@ -452,6 +453,13 @@ def save_config(
     with open("config.json", "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=4, ensure_ascii=False)
 
+# 启动时默认加载 config
+def load_first_template():
+    templates = list_templates(default_config["config_path"])
+    default_choice = os.path.basename(default_config["config_path"])
+    return templates, default_choice, load_template(default_choice, default_config["config_path"])
+
+
 def load_config(config_path):
     if not os.path.isfile(config_path):
         save_config(**default_config)
@@ -459,7 +467,8 @@ def load_config(config_path):
         config = json.load(f)
     for k in config:
         default_config[k] = config[k]
-    return [config.get(k, default_config[k]) for k in [
+    
+    loaded_config = [config.get(k, default_config[k]) for k in [
         "config_path","script","seed","mixed_precision","report_to","lr_warmup_steps",
         "output_dir","save_name","train_data_dir","optimizer","lr_scheduler","learning_rate",
         "train_batch_size","repeats","gradient_accumulation_steps","num_train_epochs",
@@ -470,6 +479,12 @@ def load_config(config_path):
         "mask_dropout","reg_ratio","reg_timestep","use_two_captions",
         "slider_positive_scale","slider_negative_scale"
     ]]
+    
+    _, _, first_template = load_first_template()
+    
+    loaded_config += [first_template]
+    
+    return loaded_config
 
 load_config("config.json")
 
@@ -674,11 +689,6 @@ with gr.Blocks() as demo:
                 save_config_btn2, load_config_btn2  # ← 加上这两行
                 ]
     )
-    # 启动时默认加载 config
-    def load_first_template():
-        templates = list_templates(default_config["config_path"])
-        default_choice = os.path.basename(default_config["config_path"])
-        return templates, default_choice, load_template(default_choice, default_config["config_path"])
 
     demo.load(
         fn=lambda: load_first_template(),
