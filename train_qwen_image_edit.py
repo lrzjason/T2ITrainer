@@ -47,10 +47,14 @@ from tqdm.auto import tqdm
 from diffusers import (
     AutoencoderKLQwenImage,
     FlowMatchEulerDiscreteScheduler,
-    QwenImagePipeline
+    QwenImageEditPipeline
 )
 
-from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
+# from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
+from diffusers import (
+    QwenImageTransformer2DModel
+)
+
 from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
 # from flux.pipeline_flux_kontext import FluxKontextPipeline
 
@@ -1034,13 +1038,13 @@ def main(args, config_args):
         
     if not (args.model_path is None or args.model_path == ""):
         # config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
-        transformer = BlockSwapQwenImageTransformer2DModel.from_single_file(args.model_path, 
+        transformer = QwenImageTransformer2DModel.from_single_file(args.model_path, 
                             # config=config,  
                             torch_dtype=weight_dtype
                         ).to(offload_device)
     else:
         if args.pretrained_model_name_or_path == "Qwen/Qwen-Image":
-            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
+            transformer = QwenImageTransformer2DModel.from_pretrained(
                 args.pretrained_model_name_or_path, 
                 subfolder=transformer_subfolder,  
                 torch_dtype=weight_dtype
@@ -1050,7 +1054,7 @@ def main(args, config_args):
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
             # weight_file = "diffusion_pytorch_model"
             variant = None
-            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
+            transformer = QwenImageTransformer2DModel.from_pretrained(
                         transformer_folder, variant=variant,  
                         torch_dtype=weight_dtype
                     ).to(offload_device)
@@ -1062,11 +1066,11 @@ def main(args, config_args):
         transformer = transformer.to(offload_device, dtype=weight_dtype)
         transformer.requires_grad_(False)
     
-    is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
-    if is_swapping_blocks:
-        # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
-        logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
-        transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
+    # is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
+    # if is_swapping_blocks:
+    #     # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
+    #     logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
+    #     transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
@@ -1119,7 +1123,7 @@ def main(args, config_args):
                 weights.pop()
 
             # save all
-            QwenImagePipeline.save_lora_weights(
+            QwenImageEditPipeline.save_lora_weights(
                 output_dir,
                 transformer_lora_layers=transformer_lora_layers_to_save
             )
@@ -1155,7 +1159,7 @@ def main(args, config_args):
             else:
                 raise ValueError(f"unexpected save model: {model.__class__}")
 
-        lora_state_dict = QwenImagePipeline.lora_state_dict(input_dir)
+        lora_state_dict = QwenImageEditPipeline.lora_state_dict(input_dir)
         transformer_state_dict = {
             f'{k.replace("transformer.", "")}': v for k, v in lora_state_dict.items() if k.startswith("transformer.")
         }
@@ -1379,14 +1383,14 @@ def main(args, config_args):
     # load transformer to cpu
     transformer.to("cuda")
     flush()
-    
+    is_swapping_blocks = False
     transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
     
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "qwen-lora"
+        tracker_name = "qwen-edit-lora"
         try:
             accelerator.init_trackers(tracker_name, config=vars(args))
             # wandb_tracker = accelerator.get_tracker("wandb")
@@ -1541,8 +1545,8 @@ def main(args, config_args):
             # enable_prior_loss=True
         ):
         
-        accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
-        accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+        # accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+        # accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
         flush()
         batch_size = batch["batch_size"]
         u = compute_density_for_timestep_sampling(
@@ -1604,6 +1608,7 @@ def main(args, config_args):
         
         reference_list = []
         noised_latent_list = []
+        dropout_ref_list = []
         target_list = []
         # masked_list = []
         # mask_list = []
@@ -1649,13 +1654,26 @@ def main(args, config_args):
             if "noised" in training_layout_config and training_layout_config["noised"]:
                 noised_latent_list.append(x)
                 target_list.append(x)
-            else:        
+            else:
+                reference_key = training_layout_config["target"]
+                if "dropout" in training_layout_config:
+                    # the following logic is to keep the seq consistence
+                    # if there is no dropout, ref 3 could be dropout, if ref 3 remains, ref 4 could be dropout
+                    # if ref 3 is dropped, ref 4 shouldn't remains
+                    if len(dropout_ref_list) == 0:
+                        if random.random() < training_layout_config["dropout"]:
+                            dropout_ref_list.append(reference_key)
+                            continue
+                        
+                    else:
+                        continue
+                        
                 reference_list.append(x)
                 
         # cat factual_images as image guidance
         learning_target = torch.cat(target_list, dim=0)
         noised_latents = torch.cat(noised_latent_list, dim=0)
-        reference_latents = torch.cat(reference_list, dim=0)
+        # reference_latents = torch.cat(reference_list, dim=0)
         bsz = noised_latents.shape[0]
         # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
         noise = torch.randn_like(noised_latents).to(accelerator.device)
@@ -1670,7 +1688,7 @@ def main(args, config_args):
         
         # pack noisy latents
         noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)
-        packed_noisy_latents = QwenImagePipeline._pack_latents(
+        packed_noisy_latents = QwenImageEditPipeline._pack_latents(
             noisy_model_input,
             batch_size=latents.shape[0],
             num_channels_latents=latents.shape[1],
@@ -1684,22 +1702,21 @@ def main(args, config_args):
             (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
         ] * bsz
         # handle partial noised
-        if len(reference_list) > 0:
-            # for multiple reference
-            for ref_latent in reference_list:
-                # ref_latents = torch.cat(reference_list, dim=0)   
-                # pack noisy latents
-                packed_ref_latents = QwenImagePipeline._pack_latents(
-                    ref_latent,
-                    batch_size=ref_latent.shape[0],
-                    num_channels_latents=ref_latent.shape[1],
-                    height=ref_latent.shape[3],
-                    width=ref_latent.shape[4],
-                )
-                
+        if len(reference_list) > 0:     
+            ref_latents = torch.cat(reference_list, dim=-1)
+            ref_latents = ref_latents.permute(0, 2, 1, 3, 4)
+            # pack noisy latents
+            packed_ref_latents = QwenImageEditPipeline._pack_latents(
+                ref_latents,
+                batch_size=ref_latents.shape[0],
+                num_channels_latents=latents.shape[1],
+                height=ref_latents.shape[3],
+                width=ref_latents.shape[4],
+            )
+            
             img_shapes = [
                 (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2)),
-                (1, int(reference_latents.shape[3] // 2), int(reference_latents.shape[4] // 2)),
+                (1, int(ref_latents.shape[3] // 2), int(ref_latents.shape[4] // 2)),
             ] * bsz
             
         model_input = packed_noisy_latents
@@ -1722,7 +1739,7 @@ def main(args, config_args):
         if "dropout" in captions_selection and random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
         
-        txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
+        txt_seq_lens = [prompt_embeds_mask.shape[1]]
         # txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
         
         with accelerator.autocast():
@@ -1740,7 +1757,7 @@ def main(args, config_args):
         
             model_pred = model_pred[:, : packed_noisy_latents.size(1)]
             
-            model_pred = QwenImagePipeline._unpack_latents(
+            model_pred = QwenImageEditPipeline._unpack_latents(
                 model_pred,
                 height=latents.shape[3] * vae_scale_factor,
                 width=latents.shape[4] * vae_scale_factor,
