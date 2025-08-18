@@ -846,7 +846,8 @@ def main(args, config_args):
                     )
 
                     processor = Qwen2VLProcessor.from_pretrained(
-                        args.pretrained_model_name_or_path
+                        args.pretrained_model_name_or_path,
+                        subfolder="processor",
                     )
                     
                     text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
