@@ -1703,7 +1703,8 @@ def main(args, config_args):
         if "dropout" in captions_selection and random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
         
-        txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
+        txt_seq_lens = [prompt_embeds_mask.shape[1]]
+        # txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
         
         with accelerator.autocast():
             # Predict the noise residual

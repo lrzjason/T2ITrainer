@@ -44,6 +44,9 @@
         },
         "reference":{
             "suffix":"_G"
+        },
+        "mask":{
+            "suffix":"_M"
         }
     },
     "caption_configs": {
@@ -60,6 +63,10 @@
                 },
                 "train": {
                     "target": "train"
+                },
+                "mask": {
+                    "target": "mask",
+                    "dropout": 0.5
                 }
             },
             "captions_selection": {
