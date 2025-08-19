@@ -44,9 +44,6 @@
         },
         "reference":{
             "suffix":"_G"
-        },
-        "mask":{
-            "suffix":"_M"
         }
     },
     "caption_configs": {
@@ -57,16 +54,12 @@
     "training_set":[
         {
             "training_layout_configs":{
-                "train": {
-                    "target": "train",
+                "reference": {
+                    "target": "reference",
                     "noised": true
                 },
-                "reference": {
-                    "target": "reference"
-                },
-                "mask": {
-                    "target": "mask",
-                    "dropout": 0.5
+                "train": {
+                    "target": "train"
                 }
             },
             "captions_selection": {
