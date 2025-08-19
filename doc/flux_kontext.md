@@ -7,7 +7,7 @@ Kontext Model Setup
   hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/flux_kontext.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
 ### Folder Structure
@@ -16,11 +16,11 @@ For more details (example dataset):
     <tr>
       <td align="center">
         <p>flux_models:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/folder_structure.png" alt="flux_models" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/folder_structure.png" alt="flux_models" width="400" />
       </td>
       <td align="center">
         <p>kontext:</p>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/kontext.png" alt="kontext" width="400" />
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/kontext.png" alt="kontext" width="400" />
       </td>
     </tr>
   </table>
@@ -83,7 +83,7 @@ Folder structure example:
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/nf4_example.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/nf4_example.png" width="400">
       </td>
     </tr>
   </table>
