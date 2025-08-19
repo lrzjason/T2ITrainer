@@ -50,10 +50,10 @@ from diffusers import (
     QwenImageEditPipeline
 )
 
-# from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
-from diffusers import (
-    QwenImageTransformer2DModel
-)
+from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
+# from diffusers import (
+#     QwenImageTransformer2DModel
+# )
 
 from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
 # from flux.pipeline_flux_kontext import FluxKontextPipeline
@@ -1038,13 +1038,13 @@ def main(args, config_args):
         
     if not (args.model_path is None or args.model_path == ""):
         # config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
-        transformer = QwenImageTransformer2DModel.from_single_file(args.model_path, 
+        transformer = BlockSwapQwenImageTransformer2DModel.from_single_file(args.model_path, 
                             # config=config,  
                             torch_dtype=weight_dtype
                         ).to(offload_device)
     else:
         if args.pretrained_model_name_or_path == "Qwen/Qwen-Image":
-            transformer = QwenImageTransformer2DModel.from_pretrained(
+            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
                 args.pretrained_model_name_or_path, 
                 subfolder=transformer_subfolder,  
                 torch_dtype=weight_dtype
@@ -1054,7 +1054,7 @@ def main(args, config_args):
             transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
             # weight_file = "diffusion_pytorch_model"
             variant = None
-            transformer = QwenImageTransformer2DModel.from_pretrained(
+            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
                         transformer_folder, variant=variant,  
                         torch_dtype=weight_dtype
                     ).to(offload_device)
@@ -1545,8 +1545,8 @@ def main(args, config_args):
             # enable_prior_loss=True
         ):
         
-        # accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
-        # accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+        accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+        accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
         flush()
         batch_size = batch["batch_size"]
         u = compute_density_for_timestep_sampling(
