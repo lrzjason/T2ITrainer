@@ -14,13 +14,62 @@ import torch.nn as nn
 from diffusers import (
     # FluxTransformerBlock,
     # FluxSingleTransformerBlock,
-    QwenImageTransformer2DModel,
+    QwenImageTransformer2DModel
 )
+
+from diffusers.models.transformers.transformer_qwenimage import QwenEmbedRope
+
 import utils.custom_offloading_utils as custom_offloading_utils
 from typing import List, Union
 
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
+
+class QwenEmbedRopeFix(QwenEmbedRope):
+    def __init__(self, theta: int, axes_dim: List[int], scale_rope=False):
+        super().__init__(theta, axes_dim, scale_rope)
+    
+    
+    def forward(self, video_fhw, txt_seq_lens, device):
+        """
+        Args: video_fhw: [frame, height, width] a list of 3 integers representing the shape of the video Args:
+        txt_length: [bs] a list of 1 integers representing the length of the text
+        """
+        if self.pos_freqs.device != device:
+            self.pos_freqs = self.pos_freqs.to(device)
+            self.neg_freqs = self.neg_freqs.to(device)
+
+        # fix video_fhw issue
+        # if isinstance(video_fhw, list):
+        #     video_fhw = video_fhw[0]
+        # if not isinstance(video_fhw, list):
+        #     video_fhw = [video_fhw]
+
+        vid_freqs = []
+        max_vid_index = 0
+        for idx, fhw in enumerate(video_fhw):
+            frame, height, width = fhw
+            rope_key = f"{idx}_{height}_{width}"
+
+            if not torch.compiler.is_compiling():
+                if rope_key not in self.rope_cache:
+                    self.rope_cache[rope_key] = self._compute_video_freqs(frame, height, width, idx)
+                video_freq = self.rope_cache[rope_key]
+            else:
+                video_freq = self._compute_video_freqs(frame, height, width, idx)
+            video_freq = video_freq.to(device)
+            vid_freqs.append(video_freq)
+
+            if self.scale_rope:
+                max_vid_index = max(height // 2, width // 2, max_vid_index)
+            else:
+                max_vid_index = max(height, width, max_vid_index)
+
+        max_len = max(txt_seq_lens)
+        txt_freqs = self.pos_freqs[max_vid_index : max_vid_index + max_len, ...]
+        vid_freqs = torch.cat(vid_freqs, dim=0)
+
+        return vid_freqs, txt_freqs
 
 class BlockSwapQwenImageTransformer2DModel(QwenImageTransformer2DModel):
     """
@@ -82,6 +131,8 @@ class BlockSwapQwenImageTransformer2DModel(QwenImageTransformer2DModel):
         self.offloader_double = None
         self.num_double_blocks = len(self.transformer_blocks)
         
+        self.pos_embed = QwenEmbedRopeFix(theta=10000, axes_dim=list(axes_dims_rope), scale_rope=True)
+
 
     def enable_block_swap(self, num_blocks: int, device: torch.device):
         self.blocks_to_swap = num_blocks
