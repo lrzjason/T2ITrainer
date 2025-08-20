@@ -1,8 +1,9 @@
 {
         "pretrained_model_name_or_path": "F:\\T2ITrainer\\flux_models\\kontext",
+        "output_dir": "F:\\models\\flux\\training_demo",
+        "train_data_dir": "F:\\ImageSet\\tryon\\demo_dataset",
         "repeats": 10,
         "validation_epochs": 1,
-        "output_dir": "F:\\models\\flux\\training_demo",
         "seed": 4321,
         "train_batch_size": 1,
         "num_train_epochs": 10,
@@ -18,7 +19,6 @@
         "logging_dir": "logs",
         "report_to": "wandb",
         "mixed_precision": "bf16",
-        "train_data_dir": "F:\\ImageSet\\tryon\\demo_dataset",
         "rank": 32,
         "save_model_epochs": 1,
         "save_model_steps": -1,

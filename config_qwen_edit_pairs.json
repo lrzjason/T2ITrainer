@@ -1,0 +1,77 @@
+{
+    "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_edit_nf4",
+    "output_dir": "F:\\models\\qwen\\removal_dataset",
+    "save_name": "removal_dataset",
+    "train_data_dir": "F:\\ImageSet\\qwen_edit\\removal_dataset",
+    "repeats": 1,
+    "validation_epochs": 1,
+    "seed": 4321,
+    "train_batch_size": 1,
+    "num_train_epochs": 10,
+    "resume_from_checkpoint": "",
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": true,
+    "learning_rate": 0.0001,
+    "lr_scheduler": "constant",
+    "cosine_restarts": 1,
+    "lr_warmup_steps": 0,
+    "optimizer": "adamw",
+    "logging_dir": "logs",
+    "report_to": "wandb",
+    "mixed_precision": "bf16",
+    "rank": 32,
+    "save_model_epochs": 1,
+    "save_model_steps": -1,
+    "skip_epoch": 0,
+    "skip_step": 0,
+    "validation_ratio": 0.1,
+    "model_path": "",
+    "allow_tf32": true,
+    "recreate_cache": false,
+    "caption_dropout": 0.1,
+    "resolution": "512",
+    "weighting_scheme": "logit_normal",
+    "logit_mean": 0.0,
+    "logit_std": 1.0,
+    "mode_scale": 1.29,
+    "freeze_transformer_layers": "",
+    "lora_layers": "",
+    "guidance_scale": 1,
+    "blocks_to_swap": 0,
+    "image_configs": {
+        "train":{
+            "suffix":"_F"
+        },
+        "reference":{
+            "suffix":"_G"
+        },
+        "mask":{
+            "suffix":"_M"
+        }
+    },
+    "caption_configs": {
+        "train":{
+            "ext":".txt"
+        }
+    },
+    "training_set":[
+        {
+            "training_layout_configs":{
+                "reference": {
+                    "target": "reference",
+                    "noised": true
+                },
+                "train": {
+                    "target": "train"
+                },
+                "mask": {
+                    "target": "mask",
+                    "dropout": 0.5
+                }
+            },
+            "captions_selection": {
+                "target": "train"
+            }
+        }
+    ]
+}

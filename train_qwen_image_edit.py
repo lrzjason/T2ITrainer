@@ -47,10 +47,14 @@ from tqdm.auto import tqdm
 from diffusers import (
     AutoencoderKLQwenImage,
     FlowMatchEulerDiscreteScheduler,
-    QwenImagePipeline
+    QwenImageEditPipeline
 )
 
 from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
+# from diffusers import (
+#     QwenImageTransformer2DModel
+# )
+
 from flux.flux_utils import compute_loss_weighting_for_sd3, compute_density_for_timestep_sampling
 # from flux.pipeline_flux_kontext import FluxKontextPipeline
 
@@ -95,7 +99,7 @@ from random import setstate as python_set_rng_state
 from peft import LoraConfig, prepare_model_for_kbit_training
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 
-from transformers import Qwen2Tokenizer, Qwen2_5_VLForConditionalGeneration
+from transformers import Qwen2Tokenizer, Qwen2VLProcessor, Qwen2_5_VLForConditionalGeneration
 
 if is_wandb_available():
     import wandb
@@ -297,7 +301,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--mixed_precision",
         type=str,
-        default=None,
+        default="bf16",
         choices=["bf16", "fp8"],
         help=(
             "Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
@@ -493,7 +497,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_single.json",
+        default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -845,6 +849,11 @@ def main(args, config_args):
                         subfolder="tokenizer",
                     )
 
+                    processor = Qwen2VLProcessor.from_pretrained(
+                        args.pretrained_model_name_or_path,
+                        subfolder="processor",
+                    )
+                    
                     text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                         args.pretrained_model_name_or_path, subfolder="text_encoder"
                     )
@@ -910,7 +919,15 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
+                                image = crop_image(image_file,resolution=resolution)
+                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
+                                    text_encoders,
+                                    tokenizers,
+                                    content,
+                                    device=text_encoders[0].device,
+                                    image=image,
+                                    processor=processor
+                                )
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                 npz_dict = {
@@ -1049,11 +1066,11 @@ def main(args, config_args):
         transformer = transformer.to(offload_device, dtype=weight_dtype)
         transformer.requires_grad_(False)
     
-    is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
-    if is_swapping_blocks:
-        # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
-        logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
-        transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
+    # is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
+    # if is_swapping_blocks:
+    #     # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
+    #     logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
+    #     transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
@@ -1106,7 +1123,7 @@ def main(args, config_args):
                 weights.pop()
 
             # save all
-            QwenImagePipeline.save_lora_weights(
+            QwenImageEditPipeline.save_lora_weights(
                 output_dir,
                 transformer_lora_layers=transformer_lora_layers_to_save
             )
@@ -1142,7 +1159,7 @@ def main(args, config_args):
             else:
                 raise ValueError(f"unexpected save model: {model.__class__}")
 
-        lora_state_dict = QwenImagePipeline.lora_state_dict(input_dir)
+        lora_state_dict = QwenImageEditPipeline.lora_state_dict(input_dir)
         transformer_state_dict = {
             f'{k.replace("transformer.", "")}': v for k, v in lora_state_dict.items() if k.startswith("transformer.")
         }
@@ -1366,14 +1383,14 @@ def main(args, config_args):
     # load transformer to cpu
     transformer.to("cuda")
     flush()
-    
+    is_swapping_blocks = False
     transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
     
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
-        tracker_name = "qwen-lora"
+        tracker_name = "qwen-edit-lora"
         try:
             accelerator.init_trackers(tracker_name, config=vars(args))
             # wandb_tracker = accelerator.get_tracker("wandb")
@@ -1591,6 +1608,7 @@ def main(args, config_args):
         
         reference_list = []
         noised_latent_list = []
+        dropout_ref_list = []
         target_list = []
         # masked_list = []
         # mask_list = []
@@ -1636,12 +1654,26 @@ def main(args, config_args):
             if "noised" in training_layout_config and training_layout_config["noised"]:
                 noised_latent_list.append(x)
                 target_list.append(x)
-            else:        
+            else:
+                reference_key = training_layout_config["target"]
+                if "dropout" in training_layout_config:
+                    # the following logic is to keep the seq consistence
+                    # if there is no dropout, ref 3 could be dropout, if ref 3 remains, ref 4 could be dropout
+                    # if ref 3 is dropped, ref 4 shouldn't remains
+                    if len(dropout_ref_list) == 0:
+                        if random.random() < training_layout_config["dropout"]:
+                            dropout_ref_list.append(reference_key)
+                            continue
+                        
+                    else:
+                        continue
+                        
                 reference_list.append(x)
                 
         # cat factual_images as image guidance
         learning_target = torch.cat(target_list, dim=0)
         noised_latents = torch.cat(noised_latent_list, dim=0)
+        # reference_latents = torch.cat(reference_list, dim=0)
         bsz = noised_latents.shape[0]
         # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
         noise = torch.randn_like(noised_latents).to(accelerator.device)
@@ -1653,13 +1685,10 @@ def main(args, config_args):
         
         latents = noisy_model_input
         
-        img_shapes = [
-            (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-        ] * bsz
         
         # pack noisy latents
         noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)
-        packed_noisy_latents = QwenImagePipeline._pack_latents(
+        packed_noisy_latents = QwenImageEditPipeline._pack_latents(
             noisy_model_input,
             batch_size=latents.shape[0],
             num_channels_latents=latents.shape[1],
@@ -1667,26 +1696,42 @@ def main(args, config_args):
             width=latents.shape[4],
         )
         
-        ref_image_ids = None
         packed_ref_latents = None
+        
+        img_shapes = [
+            (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
+        ] * bsz
         # handle partial noised
-        if len(reference_list) > 0:
-            # for multiple reference
+        packed_ref_latents = []
+        if len(reference_list) > 0:     
+            img_shapes = [
+                (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
+            ]
+            
+            # ref_latents = torch.cat(reference_list, dim=-1)
             for ref_latent in reference_list:
-                # ref_latents = torch.cat(reference_list, dim=0)   
+                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
                 # pack noisy latents
-                packed_ref_latents = QwenImagePipeline._pack_latents(
+                packed_ref_latent = QwenImageEditPipeline._pack_latents(
                     ref_latent,
                     batch_size=ref_latent.shape[0],
-                    num_channels_latents=ref_latent.shape[1],
+                    num_channels_latents=latents.shape[1],
                     height=ref_latent.shape[3],
                     width=ref_latent.shape[4],
                 )
-        
+                packed_ref_latents.append(packed_ref_latent)
+                
+                ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
+                img_shapes.append(ref_img_shape)
+            
+            
+            img_shapes = img_shapes * bsz
+            
         model_input = packed_noisy_latents
         # add ref to channel
-        if packed_ref_latents is not None:
-            model_input = torch.cat((packed_noisy_latents, packed_ref_latents), dim=1)
+        if packed_ref_latents is not None and len(packed_ref_latents) > 0:
+            for packed_ref_latent in packed_ref_latents:
+                model_input = torch.cat((model_input, packed_ref_latent), dim=1)
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions
@@ -1704,10 +1749,11 @@ def main(args, config_args):
             prompt_embeds = torch.zeros_like(prompt_embeds)
         
         txt_seq_lens = [prompt_embeds_mask.shape[1]]
-        # txt_seq_lens = [int(x) for x in prompt_embeds_mask.sum(dim=1).tolist()]
+        # txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
         
         with accelerator.autocast():
             # Predict the noise residual
+            timesteps = timesteps.expand(latents.shape[0]).to(latents.dtype)
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
@@ -1718,42 +1764,42 @@ def main(args, config_args):
                 return_dict=False,
             )[0]
         
-        # model_pred = model_pred[:, : packed_noisy_latents.size(1)]
-        
-        model_pred = QwenImagePipeline._unpack_latents(
-            model_pred,
-            height=latents.shape[3] * vae_scale_factor,
-            width=latents.shape[4] * vae_scale_factor,
-            vae_scale_factor=vae_scale_factor,
-        )
+            model_pred = model_pred[:, : packed_noisy_latents.size(1)]
+            
+            model_pred = QwenImageEditPipeline._unpack_latents(
+                model_pred,
+                height=latents.shape[3] * vae_scale_factor,
+                width=latents.shape[4] * vae_scale_factor,
+                vae_scale_factor=vae_scale_factor,
+            )
 
-        # ====================Debug latent====================
-        # vae = AutoencoderKL.from_single_file(
-        #     vae_path
-        # )
-        # vae.to(device=accelerator.device)
-        # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-        # with torch.no_grad():
-        #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-        # image = image_processor.postprocess(image, output_type="pil")[0]
-        # image.save("model_pred.png")
-        # ====================Debug latent====================
-        
-        target = noise - learning_target
-        
-        weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-        
-        # Compute regular loss.
-        loss = torch.mean(
-            (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-            1,
-        )
-        
-        loss = loss.mean()
-        
-        total_loss = loss
-        
-        return total_loss
+            # ====================Debug latent====================
+            # vae = AutoencoderKL.from_single_file(
+            #     vae_path
+            # )
+            # vae.to(device=accelerator.device)
+            # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+            # with torch.no_grad():
+            #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
+            # image = image_processor.postprocess(image, output_type="pil")[0]
+            # image.save("model_pred.png")
+            # ====================Debug latent====================
+            
+            target = noise - learning_target
+            
+            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+            
+            # Compute regular loss.
+            loss = torch.mean(
+                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+                1,
+            )
+            
+            loss = loss.mean()
+            
+            total_loss = loss
+            
+            return total_loss
             
     for epoch in range(first_epoch, args.num_train_epochs):
         transformer.train()
@@ -1809,7 +1855,6 @@ def main(args, config_args):
                     break
                 # del step_loss
                 flush()
-                
                 
                 if global_step % args.save_model_steps == 0 and args.save_model_steps > 0:
                     # accelerator.wait_for_everyone()

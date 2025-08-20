@@ -3,13 +3,16 @@
 ---
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
-- ❗ **Mandatory:** Update diffusers to v0.35.0 version for qwen related classes
+- ❗ **Mandatory:** Update diffusers to latest v0.35.0 release version for qwen edit related classes.
+
 ```bash
-pip install git+https://github.com/huggingface/diffusers.git
+pip install diffusers -U
 ```
 
 
 ## 📅 Recent Updates
+- **2025-08-20:**  
+  - **Update**: Add Qwen Image Edit Support `train_qwen_image_edit.py`
 - **2025-08-12:**  
   - **Update**: Updated `ui_flux_fill.py` to support `train_flux_lora_ui_kontext_new.py` and `train_qwen_image.py`
 - **2025-08-10:**  
@@ -119,7 +122,7 @@ Inpainting Model Setup
   hf download"lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/qwen.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/qwen.md
 
 ## ⚙️ Qwen Recommended Parameters
 ## NF4
@@ -143,7 +146,7 @@ For more details (example dataset):
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_20.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_20.png" width="400">
       </td>
     </tr>
   </table>
@@ -155,7 +158,7 @@ For more details (example dataset):
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/qwen_nf4_block_swap_0.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/qwen_nf4_block_swap_0.png" width="400">
       </td>
     </tr>
   </table>
@@ -182,7 +185,7 @@ Inpainting Model Setup
   hf download"lrzjason/flux-kontext-nf4" --local-dir flux_models/kontext/
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_kontext.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/flux_kontext.md
 - https://huggingface.co/datasets/lrzjason/object_removal_alpha_kontext
 
 ### Fill Model Installation (Skip if train kontext)
@@ -191,7 +194,7 @@ Inpainting Model Setup
   hf download"lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
 ```
 For more details (example dataset):
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/flux_fill.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/flux_fill.md
 - https://huggingface.co/datasets/lrzjason/ObjectRemovalAlpha
 
 ### Dev Model Download (Skip if train fill and kontext)
@@ -214,7 +217,7 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/nf4_example.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/nf4_example.png" width="400">
       </td>
     </tr>
   </table>
@@ -226,11 +229,11 @@ Dev Model Installation
     <tr>
       <td align="center">
         <strong>VRAM Peak</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/fill_example_peak.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_peak.png" width="400">
       </td>
       <td align="center">
         <strong>VRAM Low</strong><br>
-        <img src="https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/image/fill_example_low.png" width="400">
+        <img src="https://github.com/lrzjason/T2ITrainer/blob/main/doc/image/fill_example_low.png" width="400">
       </td>
     </tr>
   </table>
@@ -272,7 +275,7 @@ tensorboard --logdir=.\logs
 [![Star History Chart](https://api.star-history.com/svg?repos=lrzjason/T2ITrainer&type=Date)](https://star-history.com/#lrzjason/T2ITrainer&Date)
 
 ## Old Change logs: 
-- https://github.com/lrzjason/T2ITrainer/blob/qwen/doc/change_logs.md
+- https://github.com/lrzjason/T2ITrainer/blob/main/doc/change_logs.md
 
 ## Recent Change Logs:
 - **2025-07-30:** 
@@ -281,7 +284,7 @@ tensorboard --logdir=.\logs
 ## Sponsor:
 * Thanks to all the contributors and sponsors for improving the project!
 * Sponsor List:
-* https://github.com/lrzjason/T2ITrainer/blob/qwen/sponsor/sponsor_list.txt
+* https://github.com/lrzjason/T2ITrainer/blob/main/sponsor/sponsor_list.txt
 
 ## 📬 Contact
 - 𝕏 **Twitter**: [@Lrzjason](https://twitter.com/Lrzjason)
