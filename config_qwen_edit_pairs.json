@@ -40,37 +40,30 @@
     "blocks_to_swap": 0,
     "image_configs": {
         "train":{
-            "suffix":"_F"
+            "suffix":"_T"
         },
         "reference":{
-            "suffix":"_G"
-        },
-        "mask":{
-            "suffix":"_M"
+            "suffix":"_R"
         }
     },
     "caption_configs": {
-        "train":{
+        "reference":{
             "ext":".txt"
         }
     },
     "training_set":[
         {
             "training_layout_configs":{
-                "reference": {
-                    "target": "reference",
+                "train": {
+                    "target": "train",
                     "noised": true
                 },
-                "train": {
-                    "target": "train"
-                },
-                "mask": {
-                    "target": "mask",
-                    "dropout": 0.5
+                "reference": {
+                    "target": "reference"
                 }
             },
             "captions_selection": {
-                "target": "train"
+                "target": "reference"
             }
         }
     ]

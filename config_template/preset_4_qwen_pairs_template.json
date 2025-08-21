@@ -1,0 +1,31 @@
+{
+    "image_configs": {
+        "train":{
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        }
+    },
+    "caption_configs": {
+        "reference":{
+            "ext":".txt"
+        }
+    },
+    "training_set":[
+        {
+            "training_layout_configs":{
+                "train": {
+                    "target": "train",
+                    "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                }
+            },
+            "captions_selection": {
+                "target": "reference"
+            }
+        }
+    ]
+}
