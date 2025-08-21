@@ -880,10 +880,7 @@ def main(args, config_args):
                         mapping_key = image_pair["mapping_key"]
                         for caption_config_key in caption_configs.keys():
                             caption_config = caption_configs[caption_config_key]
-                            # redux_image_path = image_pair[dataset_based_image]
-                            image_file = image_pair[dataset_based_image]
-                            
-                                
+                            image_file = image_pair[caption_config_key]
                             filename = os.path.basename(image_file)
                             folder_path = os.path.dirname(image_file)
                             # get filename and ext from file
