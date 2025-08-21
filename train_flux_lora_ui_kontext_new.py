@@ -934,7 +934,7 @@ def main(args, config_args):
                         for caption_config_key in caption_configs.keys():
                             caption_config = caption_configs[caption_config_key]
                             # redux_image_path = image_pair[dataset_based_image]
-                            image_file = image_pair[dataset_based_image]
+                            image_file = image_pair[caption_config_key]
                             
                                 
                             filename = os.path.basename(image_file)
