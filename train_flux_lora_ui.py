@@ -728,7 +728,7 @@ def main(args):
     #     prepare_scheduler_for_custom_training(noise_scheduler, accelerator.device)
     
     
-    if args.lora_layers is not None:
+    if args.lora_layers is not None and args.lora_layers != "":
         target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
         target_modules = [
