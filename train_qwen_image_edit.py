@@ -97,6 +97,9 @@ from random import getstate as python_get_rng_state
 from random import setstate as python_set_rng_state
 
 from peft import LoraConfig, prepare_model_for_kbit_training
+from peft import LoKrModel, LoKrConfig
+# from lycoris import create_lycoris, LycorisNetwork
+
 from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 
 from transformers import Qwen2Tokenizer, Qwen2VLProcessor, Qwen2_5_VLForConditionalGeneration
@@ -412,7 +415,6 @@ def parse_args(input_args=None):
         action="store_true",
         help="Use debiased estimation loss",
     )
-    
     parser.add_argument(
         "--snr_gamma",
         type=float,
@@ -518,6 +520,18 @@ def parse_args(input_args=None):
         help="Slider Training negative target scale",
     )
     
+    parser.add_argument(
+        "--use_lokr",
+        action="store_true",
+        help="Use lokr instead of lora",
+    )
+    
+    parser.add_argument(
+        "--rank_alpha",
+        type=float,
+        default=2.0,
+        help=("The rank_alpha of the LoRA or Lokr update matrices."),
+    )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -1072,16 +1086,29 @@ def main(args, config_args):
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
 
-    # now we will add new LoRA weights to the attention layers
-    transformer_lora_config = LoraConfig(
-        # use_dora=args.use_dora,
-        r=args.rank,
-        lora_alpha=args.rank,
-        init_lora_weights="gaussian",
-        # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-        target_modules=target_modules,
-    )
-    transformer.add_adapter(transformer_lora_config)
+    if args.use_lokr:
+        transformer_lokr_config = LoKrConfig(
+            r=args.rank,
+            alpha=args.rank_alpha,
+            target_modules=target_modules,
+            rank_dropout=0.0,
+            module_dropout=0.0,
+            init_weights=True,
+            use_effective_conv2d=True,
+        )
+        transformer = LoKrModel(transformer, transformer_lokr_config, "default")
+    else:
+        # now we will add new LoRA weights to the attention layers
+        transformer_lora_config = LoraConfig(
+            # use_dora=args.use_dora,
+            r=args.rank,
+            lora_alpha=args.rank,
+            init_lora_weights="gaussian",
+            # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
+            target_modules=target_modules,
+        )
+        transformer.add_adapter(transformer_lora_config)
+        
     layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
@@ -1093,6 +1120,8 @@ def main(args, config_args):
     for name, param in transformer.named_parameters():
         layer_names.append(name)
         if "transformer" in name:
+            if args.use_lokr and "model." in name:
+                    name = name.replace('model.', '')
             if '_orig_mod.' in name:
                 name = name.replace('_orig_mod.', '')
             name_split = name.split(".")
@@ -1111,8 +1140,9 @@ def main(args, config_args):
             transformer_lora_layers_to_save = None
             for model in models:
                 if isinstance(model, type(unwrap_model(transformer))):
-                    transformer_lora_layers_to_save = convert_state_dict_to_diffusers(get_peft_model_state_dict(model))
-                
+                    peft_model_state_dict = get_peft_model_state_dict(model)
+                    print(f"loaded peft model state dict: {peft_model_state_dict.keys()}")
+                    transformer_lora_layers_to_save = convert_state_dict_to_diffusers(peft_model_state_dict)
                 else:
                     raise ValueError(f"unexpected save model: {model.__class__}")
 
@@ -1178,7 +1208,7 @@ def main(args, config_args):
             models = [transformer_]
             # only upcast trainable parameters (LoRA) into fp32
             cast_training_params(models)
-            
+    
     accelerator.register_save_state_pre_hook(save_model_hook)
     accelerator.register_load_state_pre_hook(load_model_hook)
 
