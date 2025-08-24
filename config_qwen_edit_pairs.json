@@ -20,6 +20,8 @@
     "report_to": "wandb",
     "mixed_precision": "bf16",
     "rank": 32,
+    "use_lokr": true,
+    "rank_alpha": 2.0,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,

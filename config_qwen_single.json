@@ -1,5 +1,5 @@
 {
-        "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_nf4",
+        "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image",
         "output_dir": "F:\\models\\qwen\\kontext_single",
         "train_data_dir": "F:\\ImageSet\\aigate_demo\\kontext_single",
         "save_name": "highres_test",
@@ -20,6 +20,8 @@
         "report_to": "wandb",
         "mixed_precision": "bf16",
         "rank": 32,
+        "use_lokr": true,
+        "rank_alpha": 2.0,
         "save_model_epochs": 1,
         "save_model_steps": -1,
         "skip_epoch": 0,
@@ -37,7 +39,7 @@
         "freeze_transformer_layers": "",
         "lora_layers": "",
         "guidance_scale": 1,
-        "blocks_to_swap": 0,
+        "blocks_to_swap": 40,
         "image_configs": {
             "train":{
                 "suffix":""
