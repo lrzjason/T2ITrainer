@@ -1055,7 +1055,11 @@ def main(args):
         
             flush()
 
-    transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
+    if "quantization_config" in transformer.config:
+        transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
+    else:
+        transformer = transformer.to(offload_device, dtype=weight_dtype)
+        transformer.requires_grad_(False)
     
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
