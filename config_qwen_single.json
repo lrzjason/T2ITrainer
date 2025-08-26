@@ -1,5 +1,5 @@
 {
-        "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image",
+        "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_nf4",
         "output_dir": "F:\\models\\qwen\\kontext_single",
         "train_data_dir": "F:\\ImageSet\\aigate_demo\\kontext_single",
         "save_name": "highres_test",
@@ -22,6 +22,7 @@
         "rank": 32,
         "use_lokr": true,
         "rank_alpha": 2.0,
+        "lokr_factor": 8.0,
         "save_model_epochs": 1,
         "save_model_steps": -1,
         "skip_epoch": 0,
@@ -29,7 +30,7 @@
         "validation_ratio": 0.1,
         "model_path": "",
         "allow_tf32": true,
-        "recreate_cache": true,
+        "recreate_cache": false,
         "caption_dropout": 0.1,
         "resolution": "512",
         "weighting_scheme": "logit_normal",
