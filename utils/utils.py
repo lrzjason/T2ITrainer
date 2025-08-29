@@ -57,7 +57,11 @@ class ToTensorUniversal:
 def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
     f_width, f_height = resolution
     if resize_method == "lanczos":
-        resized_img = cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        # resized_img = cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
+        # 使用PIL的缩放算法保障画质
+        img_pil = Image.fromarray(img)
+        resized_img = img_pil.resize((f_width, f_height), Image.LANCZOS)
+        resized_img = np.array(resized_img)
     else:
         # --- 1. 设置设备 ---
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
