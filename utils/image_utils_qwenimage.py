@@ -434,5 +434,8 @@ def simple_center_crop(image,scale_with_height,closest_resolution):
     # print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
     # resize image to target resolution
     # return cv2.resize(cropped_image, closest_resolution)
-    return resize(cropped_image,closest_resolution, resize_method="fs_resize"),crop_x,crop_y
+    
+    # rollback to fs_resize, because I trained two images with lanczos, horizontal line appears
+    # return resize(cropped_image,closest_resolution, resize_method="fs_resize"),crop_x,crop_y
+    return resize(cropped_image, closest_resolution, resize_method="lanczos"), crop_x, crop_y
 
