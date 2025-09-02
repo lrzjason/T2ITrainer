@@ -1138,7 +1138,7 @@ def main(args, config_args):
 
     def save_model_lokr_hook(models, weights, output_dir):
         print("save process...")
-        for weight in weights:
+        for model in models:
             # make sure to pop weight so that corresponding model is not saved again
             weights.pop()
             
@@ -1162,14 +1162,14 @@ def main(args, config_args):
             with open(configs_file, "w", encoding='utf-8') as outfile:
                 outfile.write(json.dumps(configs, indent=4, ensure_ascii=False))
                 
-    def load_model_lokr_hook(models, input_dir):
-        transformer_ = None
-        while len(models) > 0:
-            model = models.pop()
-            if isinstance(model, type(unwrap_model(transformer))):
-                transformer_ = model
-            else:
-                raise ValueError(f"unexpected save model: {model.__class__}")
+    def load_model_lokr_hook(input_dir):
+        # transformer_ = None
+        # while len(models) > 0:
+        #     model = models.pop()
+        #     if isinstance(model, type(unwrap_model(transformer))):
+        #         transformer_ = model
+        #     else:
+        #         raise ValueError(f"unexpected save model: {model.__class__}")
 
         # Load the LoKr weights
         last_part = os.path.basename(os.path.normpath(input_dir))
@@ -1180,7 +1180,7 @@ def main(args, config_args):
             target_attn_mlp_layers=True,
         )
         lycoris_net = apply_lycoris_to_qwenimage(
-            transformer_,
+            transformer,
             multiplier=1.0,
             preset=qwen_preset, # Crucial: Use the exact same preset
             rank=args.rank,      # Specify the rank (dim) for LoKr
@@ -1193,10 +1193,11 @@ def main(args, config_args):
         # are in `weight_dtype`. More details:
         # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
         if args.mixed_precision == "fp16":
-            models = [transformer_]
+            models = [transformer]
             # only upcast trainable parameters (LoRA) into fp32
             cast_training_params(models)
-    
+
+        return lycoris_net
     
     def save_model_hook(models, weights, output_dir):
         if accelerator.is_main_process:
@@ -1276,7 +1277,7 @@ def main(args, config_args):
     
     if args.use_lokr:
         accelerator.register_save_state_pre_hook(save_model_lokr_hook)
-        accelerator.register_load_state_pre_hook(load_model_lokr_hook)
+        # accelerator.register_load_state_pre_hook(load_model_lokr_hook)
     else:
         accelerator.register_save_state_pre_hook(save_model_hook)
         accelerator.register_load_state_pre_hook(load_model_hook)
@@ -1532,93 +1533,100 @@ def main(args, config_args):
             args.resume_from_checkpoint = None
             initial_global_step = 0
         else:
-            
-            accelerator.print(f"Resuming from checkpoint {path}")
-            accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[-1])
 
             initial_global_step = global_step
             resume_step = global_step
             first_epoch = global_step // num_update_steps_per_epoch
 
+            save_dir = os.path.join(args.output_dir, path)
             if args.use_lokr:
+                # accelerator.load_state(os.path.join(args.output_dir, path))
+                lycoris_net = load_model_lokr_hook(save_dir)
+                lycoris_net = accelerator.prepare(lycoris_net, device_placement=[not is_swapping_blocks])
+                transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
                 transformer_lora_parameters = list(filter(lambda p: p.requires_grad, lycoris_net.parameters()))
             else:
+                accelerator.print(f"Resuming from checkpoint {path}")
+                accelerator.load_state(save_dir)
                 transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
             # Optimization parameters
             transformer_lora_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
             params_to_optimize = [transformer_lora_parameters_with_lr]
             
-            # Optimizer creation
-            if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
-                logger.warning(
-                    f"Unsupported choice of optimizer: {args.optimizer}.Supported optimizers include [adamW, prodigy]."
-                    "Defaulting to adamW"
-                )
-                args.optimizer = "adamw"
-
-            if use_8bit_adam and not args.optimizer.lower() == "adamw":
-                logger.warning(
-                    f"use_8bit_adam is ignored when optimizer is not set to 'AdamW'. Optimizer was "
-                    f"set to {args.optimizer.lower()}"
-                )
-
-            if args.optimizer.lower() == "adamw":
-                if use_8bit_adam:
-                    try:
-                        import bitsandbytes as bnb
-                    except ImportError:
-                        raise ImportError(
-                            "To use 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
-                        )
-
-                    optimizer_class = bnb.optim.AdamW8bit
-                else:
-                    optimizer_class = torch.optim.AdamW
-
-                optimizer = optimizer_class(
-                    params_to_optimize,
-                    betas=(adam_beta1, adam_beta2),
-                    weight_decay=adam_weight_decay,
-                    eps=adam_epsilon,
-                )
-
-            if args.optimizer.lower() == "prodigy":
-                try:
-                    import prodigyopt
-                except ImportError:
-                    raise ImportError("To use Prodigy, please install the prodigyopt library: `pip install prodigyopt`")
-
-                optimizer_class = prodigyopt.Prodigy
-
-                if args.learning_rate <= 0.1:
-                    logger.warning(
-                        "Learning rate is too low. When using prodigy, it's generally better to set learning rate around 1.0"
-                    )
-
-                optimizer = optimizer_class(
-                    params_to_optimize,
-                    lr=args.learning_rate,
-                    betas=(adam_beta1, adam_beta2),
-                    beta3=prodigy_beta3,
-                    d_coef=prodigy_d_coef,
-                    weight_decay=adam_weight_decay,
-                    eps=adam_epsilon,
-                    decouple=prodigy_decouple,
-                    use_bias_correction=prodigy_use_bias_correction,
-                    safeguard_warmup=prodigy_safeguard_warmup,
-                )
+            optimizer.load_state_dict(torch.load(f"{save_dir}/optimizer.bin"))
+            lr_scheduler.load_state_dict(torch.load(f"{save_dir}/scheduler.bin"))
             
-            lr_scheduler = get_scheduler(
-                args.lr_scheduler,
-                optimizer=optimizer,
-                num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
-                num_training_steps=max_train_steps * accelerator.num_processes,
-                num_cycles=lr_num_cycles,
-                power=lr_power,
-            )
+            # # Optimizer creation
+            # if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
+            #     logger.warning(
+            #         f"Unsupported choice of optimizer: {args.optimizer}.Supported optimizers include [adamW, prodigy]."
+            #         "Defaulting to adamW"
+            #     )
+            #     args.optimizer = "adamw"
+
+            # if use_8bit_adam and not args.optimizer.lower() == "adamw":
+            #     logger.warning(
+            #         f"use_8bit_adam is ignored when optimizer is not set to 'AdamW'. Optimizer was "
+            #         f"set to {args.optimizer.lower()}"
+            #     )
+
+            # if args.optimizer.lower() == "adamw":
+            #     if use_8bit_adam:
+            #         try:
+            #             import bitsandbytes as bnb
+            #         except ImportError:
+            #             raise ImportError(
+            #                 "To use 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
+            #             )
+
+            #         optimizer_class = bnb.optim.AdamW8bit
+            #     else:
+            #         optimizer_class = torch.optim.AdamW
+
+            #     optimizer = optimizer_class(
+            #         params_to_optimize,
+            #         betas=(adam_beta1, adam_beta2),
+            #         weight_decay=adam_weight_decay,
+            #         eps=adam_epsilon,
+            #     )
+
+            # if args.optimizer.lower() == "prodigy":
+            #     try:
+            #         import prodigyopt
+            #     except ImportError:
+            #         raise ImportError("To use Prodigy, please install the prodigyopt library: `pip install prodigyopt`")
+
+            #     optimizer_class = prodigyopt.Prodigy
+
+            #     if args.learning_rate <= 0.1:
+            #         logger.warning(
+            #             "Learning rate is too low. When using prodigy, it's generally better to set learning rate around 1.0"
+            #         )
+
+            #     optimizer = optimizer_class(
+            #         params_to_optimize,
+            #         lr=args.learning_rate,
+            #         betas=(adam_beta1, adam_beta2),
+            #         beta3=prodigy_beta3,
+            #         d_coef=prodigy_d_coef,
+            #         weight_decay=adam_weight_decay,
+            #         eps=adam_epsilon,
+            #         decouple=prodigy_decouple,
+            #         use_bias_correction=prodigy_use_bias_correction,
+            #         safeguard_warmup=prodigy_safeguard_warmup,
+            #     )
             
-            optimizer, lr_scheduler = accelerator.prepare(optimizer, lr_scheduler)
+            # lr_scheduler = get_scheduler(
+            #     args.lr_scheduler,
+            #     optimizer=optimizer,
+            #     num_warmup_steps=args.lr_warmup_steps * accelerator.num_processes,
+            #     num_training_steps=max_train_steps * accelerator.num_processes,
+            #     num_cycles=lr_num_cycles,
+            #     power=lr_power,
+            # )
+            
+            # optimizer, lr_scheduler = accelerator.prepare(optimizer, lr_scheduler)
     else:
         initial_global_step = 0
     progress_bar = tqdm(

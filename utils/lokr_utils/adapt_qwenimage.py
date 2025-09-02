@@ -119,7 +119,7 @@ def apply_lycoris_to_qwenimage(
     # Apply the LyCORIS network to the model.
     # This injects the LyCORIS modules into the model's forward passes.
     lycoris_network.apply_to()
-    lycoris_network.merge_to()
+    # lycoris_network.merge_to()
     return lycoris_network
 
 
