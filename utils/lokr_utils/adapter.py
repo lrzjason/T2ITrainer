@@ -11,12 +11,12 @@ from diffusers import QwenImageTransformer2DModel # Import the model class
 # Import LyCORIS functions
 from lycoris import create_lycoris, LycorisNetwork
 
-def get_qwenimage_lycoris_preset(
-    target_attn_mlp_layers=True,
+def get_lycoris_preset(
     algo="lokr",  # Algorithm to use for all targeted layers
     rank=None,    # Rank/dim for LoRA/LoHa/LoKr adaptation (e.g., 64)
     alpha=None,   # Alpha for LoRA/LoHa/LoKr adaptation (e.g., 32)
     factor=None,  # Factor for LoKr/BOFT adaptation (e.g., 8) - used if rank is None
+    model_type="qwen"
 ):
     """
     Generates a LyCORIS preset configuration for QwenImageTransformer2DModel.
@@ -41,44 +41,54 @@ def get_qwenimage_lycoris_preset(
         "lora_prefix": "lycoris", # Ensure prefix matches model structure
     }
 
-    if target_attn_mlp_layers:
-        # Target the specific Linear layers using fnmatch patterns.
-        preset["target_module"] = ["Linear"] # Target Linear layers to apply name matching
-        
-        targeted_patterns = [
-            # Attention projections for image stream
-            "transformer_blocks.*.attn.to_k",
-            "transformer_blocks.*.attn.to_q",
-            "transformer_blocks.*.attn.to_v",
-            "transformer_blocks.*.attn.to_out.0",
-            # Attention projections for text stream (added KV projections)
-            "transformer_blocks.*.attn.add_k_proj",
-            "transformer_blocks.*.attn.add_q_proj",
-            "transformer_blocks.*.attn.add_v_proj",
-            "transformer_blocks.*.attn.to_add_out",
-            # Final Linear layers of MLPs (assuming net.2 is the final layer)
-            "transformer_blocks.*.img_mlp.net.2",
-            "transformer_blocks.*.txt_mlp.net.2",
+    # Target the specific Linear layers using fnmatch patterns.
+    preset["target_module"] = ["Linear"] # Target Linear layers to apply name matching
+    targeted_patterns = [
+        # Attention projections for image stream
+        "*transformer_blocks.*.attn.to_k",
+        "*transformer_blocks.*.attn.to_q",
+        "*transformer_blocks.*.attn.to_v",
+        "*transformer_blocks.*.attn.to_out.0",
+        # Attention projections for text stream (added KV projections)
+        "*transformer_blocks.*.attn.add_k_proj",
+        "*transformer_blocks.*.attn.add_q_proj",
+        "*transformer_blocks.*.attn.add_v_proj",
+        "*transformer_blocks.*.attn.to_add_out",
+    ]
+    if model_type == "qwen":
+        # Final Linear layers of MLPs (assuming net.2 is the final layer)
+        qwen_targeted_patterns = [
+            "*transformer_blocks.*.img_mlp.net.2",
+            "*transformer_blocks.*.txt_mlp.net.2",
         ]
+        targeted_patterns = targeted_patterns + qwen_targeted_patterns
+    elif model_type == "flux":
+        flux_targeted_patterns = [
+            "*transformer_blocks.*.ff.net.0.proj",
+            "*transformer_blocks.*.ff.net.2",
+            "*transformer_blocks.*.ff_context.net.0.proj",
+            "*transformer_blocks.*.ff_context.net.2",
+        ]
+        targeted_patterns = targeted_patterns + flux_targeted_patterns
+    
+    # Configure the algorithm parameters
+    algo_config = {"algo": algo}
+    if rank is not None:
+        algo_config["dim"] = rank
+        if alpha is not None:
+            algo_config["alpha"] = alpha
+    elif factor is not None:
+        algo_config["factor"] = factor
+    # If neither rank nor factor is provided, LyCORIS will use its defaults or potentially error.
         
-        # Configure the algorithm parameters
-        algo_config = {"algo": algo}
-        if rank is not None:
-            algo_config["dim"] = rank
-            if alpha is not None:
-                algo_config["alpha"] = alpha
-        elif factor is not None:
-            algo_config["factor"] = factor
-        # If neither rank nor factor is provided, LyCORIS will use its defaults or potentially error.
-            
-        # Map all targeted patterns to the specified algorithm and parameters
-        for pattern in targeted_patterns:
-            preset["name_algo_map"][pattern] = algo_config
+    # Map all targeted patterns to the specified algorithm and parameters
+    for pattern in targeted_patterns:
+        preset["name_algo_map"][pattern] = algo_config
             
     return preset
 
 
-def apply_lycoris_to_qwenimage(
+def apply_lycoris(
     model, # Instance of QwenImageTransformer2DModel
     multiplier=1.0,
     preset=None,
@@ -98,7 +108,7 @@ def apply_lycoris_to_qwenimage(
     """
     if preset is None:
         # Use the default preset generator
-        preset = get_qwenimage_lycoris_preset()
+        preset = get_lycoris_preset()
     
     # Apply the preset to the LycorisNetwork class
     # This modifies class variables, affecting subsequent network creation.
@@ -149,14 +159,14 @@ if __name__ == "__main__":
     # You can use the default preset generator or define your own.
     # This example targets only specific attention and MLP layers,
     # and specifies rank (dim) and alpha directly.
-    my_preset = get_qwenimage_lycoris_preset(
+    my_preset = get_lycoris_preset(
         target_attn_mlp_layers=True,
     )
     print("\nDefined LyCORIS preset:")
     print(my_preset)
 
     # --- 3. Apply LyCORIS to the model ---
-    lycoris_net = apply_lycoris_to_qwenimage(
+    lycoris_net = apply_lycoris(
         qwenimage_model,
         multiplier=1.0,
         preset=my_preset,
@@ -192,7 +202,7 @@ if __name__ == "__main__":
     
     # b. Create a new LyCORIS network on the new model with the same preset
     print("Applying LyCORIS to the new model...")
-    new_lycoris_net = apply_lycoris_to_qwenimage(
+    new_lycoris_net = apply_lycoris(
         new_qwenimage_model,
         multiplier=1.0,
         preset=my_preset, # Crucial: Use the exact same preset

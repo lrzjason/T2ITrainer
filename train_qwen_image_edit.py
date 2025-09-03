@@ -121,7 +121,7 @@ from torchvision import transforms
 from utils.utils import find_index_from_right, ToTensorUniversal
 
 from utils.training_set.select_training_set import get_training_set
-from utils.lokr_utils.adapt_qwenimage import get_qwenimage_lycoris_preset, apply_lycoris_to_qwenimage
+from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 
 
 logger = get_logger(__name__)
@@ -1098,17 +1098,15 @@ def main(args, config_args):
 
     if args.use_lokr:
         
-        qwen_preset = get_qwenimage_lycoris_preset(
-            target_attn_mlp_layers=True,
-        )
+        preset = get_lycoris_preset()
         print("\nDefined LyCORIS preset:")
-        print(qwen_preset)
+        print(preset)
 
         # --- 3. Apply LyCORIS to the model ---
-        lycoris_net = apply_lycoris_to_qwenimage(
+        lycoris_net = apply_lycoris(
             transformer,
             multiplier=1.0,
-            preset=qwen_preset,
+            preset=preset,
             rank=args.rank,      # Specify the rank (dim) for LoKr
             alpha=args.rank_alpha,     # Specify the alpha for LoKr
             factor=args.lokr_factor,   # Not used when rank is specified
@@ -1196,10 +1194,10 @@ def main(args, config_args):
         file_path = f"{input_dir}/{last_part}.safetensors"
         
         
-        qwen_preset = get_qwenimage_lycoris_preset(
+        qwen_preset = get_lycoris_preset(
             target_attn_mlp_layers=True,
         )
-        lycoris_net = apply_lycoris_to_qwenimage(
+        lycoris_net = apply_lycoris(
             transformer,
             multiplier=1.0,
             preset=qwen_preset, # Crucial: Use the exact same preset
@@ -1210,13 +1208,6 @@ def main(args, config_args):
         )
         load_state = lycoris_net.load_weights(file_path)
         
-        # are in `weight_dtype`. More details:
-        # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
-        if args.mixed_precision == "fp16":
-            models = [transformer]
-            # only upcast trainable parameters (LoRA) into fp32
-            cast_training_params(models)
-
         return lycoris_net
     
     def save_model_hook(models, weights, output_dir):
@@ -1503,6 +1494,7 @@ def main(args, config_args):
             args.resume_from_checkpoint = None
             initial_global_step = 0
         else:
+            accelerator.print(f"Resuming from checkpoint {path}")
             global_step = int(path.split("-")[-1])
 
             initial_global_step = global_step
@@ -1517,15 +1509,18 @@ def main(args, config_args):
                 transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
                 transformer_lora_parameters = list(filter(lambda p: p.requires_grad, lycoris_net.parameters()))
             else:
-                accelerator.print(f"Resuming from checkpoint {path}")
                 accelerator.load_state(save_dir)
                 transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
             # Optimization parameters
             transformer_lora_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
             params_to_optimize = [transformer_lora_parameters_with_lr]
             
-            optimizer.load_state_dict(torch.load(f"{save_dir}/optimizer.bin"))
-            lr_scheduler.load_state_dict(torch.load(f"{save_dir}/scheduler.bin"))
+            optimizer_path = f"{save_dir}/optimizer.bin"
+            scheduler_path = f"{save_dir}/scheduler.bin"
+            if os.path.exists(optimizer_path):
+                optimizer.load_state_dict(torch.load(optimizer_path))
+            if os.path.exists(scheduler_path):
+                lr_scheduler.load_state_dict(torch.load(scheduler_path))
             
     else:
         initial_global_step = 0

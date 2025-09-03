@@ -130,6 +130,7 @@ import shutil
 from collections import defaultdict
 
 from utils.image_utils_flux import create_empty_embedding, create_embedding, cache_file, cache_multiple
+from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 
 
 def load_text_encoders(class_one, class_two):
@@ -577,6 +578,25 @@ def parse_args(input_args=None):
         default="config_fill.json",
         help="Path to the config file.",
     )
+    parser.add_argument(
+        "--use_lokr",
+        action="store_true",
+        help="Use lokr instead of lora",
+    )
+    
+    parser.add_argument(
+        "--rank_alpha",
+        type=float,
+        default=2.0,
+        help=("The rank_alpha of the LoRA or Lokr update matrices."),
+    )
+    parser.add_argument(
+        "--lokr_factor",
+        type=float,
+        default=8.0,
+        help=("The lokr factor of the Lokr matrices."),
+    )
+    
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -793,10 +813,10 @@ def main(args):
             "attn.add_q_proj",
             "attn.add_v_proj",
             "attn.to_add_out",
-            # "ff.net.0.proj",
-            # "ff.net.2",
-            # "ff_context.net.0.proj",
-            # "ff_context.net.2",
+            "ff.net.0.proj",
+            "ff.net.2",
+            "ff_context.net.0.proj",
+            "ff_context.net.2",
         ]
     
     # Make sure the trainable params are in float32.
@@ -1068,21 +1088,39 @@ def main(args):
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
 
 
-    transformer.requires_grad_(False)
+    if args.use_lokr:
+        preset = get_lycoris_preset(
+            model_type="flux",
+        )
+        print("\nDefined LyCORIS preset:")
+        print(preset)
+
+        # --- 3. Apply LyCORIS to the model ---
+        lycoris_net = apply_lycoris(
+            transformer,
+            multiplier=1.0,
+            preset=preset,
+            rank=args.rank,      # Specify the rank (dim) for LoKr
+            alpha=args.rank_alpha,     # Specify the alpha for LoKr
+            factor=args.lokr_factor,   # Not used when rank is specified
+            algo="lokr",  # Use LoKr for all targeted layers
+        )
+        lycoris_net.to(accelerator.device)
+    else:
+        # now we will add new LoRA weights to the attention layers
+        transformer_lora_config = LoraConfig(
+            # use_dora=args.use_dora,
+            r=args.rank,
+            lora_alpha=args.rank,
+            init_lora_weights="gaussian",
+            # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
+            target_modules=target_modules,
+        )
+        transformer.add_adapter(transformer_lora_config)
 
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
 
-    # now we will add new LoRA weights to the attention layers
-    transformer_lora_config = LoraConfig(
-        # use_dora=args.use_dora,
-        r=args.rank,
-        lora_alpha=args.rank,
-        init_lora_weights="gaussian",
-        # target_modules=["to_k", "to_q", "to_v", "to_out.0"],
-        target_modules=target_modules,
-    )
-    transformer.add_adapter(transformer_lora_config)
     layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
@@ -1114,6 +1152,42 @@ def main(args):
         model = model._orig_mod if is_compiled_module(model) else model
         return model
 
+    def save_model_lokr_hook(models, weights, output_dir):
+        print("save process...")
+        for model in models:
+            # make sure to pop weight so that corresponding model is not saved again
+            weights.pop()
+            
+        if accelerator.is_main_process:
+            last_part = os.path.basename(os.path.normpath(output_dir))
+            file_path = f"{output_dir}/{last_part}.safetensors"
+            lycoris_net.save_weights(file_path, torch.bfloat16, metadata={"source": "T2ITrainer"})
+                
+            # save config to output dir using shutil
+            if args.config_path:
+                # save config to output dir for reproduce
+                shutil.copy(args.config_path, output_dir)
+              
+    def load_model_lokr_hook(input_dir):
+        # Load the LoKr weights
+        last_part = os.path.basename(os.path.normpath(input_dir))
+        file_path = f"{input_dir}/{last_part}.safetensors"
+        
+        
+        preset = get_lycoris_preset()
+        lycoris_net = apply_lycoris(
+            transformer,
+            multiplier=1.0,
+            preset=preset, # Crucial: Use the exact same preset
+            rank=args.rank,      # Specify the rank (dim) for LoKr
+            alpha=args.rank_alpha,     # Specify the alpha for LoKr
+            factor=args.lokr_factor,   # Not used when rank is specified
+            algo="lokr",  # Use LoKr for all targeted layers
+        )
+        load_state = lycoris_net.load_weights(file_path)
+        
+        return lycoris_net
+    
     def save_model_hook(models, weights, output_dir):
         if accelerator.is_main_process:
             # there are only two options here. Either are just the unet attn processor layers
@@ -1142,16 +1216,6 @@ def main(args):
                 # copy ori to new name
                 shutil.copy(ori_file, file_path)
             
-            # # save to kohya
-            # peft_state_dict = convert_all_state_dict_to_peft(transformer_lora_layers_to_save)
-            # kohya_state_dict = convert_state_dict_to_kohya(peft_state_dict)
-            # # add prefix to keys
-            # prefix = 'lora_unet_'
-            # prefixed_state_dict = {prefix + key: value for key, value in kohya_state_dict.items()}
-            # last_part = os.path.basename(os.path.normpath(output_dir))
-            # file_path = f"{output_dir}/{last_part}.safetensors"
-            # # save comfyui/webui lora as the name of parent
-            # save_file(prefixed_state_dict, file_path)
 
     def load_model_hook(models, input_dir):
         transformer_ = None
@@ -1181,36 +1245,22 @@ def main(args):
                     f" {unexpected_keys}. "
                 )
 
-
-        # Make sure the trainable params are in float32. This is again needed since the base models
-        # are in `weight_dtype`. More details:
-        # https://github.com/huggingface/diffusers/pull/6514#discussion_r1449796804
-        # if args.mixed_precision == "fp16" or args.mixed_precision == "bf16":
-        #     models = [transformer_]
-        #     # only upcast trainable parameters (LoRA) into fp32
-        #     cast_training_params(models)
-
-
-    accelerator.register_save_state_pre_hook(save_model_hook)
-    accelerator.register_load_state_pre_hook(load_model_hook)
+    if args.use_lokr:
+        accelerator.register_save_state_pre_hook(save_model_lokr_hook)
+        # accelerator.register_load_state_pre_hook(load_model_lokr_hook)
+    else:
+        accelerator.register_save_state_pre_hook(save_model_hook)
+        accelerator.register_load_state_pre_hook(load_model_hook)
 
     # Enable TF32 for faster training on Ampere GPUs,
     # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
     if args.allow_tf32 and torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
 
-
-    
-    # resume from cpu after cache files
-    # transformer.to(accelerator.device, dtype=weight_dtype)
-
-    # Make sure the trainable params are in float32.
-    # if args.mixed_precision == "fp16":
-    #     models = [transformer]
-    #     # only upcast trainable parameters (LoRA) into fp32
-    #     cast_training_params(models, dtype=torch.float32)
-
-    transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
+    if args.use_lokr:
+       transformer_lora_parameters = list(filter(lambda p: p.requires_grad, lycoris_net.parameters()))
+    else:
+       transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
     # Optimization parameters
     transformer_lora_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
     params_to_optimize = [transformer_lora_parameters_with_lr]
@@ -1361,7 +1411,11 @@ def main(args):
     transformer.to("cuda")
     flush()
     
-    transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
+    if args.use_lokr:
+        lycoris_net = accelerator.prepare(lycoris_net)
+        transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
+    else:
+        transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
     
 
     # We need to initialize the trackers we use, and also store our configuration.
@@ -1405,13 +1459,32 @@ def main(args):
             initial_global_step = 0
         else:
             accelerator.print(f"Resuming from checkpoint {path}")
-            accelerator.load_state(os.path.join(args.output_dir, path))
             global_step = int(path.split("-")[-1])
 
             initial_global_step = global_step
             resume_step = global_step
             first_epoch = global_step // num_update_steps_per_epoch
 
+            save_dir = os.path.join(args.output_dir, path)
+            
+            if args.use_lokr:
+                lycoris_net = load_model_lokr_hook(save_dir)
+                lycoris_net = accelerator.prepare(lycoris_net, device_placement=[not is_swapping_blocks])
+                transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
+                transformer_lora_parameters = list(filter(lambda p: p.requires_grad, lycoris_net.parameters()))
+            else:
+                accelerator.load_state(save_dir)
+                transformer_lora_parameters = list(filter(lambda p: p.requires_grad, transformer.parameters()))
+            # Optimization parameters
+            transformer_lora_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
+            params_to_optimize = [transformer_lora_parameters_with_lr]
+            
+            optimizer_path = f"{save_dir}/optimizer.bin"
+            scheduler_path = f"{save_dir}/scheduler.bin"
+            if os.path.exists(optimizer_path):
+                optimizer.load_state_dict(torch.load(optimizer_path))
+            if os.path.exists(scheduler_path):
+                lr_scheduler.load_state_dict(torch.load(scheduler_path))
     else:
         initial_global_step = 0
     progress_bar = tqdm(
