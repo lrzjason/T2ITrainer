@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_nf4",
-    "output_dir": "F:\\models\\qwen\\kontext_single",
-    "train_data_dir": "F:\\ImageSet\\aigate_demo\\kontext_single",
-    "save_name": "highres_test",
+    "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/Qwen-Image",
+    "output_dir": "/home/waas/kontext_single_output",
+    "train_data_dir": "/home/waas/kontext_single",
+    "save_name": "qwen_image",
     "repeats": 10,
     "validation_epochs": 1,
     "seed": 4321,
