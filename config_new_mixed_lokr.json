@@ -1,7 +1,7 @@
 {
     "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/FLUX.1-Kontext-dev",
     "output_dir": "/home/waas/kontext_output",
-    "train_data_dir": "/home/waas/kontext_single",
+    "train_data_dir": "/home/waas/kontext_mixed",
     "repeats": 10,
     "validation_epochs": 1,
     "seed": 4321,
@@ -19,8 +19,8 @@
     "logging_dir": "logs",
     "report_to": "wandb",
     "mixed_precision": "bf16",
-    "use_lokr": false,
-    "rank": 32,
+    "rank": 10000,
+    "use_lokr": true,
     "rank_alpha": 1.0,
     "lokr_factor": -1,
     "save_model_epochs": 1,
@@ -43,12 +43,21 @@
     "blocks_to_swap": 0,
     "image_configs": {
         "train":{
-            "suffix":""
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        },
+        "train_single":{
+            "suffix":"_T"
         }
     },
     "caption_configs": {
         "train":{
             "ext":".txt"
+        },
+        "train_single":{
+            "ext":"1.txt"
         }
     },
     "training_set":[
@@ -57,11 +66,39 @@
                 "train": {
                     "target": "train",
                     "noised": true
+                },
+                "reference": {
+                    "target": "reference"
                 }
             },
             "captions_selection": {
                 "target": "train"
-            }
+            },
+            "weight": 0.5
+        },
+        {
+            "training_layout_configs":{
+                "train_single": {
+                    "target": "train_single",
+                    "noised": true
+                }
+            },
+            "captions_selection": {
+                "target": "train_single"
+            },
+            "val_layout_configs": {
+                "train": {
+                    "target": "train",
+                    "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                }
+            },
+            "val_captions_selection": {
+                "target": "train"
+            },
+            "weight": 0.5
         }
     ]
 }

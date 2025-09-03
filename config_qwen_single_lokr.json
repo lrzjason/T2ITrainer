@@ -1,5 +1,5 @@
 {
-    "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_nf4",
+    "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/Qwen-Image",
     "output_dir": "F:\\models\\qwen\\kontext_single",
     "train_data_dir": "F:\\ImageSet\\aigate_demo\\kontext_single",
     "save_name": "highres_test",

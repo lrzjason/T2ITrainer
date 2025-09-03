@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_edit_nf4",
-    "output_dir": "F:\\models\\qwen\\removal_dataset",
-    "save_name": "removal_dataset",
-    "train_data_dir": "F:\\ImageSet\\qwen_edit\\removal_dataset",
+    "pretrained_model_name_or_path": "/datasets/T2ITrainer/models/Qwen-Image-Edit/",
+    "output_dir": "/home/waas/ootd_colour_output",
+    "save_name": "ootd_colour",
+    "train_data_dir": "/home/waas/ootd_colour",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
