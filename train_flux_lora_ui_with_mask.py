@@ -1314,10 +1314,8 @@ def main(args):
 
         optimizer = optimizer_class(
             params_to_optimize,
-            lr=args.learning_rate,
             betas=(adam_beta1, adam_beta2),
             beta3=prodigy_beta3,
-            d_coef=prodigy_d_coef,
             weight_decay=adam_weight_decay,
             eps=adam_epsilon,
             decouple=prodigy_decouple,
