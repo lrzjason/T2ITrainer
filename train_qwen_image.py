@@ -498,7 +498,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_single.json",
+        default="config_qwen_single_lokr.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -1077,9 +1077,7 @@ def main(args, config_args):
 
     if args.use_lokr:
         
-        qwen_preset = get_lycoris_preset(
-            target_attn_mlp_layers=True,
-        )
+        qwen_preset = get_lycoris_preset()
         print("\nDefined LyCORIS preset:")
         print(qwen_preset)
 
