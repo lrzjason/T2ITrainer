@@ -1,7 +1,7 @@
 {
-    "pretrained_model_name_or_path": "F:\\T2ITrainer\\flux_models\\kontext",
-    "output_dir": "F:\\models\\flux\\training_demo",
-    "train_data_dir": "F:\\ImageSet\\tryon\\demo_dataset",
+    "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/FLUX.1-Kontext-dev",
+    "output_dir": "/home/waas/kontext_output",
+    "train_data_dir": "/home/waas/kontext_pairs",
     "repeats": 10,
     "validation_epochs": 1,
     "seed": 4321,
