@@ -12,8 +12,6 @@ import numpy as np
 import torch.nn as nn
 
 from diffusers import (
-    # FluxTransformerBlock,
-    # FluxSingleTransformerBlock,
     QwenImageTransformer2DModel
 )
 

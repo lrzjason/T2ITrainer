@@ -1,3 +1,4 @@
+import argparse
 import gradio as gr
 import subprocess
 import json
@@ -353,7 +354,7 @@ default_config = {
     "caption_dropout": 0.1,
     "config_path": "config.json",
     "resolution": "512",
-    "resolution_choices": ["1344","1024", "768", "512", "256"],
+    "resolution_choices": ["1024", "768", "512", "256", "1328"],
     "use_debias": False,
     "snr_gamma": 0,
     "cosine_restarts": 1,
@@ -571,23 +572,23 @@ with gr.Blocks() as demo:
     lora_accordion = gr.Accordion(get_text('lora_config'))
     with lora_accordion:
         with gr.Row():
-            rank = gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info'))
-            train_batch_size = gr.Number(label=get_text('train_batch_size'), value=default_config["train_batch_size"], info=get_text('batch_size_info'))
+            rank = gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info'), precision=0)
+            train_batch_size = gr.Number(label=get_text('train_batch_size'), value=default_config["train_batch_size"], info=get_text('batch_size_info'), precision=0)
         with gr.Row():
-            repeats = gr.Number(label=get_text('repeats'), value=default_config["repeats"])
-            gradient_accumulation_steps = gr.Number(label=get_text('gradient_accumulation_steps'), value=default_config["gradient_accumulation_steps"])
+            repeats = gr.Number(label=get_text('repeats'), value=default_config["repeats"], precision=0)
+            gradient_accumulation_steps = gr.Number(label=get_text('gradient_accumulation_steps'), value=default_config["gradient_accumulation_steps"], precision=0)
             mixed_precision = gr.Radio(label=get_text('mixed_precision'), value=default_config["mixed_precision"], choices=["bf16","fp8"])
             gradient_checkpointing = gr.Checkbox(label=get_text('gradient_checkpointing'), value=default_config["gradient_checkpointing"])
         with gr.Row():
             optimizer = gr.Dropdown(label=get_text('optimizer'), value=default_config["optimizer"], choices=["adamw","prodigy"])
             lr_scheduler = gr.Dropdown(label=get_text('lr_scheduler'), value=default_config["lr_scheduler"], choices=["linear","cosine","cosine_with_restarts","polynomial","constant","constant_with_warmup"])
-            cosine_restarts = gr.Number(label=get_text('cosine_restarts'), value=default_config["cosine_restarts"], info=get_text('cosine_restarts_info'), minimum=1)
+            cosine_restarts = gr.Number(label=get_text('cosine_restarts'), value=default_config["cosine_restarts"], info=get_text('cosine_restarts_info'), minimum=1, precision=0)
         with gr.Row():
             learning_rate = gr.Number(label=get_text('learning_rate'), value=default_config["learning_rate"], info=get_text('learning_rate_info'))
-            lr_warmup_steps = gr.Number(label=get_text('lr_warmup_steps'), value=default_config["lr_warmup_steps"])
-            seed = gr.Number(label=get_text('seed'), value=default_config["seed"])
+            lr_warmup_steps = gr.Number(label=get_text('lr_warmup_steps'), value=default_config["lr_warmup_steps"], precision=0)
+            seed = gr.Number(label=get_text('seed'), value=default_config["seed"], precision=0)
         with gr.Row():
-            blocks_to_swap = gr.Number(label=get_text('blocks_to_swap'), value=default_config["blocks_to_swap"], info=get_text('blocks_to_swap_info'))
+            blocks_to_swap = gr.Number(label=get_text('blocks_to_swap'), value=default_config["blocks_to_swap"], info=get_text('blocks_to_swap_info'), precision=0)
             mask_dropout = gr.Number(label=get_text('mask_dropout'), value=default_config["mask_dropout"], info=get_text('mask_dropout_info'))
             reg_ratio = gr.Number(label=get_text('reg_ratio'), value=default_config["reg_ratio"], info=get_text('reg_ratio_info'))
             reg_timestep = gr.Number(label=get_text('reg_timestep'), value=default_config["reg_timestep"], info=get_text('reg_timestep_info'))
@@ -595,17 +596,17 @@ with gr.Blocks() as demo:
     misc_accordion = gr.Accordion(get_text('misc'))
     with misc_accordion:
         with gr.Row():
-            num_train_epochs = gr.Number(label=get_text('num_train_epochs'), value=default_config["num_train_epochs"], info=get_text('num_train_epochs_info'))
-            save_model_epochs = gr.Number(label=get_text('save_model_epochs'), value=default_config["save_model_epochs"], info=get_text('save_model_epochs_info'))
-            validation_epochs = gr.Number(label=get_text('validation_epochs'), value=default_config["validation_epochs"], info=get_text('validation_epochs_info'))
+            num_train_epochs = gr.Number(label=get_text('num_train_epochs'), value=default_config["num_train_epochs"], info=get_text('num_train_epochs_info'), precision=0)
+            save_model_epochs = gr.Number(label=get_text('save_model_epochs'), value=default_config["save_model_epochs"], info=get_text('save_model_epochs_info'), precision=0)
+            validation_epochs = gr.Number(label=get_text('validation_epochs'), value=default_config["validation_epochs"], info=get_text('validation_epochs_info'), precision=0)
         with gr.Row():
-            skip_epoch = gr.Number(label=get_text('skip_epoch'), value=default_config["skip_epoch"], info=get_text('skip_epoch_info'))
-            skip_step = gr.Number(label=get_text('skip_step'), value=default_config["skip_step"], info=get_text('skip_step_info'))
+            skip_epoch = gr.Number(label=get_text('skip_epoch'), value=default_config["skip_epoch"], info=get_text('skip_epoch_info'), precision=0)
+            skip_step = gr.Number(label=get_text('skip_step'), value=default_config["skip_step"], info=get_text('skip_step_info'), precision=0)
             validation_ratio = gr.Number(label=get_text('validation_ratio'), value=default_config["validation_ratio"], info=get_text('validation_ratio_info'))
         with gr.Row():
             recreate_cache = gr.Checkbox(label=get_text('recreate_cache'), value=default_config["recreate_cache"])
             caption_dropout = gr.Number(label=get_text('caption_dropout'), value=default_config["caption_dropout"], info=get_text("caption_dropout_info"), maximum=1, minimum=0)
-            max_time_steps = gr.Number(label=get_text('max_time_steps'), value=default_config["max_time_steps"], info=get_text("max_time_steps_info"), maximum=1000, minimum=0)
+            max_time_steps = gr.Number(label=get_text('max_time_steps'), value=default_config["max_time_steps"], info=get_text("max_time_steps_info"), maximum=1000, minimum=0, precision=0)
         # gr.Markdown(get_text('resolution_section'))
         resolution = gr.Dropdown(label=get_text('resolution'), value=default_config["resolution"], choices=default_config["resolution_choices"])
 
@@ -696,4 +697,18 @@ with gr.Blocks() as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0")
+    # 创建命令行参数解析器
+    parser = argparse.ArgumentParser(description='T2I Trainer')
+    parser.add_argument('--port', type=int, default=7860, help='服务器端口号 (默认: 7860)')
+    parser.add_argument('--host', type=str, default='0.0.0.0', help='服务器主机地址 (默认: 0.0.0.0)')
+    parser.add_argument('--share', action='store_true', help='是否创建公共链接')
+
+    # 解析命令行参数
+    args = parser.parse_args()
+
+    # 启动界面，使用指定的端口
+    demo.launch(
+        server_port=args.port,
+        server_name=args.host,
+        share=args.share
+    )

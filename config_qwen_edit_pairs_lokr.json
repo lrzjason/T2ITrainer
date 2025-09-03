@@ -1,26 +1,26 @@
 {
-    "pretrained_model_name_or_path": "F:\\T2ITrainer\\flux_models\\kontext",
-    "output_dir": "F:\\models\\flux\\training_demo",
-    "train_data_dir": "F:\\ImageSet\\tryon\\demo_dataset",
-    "repeats": 10,
+    "pretrained_model_name_or_path": "F:\\T2ITrainer\\qwen_models\\qwen_image_edit_nf4",
+    "output_dir": "F:\\models\\qwen\\removal_dataset",
+    "save_name": "removal_dataset",
+    "train_data_dir": "F:\\ImageSet\\qwen_edit\\removal_dataset",
+    "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
     "train_batch_size": 1,
     "num_train_epochs": 10,
     "resume_from_checkpoint": "",
-    "save_name": "training_demo",
     "gradient_accumulation_steps": 1,
     "gradient_checkpointing": true,
-    "learning_rate": 0.0001,
-    "lr_scheduler": "constant",
+    "learning_rate": 1,
+    "lr_scheduler": "prodigy",
     "cosine_restarts": 1,
     "lr_warmup_steps": 0,
-    "optimizer": "adamw",
+    "optimizer": "prodigy",
     "logging_dir": "logs",
     "report_to": "wandb",
     "mixed_precision": "bf16",
-    "use_lokr": false,
-    "rank": 32,
+    "rank": 10000,
+    "use_lokr": true,
     "rank_alpha": 1.0,
     "lokr_factor": -1,
     "save_model_epochs": 1,
@@ -50,7 +50,7 @@
         }
     },
     "caption_configs": {
-        "train":{
+        "reference":{
             "ext":".txt"
         }
     },
@@ -66,7 +66,7 @@
                 }
             },
             "captions_selection": {
-                "target": "train"
+                "target": "reference"
             }
         }
     ]
