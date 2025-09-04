@@ -507,6 +507,7 @@ def parse_args(input_args=None):
         default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
+        # default="config_qwen_edit_pairs.json",
     parser.add_argument(
         "--use_two_captions",
         action="store_true",
@@ -588,7 +589,7 @@ def parse_args(input_args=None):
     return args, config_args
 
 def main(args, config_args):
-    
+    d_coef = 2.0
     # args.scale_lr = False
     use_8bit_adam = True
     adam_beta1 = 0.9
@@ -1361,6 +1362,7 @@ def main(args, config_args):
 
         optimizer = optimizer_class(
             params_to_optimize,
+            d_coef=d_coef,
             betas=(adam_beta1, adam_beta2),
             beta3=prodigy_beta3,
             weight_decay=adam_weight_decay,
@@ -1707,38 +1709,34 @@ def main(args, config_args):
         
         img_shapes = [
             (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-        ] * bsz
+        ]
         # handle partial noised
-        packed_ref_latents = []
-        if len(reference_list) > 0:     
-            img_shapes = [
-                (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-            ]
+        packed_ref_latents = None
+        if len(reference_list) > 0:
+            # for ref_latent in reference_list:
+            # cat refs on width
+            ref_latent = torch.cat(reference_list, dim=-1)
+            ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
+            # pack noisy latents
+            packed_ref_latents = QwenImageEditPipeline._pack_latents(
+                ref_latent,
+                batch_size=ref_latent.shape[0],
+                num_channels_latents=latents.shape[1],
+                height=ref_latent.shape[3],
+                width=ref_latent.shape[4],
+            )
+            # packed_ref_latents.append(packed_ref_latent)
+            # token level concate images
+            ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
+            img_shapes.append(ref_img_shape)
             
-            # ref_latents = torch.cat(reference_list, dim=-1)
-            for ref_latent in reference_list:
-                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
-                # pack noisy latents
-                packed_ref_latent = QwenImageEditPipeline._pack_latents(
-                    ref_latent,
-                    batch_size=ref_latent.shape[0],
-                    num_channels_latents=latents.shape[1],
-                    height=ref_latent.shape[3],
-                    width=ref_latent.shape[4],
-                )
-                packed_ref_latents.append(packed_ref_latent)
-                
-                ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
-                img_shapes.append(ref_img_shape)
-            
-            
-            img_shapes = img_shapes * bsz
+        img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
         # add ref to channel
-        if packed_ref_latents is not None and len(packed_ref_latents) > 0:
-            for packed_ref_latent in packed_ref_latents:
-                model_input = torch.cat((model_input, packed_ref_latent), dim=1)
+        # if packed_ref_latents is not None and len(packed_ref_latents) > 0:
+        if packed_ref_latents is not None:
+            model_input = torch.cat((model_input, packed_ref_latents), dim=1)
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions

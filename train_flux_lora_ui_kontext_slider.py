@@ -734,6 +734,7 @@ def parse_args(input_args=None):
     return args
 
 def main(args):
+    d_coef = 2.0
     debug_print = False
     
     # args.scale_lr = False
@@ -1614,6 +1615,7 @@ def main(args):
 
         optimizer = optimizer_class(
             params_to_optimize,
+            d_coef=d_coef,
             betas=(adam_beta1, adam_beta2),
             beta3=prodigy_beta3,
             weight_decay=adam_weight_decay,

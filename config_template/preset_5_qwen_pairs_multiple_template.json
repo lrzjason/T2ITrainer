@@ -1,0 +1,38 @@
+{
+    "image_configs": {
+        "train":{
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        },
+        "grey":{
+            "suffix":"_G"
+        }
+    },
+    "caption_configs": {
+        "reference":{
+            "ext":".txt"
+        }
+    },
+    "training_set":[
+        {
+            "training_layout_configs":{
+                "train": {
+                    "target": "train",
+                    "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                },
+                "grey":{
+                    "target": "grey",
+                    "dropout": 0.5
+                }
+            },
+            "captions_selection": {
+                "target": "reference"
+            }
+        }
+    ]
+}

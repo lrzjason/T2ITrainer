@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "/datasets/T2ITrainer/models/Qwen-Image-Edit/",
-    "output_dir": "/home/waas/ootd_colour_output",
-    "train_data_dir": "/home/waas/ootd_colour",
-    "save_name": "ootd",
+    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_edit_nf4",
+    "output_dir": "F:/models/qwen/qwen_edit_output",
+    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_edit_demo",
+    "save_name": "qwen_edit_demo",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,

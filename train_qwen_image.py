@@ -580,7 +580,7 @@ def parse_args(input_args=None):
     return args, config_args
 
 def main(args, config_args):
-    
+    d_coef = 2.0
     # args.scale_lr = False
     use_8bit_adam = True
     adam_beta1 = 0.9
@@ -1346,6 +1346,7 @@ def main(args, config_args):
 
         optimizer = optimizer_class(
             params_to_optimize,
+            d_coef=d_coef,
             betas=(adam_beta1, adam_beta2),
             beta3=prodigy_beta3,
             weight_decay=adam_weight_decay,

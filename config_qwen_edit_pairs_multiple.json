@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_nf4",
-    "output_dir": "F:/models/qwen/qwen_demo",
-    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_demo",
-    "save_name": "qwen_image_single",
+    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_edit_nf4",
+    "output_dir": "F:/models/qwen/qwen_edit_multiple_output",
+    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_edit_multiple_demo",
+    "save_name": "qwen_edit_multiple_demo",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
@@ -11,18 +11,18 @@
     "resume_from_checkpoint": "",
     "gradient_accumulation_steps": 1,
     "gradient_checkpointing": true,
-    "learning_rate": 1,
-    "lr_scheduler": "cosine",
+    "learning_rate": 0.0001,
+    "lr_scheduler": "constant",
     "cosine_restarts": 1,
     "lr_warmup_steps": 0,
-    "optimizer": "prodigy",
+    "optimizer": "adamw",
     "logging_dir": "logs",
     "report_to": "wandb",
     "mixed_precision": "bf16",
-    "use_lokr": true,
-    "rank": 10000,
-    "rank_alpha": 1.0,
-    "lokr_factor": -1,
+    "rank": 32,
+    "use_lokr": false,
+    "rank_alpha": 2.0,
+    "lokr_factor": 8.0,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,
@@ -40,14 +40,20 @@
     "freeze_transformer_layers": "",
     "lora_layers": "",
     "guidance_scale": 1,
-    "blocks_to_swap": 40,
+    "blocks_to_swap": 0,
     "image_configs": {
         "train":{
-            "suffix":""
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        },
+        "grey":{
+            "suffix":"_G"
         }
     },
     "caption_configs": {
-        "train":{
+        "reference":{
             "ext":".txt"
         }
     },
@@ -57,10 +63,17 @@
                 "train": {
                     "target": "train",
                     "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                },
+                "grey":{
+                    "target": "grey",
+                    "dropout": 0.5
                 }
             },
             "captions_selection": {
-                "target": "train"
+                "target": "reference"
             }
         }
     ]
