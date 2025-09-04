@@ -97,7 +97,7 @@ You could find the download scripts in download_xxx.txt
 ## 🚀 Launch Options
 | Model          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
-| Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
+| Qwen Edit    | `python train_qwen_image_edit.py` | 48GB VRAM Recommended for original model|
 | Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
 | Flux kontext    | `python ui_flux_fill.py` | 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | 24GB VRAM Recommended |
