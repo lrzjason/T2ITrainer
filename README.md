@@ -13,6 +13,13 @@ pip install diffusers -U
 ## 📅 Recent Updates
 - **2025-09-05:**  
   - **Update**: Support lokr training of flux and qwen image/edit. 
+  - **Update**: Please refer to `config_qwen_single_lokr.json` for lokr training. add `use_lokr`, `rank_alpha` and `lokr_factor` for lokr config
+```bash
+"use_lokr": true,
+"rank": 10000,
+"rank_alpha": 1.0,
+"lokr_factor": -1,
+```
   - ❗**Notice**: Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
   - **Update**: Update qwen multiple reference logic. Concat ref image and use one img shape instead of multiple.
   - **Update**: Remove some unused model training script to /old
