@@ -13,17 +13,19 @@ pip install diffusers -U
 ## 📅 Recent Updates
 - **2025-09-05:**  
   - **Update**: Support lokr training of flux and qwen image/edit. 
-  - **Update**: Please refer to `config_qwen_single_lokr.json` for lokr training. add `use_lokr`, `rank_alpha` and `lokr_factor` for lokr config
+  - Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
+  - Update qwen multiple reference logic. Concat ref image and use one img shape instead of multiple.
+  - Remove some unused model training script to /old
+  - Please refer to `config_qwen_single_lokr.json` for lokr training. add `use_lokr`, `rank_alpha` and `lokr_factor` for lokr config
 ```bash
 "use_lokr": true,
 "rank": 10000,
 "rank_alpha": 1.0,
 "lokr_factor": -1,
 ```
-  - ❗**Notice**: Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
-  - **Update**: Update qwen multiple reference logic. Concat ref image and use one img shape instead of multiple.
-  - **Update**: Remove some unused model training script to /old
-    
+- Thanks to 猫不爱吃香菜 sponsor this project for adding lokr support.
+- Thanks to AIGate(https://waas.aigate.cc/) for providing compute power of testing and development.
+  
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
 
@@ -95,11 +97,11 @@ You could find the download scripts in download_xxx.txt
 ## 🚀 Launch Options
 | Model          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
-| Qwen Image    | `python train_qwen_image.py` | Requires diffusers>=0.35.0dev, 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
-| Flux kontext    | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
-| Flux Fill       | `python ui_flux_fill.py` | Requires diffusers>=0.32.0, 24GB VRAM Recommended |
-| Kolors          | `python ui.py`           | Needs [Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix) |
-| SD3.5 Large     | `python ui_sd35.py`      | 24GB VRAM Recommended            |
+| Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
+| Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
+| Flux kontext    | `python ui_flux_fill.py` | 24GB VRAM Recommended |
+| Flux Fill       | `python ui_flux_fill.py` | 24GB VRAM Recommended |
+
 
 ## 🔧 Parameter Configuration Guide
 [![CivitAI Article](https://img.shields.io/badge/📖-Detailed_Parameter_Guide-purple)](https://civitai.com/articles/7743)
