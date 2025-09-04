@@ -10,7 +10,7 @@ pip install diffusers -U
 ```
 
 
-## 📅 Recent Updates
+## 📅 Major Updates
 - **2025-09-05:**  
   - **Update**: Support lokr training of flux and qwen image/edit. 
   - Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
