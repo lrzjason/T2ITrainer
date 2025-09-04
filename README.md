@@ -11,33 +11,12 @@ pip install diffusers -U
 
 
 ## 📅 Recent Updates
-- **2025-08-20:**  
-  - **Update**: Add Qwen Image Edit Support `train_qwen_image_edit.py`
-- **2025-08-12:**  
-  - **Update**: Updated `ui_flux_fill.py` to support `train_flux_lora_ui_kontext_new.py` and `train_qwen_image.py`
-- **2025-08-10:**  
-  - **Update**: Added new training script `train_qwen_image.py` which allows to train SOTA qwen image model
-  - The training script use same layout config like `train_flux_lora_ui_kontext_new.py`
+- **2025-09-05:**  
+  - **Update**: Support lokr training of flux and qwen image/edit. 
+  - ❗**Notice**: Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
+  - **Update**: Update qwen multiple reference logic. Concat ref image and use one img shape instead of multiple.
+  - **Update**: Remove some unused model training script to /old
     
-| Config | Usage |
-|--------|-------|
-| `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
-
-- Usage: `python train_qwen_image.py --config_path config_qwen_single.json`
-
-- **2025-08-05:**  
-  - **Update**: Added new training script `train_flux_lora_ui_kontext_new.py` which allows setting the training layout in `config.json`.
-
-| Config | Usage |
-|--------|-------|
-| `config_new_single.json` | Train Kontext with a single image; leave the suffix empty to use all images without a suffix. |
-| `config_new_pairs.json` | Traditional Kontext training using `_T` and `_R` suffixed images. |
-| `config_new_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
-| `config_new_mixed.json` | Train Kontext using a mixed layout—e.g., combine traditional pair training with single-image training. |
-
-- Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
-- Not support UI selection yet.
-
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
 
@@ -46,6 +25,7 @@ pip install diffusers -U
 ## 💻 Supported Training Configurations
 | Model Type       | VRAM Requirements          | Status       |
 |------------------|----------------------------|--------------|
+| Qwen Edit | 48GB GPU (bf16)| ✅ Supported  |
 | Qwen Image | 24GB GPU (nf4) 48GB GPU (bf16)| ✅ Supported  |
 | Flux Fill, Kontext| 24GB GPU                   | ✅ Supported  |
 | SD3.5 | 24GB GPU                   | ✅ Supported  |
@@ -99,6 +79,10 @@ You could find the download scripts in download_xxx.txt
 
     # SD3.5 Models
     hf download "stabilityai/stable-diffusion-3.5-large" --local-dir "sd3.5L/"
+
+    # download original repo for lokr training
+    hf download "Qwen/Qwen-Image" --local-dir qwen_models/qwen_image/
+    hf download "Qwen/Qwen-Image-Edit" --local-dir qwen_models/qwen_image_edit/
 ```
 
 ## 🚀 Launch Options
@@ -115,6 +99,20 @@ You could find the download scripts in download_xxx.txt
 
 ---
 ## 🌌 Qwen Model Management
+| Config | Usage |
+|--------|-------|
+| `config_qwen_single.json` | Train qwen image with a single image; leave the suffix empty to use all images without a suffix. |
+
+- Usage: `python train_qwen_image.py --config_path config_qwen_single.json`
+
+
+| Config | Usage |
+|--------|-------|
+| `config_qwen_single.json` | Train Qwen Image/Edit with a single image; leave the suffix empty to use all images without a suffix. |
+| `config_qwen_edit_pairs.json` | Traditional Qwen Edit training using `_T` and `_R` suffixed images. |
+| `config_qwen_edit_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
+
+- Usage: `python train_qwen_image_edit.py --config_path config_qwen_single.json`
 
 ### Qwen Model Installation
 Inpainting Model Setup
@@ -178,6 +176,15 @@ For more details (example dataset):
 </div>
 
 ## 🌌 Flux Model Management
+
+| Config | Usage |
+|--------|-------|
+| `config_new_single.json` | Train Kontext with a single image; leave the suffix empty to use all images without a suffix. |
+| `config_new_pairs.json` | Traditional Kontext training using `_T` and `_R` suffixed images. |
+| `config_new_pairs_multiple.json` | Train with multiple reference images by setting suffixes like `_T`, `_R`, and `_G`. |
+| `config_new_mixed.json` | Train Kontext using a mixed layout—e.g., combine traditional pair training with single-image training. |
+
+- Usage: `python train_flux_lora_ui_kontext_new.py --config_path config_new_single.json`
 
 ### Kontext Model Installation
 Inpainting Model Setup
@@ -252,14 +259,6 @@ To visualize training data, run the following command in your terminal:
 ```bash
 tensorboard --logdir=.\logs
 ```
-
-## 🔧 Kolors Testing & Integration
-- **Kolors Workflow**:
-    ```bash
-        # ComfyUI Plugins
-        git clone https://github.com/kijai/ComfyUI-KwaiKolorsWrapper
-        git clone https://github.com/MinusZoneAI/ComfyUI-Kolors-MZ
-    ```
 
 - **Configuration Guide**: [📖 CivitAI Article](https://civitai.com/articles/7743)
 
