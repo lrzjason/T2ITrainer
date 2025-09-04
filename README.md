@@ -23,8 +23,8 @@ pip install diffusers -U
 "rank_alpha": 1.0,
 "lokr_factor": -1,
 ```
-- Thanks to 猫不爱吃香菜 sponsor this project for adding lokr support.
-- Thanks to AIGate(https://waas.aigate.cc/) for providing compute power of testing and development.
+- Thanks to 猫不爱吃香菜 sponsor for adding lokr support.
+- Thanks to AIGate(https://waas.aigate.cc/) providing compute power for the development.
   
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
