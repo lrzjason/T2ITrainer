@@ -132,20 +132,26 @@ For more details (example dataset):
 - https://github.com/lrzjason/T2ITrainer/blob/main/doc/qwen.md
 
 ## ⚙️ Qwen Recommended Parameters
-## NF4
+## Qwen Image NF4
 | Category          | Settings                      |
 |-------------------|-------------------------------|
 | Base Configuration| Rank 32, AdamW, Learn Rate 1e-4       |
 | 24GB GPU          | 512 resolution, Batch Size 1  |
 | Precision         | bf16      |
 
-## Original Model
+## Qwen Image Model
 | Category          | Settings                      |
 |-------------------|-------------------------------|
 | Base Configuration| Rank 32~64, AdamW, Learn Rate 1e-4       |
 | 48GB GPU          | 1024 resolution, Batch Size 1  |
 | Precision         | bf16      |
 
+## Qwen Edit Model
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32~64, AdamW, Learn Rate 1e-4       |
+| 48GB GPU          | 512 resolution, Batch Size 1  |
+| Precision         | bf16      |
 
 ## 💻 VRAM Usage (nf4, bs1,  blocks_to_swap=20)
 <div align="center">
