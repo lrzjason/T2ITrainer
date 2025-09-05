@@ -908,12 +908,20 @@ def main(args, config_args):
                         mapping_key = image_pair["mapping_key"]
                         for caption_config_key in caption_configs.keys():
                             caption_config = caption_configs[caption_config_key]
-                            image_file = image_pair[caption_config_key]
-                            filename = os.path.basename(image_file)
-                            folder_path = os.path.dirname(image_file)
+                            image_target = caption_config_key
+                            
+                            # default dropout is 1 to not use image ref for training
+                            ref_image_dropout = 1
+                            if "ref_image_config" in caption_config:
+                                ref_image_config = caption_config["ref_image_config"]
+                                image_target = ref_image_config["target"]
+                                ref_image_dropout = ref_image_config["dropout"]
+                                
+                            image_path = image_pair[image_target]
+                            filename = os.path.basename(image_path)
+                            folder_path = os.path.dirname(image_path)
                             # get filename and ext from file
                             filename, _ = os.path.splitext(filename)
-                            image_path = image_file
                             json_obj = {
                             }
                             # read caption
@@ -944,7 +952,14 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                image = crop_image(image_file,resolution=resolution)
+                                image = None
+                                # if dropout is 0.1, random is 0.2
+                                # it means use image as reference
+                                # if dropout is 0.2, random is 0.1
+                                # it means use only text as reference
+                                # because dropout is cache, each recreate cache will have different reference
+                                if ref_image_dropout < random.random():
+                                    image = crop_image(image_path,resolution=resolution)
                                 prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
                                     text_encoders,
                                     tokenizers,
