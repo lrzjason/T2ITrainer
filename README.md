@@ -23,6 +23,10 @@ pip install diffusers -U
 "rank_alpha": 1.0,
 "lokr_factor": -1,
 ```
+```bash
+#install lycoris-lora for lokr training
+pip install lycoris-lora
+```
 - Thanks to 猫不爱吃香菜 sponsor for adding lokr support.
 - Thanks to AIGate(https://waas.aigate.cc/) providing compute power for the development.
   
