@@ -953,6 +953,7 @@ def main(args, config_args):
                                 npz_dict = torch.load(npz_path)
                             else:
                                 image = None
+                                temp_processor = None
                                 # if dropout is 0.1, random is 0.2
                                 # it means use image as reference
                                 # if dropout is 0.2, random is 0.1
@@ -960,13 +961,14 @@ def main(args, config_args):
                                 # because dropout is cache, each recreate cache will have different reference
                                 if ref_image_dropout < random.random():
                                     image = crop_image(image_path,resolution=resolution)
+                                    temp_processor = processor
                                 prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
                                     text_encoders,
                                     tokenizers,
                                     content,
                                     device=text_encoders[0].device,
                                     image=image,
-                                    processor=processor
+                                    processor=temp_processor
                                 )
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)

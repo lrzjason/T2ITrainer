@@ -8,8 +8,12 @@
         }
     },
     "caption_configs": {
-        "reference":{
-            "ext":".txt"
+        "train": {
+            "ext": ".txt",
+            "ref_image_config": {
+                "target": "reference",
+                "dropout": 1
+            }
         }
     },
     "training_set":[

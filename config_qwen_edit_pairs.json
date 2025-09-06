@@ -1,8 +1,8 @@
 {
     "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_edit_nf4",
-    "output_dir": "F:/models/qwen/qwen_edit_output",
-    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_edit_demo",
-    "save_name": "qwen_edit_demo",
+    "output_dir": "F:/models/qwen/add_details_nf4_output",
+    "train_data_dir": "F:/ImageSet/tile/add_details_output",
+    "save_name": "add_details_nf4",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
@@ -21,8 +21,8 @@
     "mixed_precision": "bf16",
     "rank": 32,
     "use_lokr": false,
-    "rank_alpha": 2.0,
-    "lokr_factor": 8.0,
+    "rank_alpha": 1.0,
+    "lokr_factor": -1.0,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,
@@ -50,11 +50,11 @@
         }
     },
     "caption_configs": {
-        "train": {
+        "reference": {
             "ext": ".txt",
             "ref_image_config": {
                 "target": "reference",
-                "dropout": 0.5
+                "dropout": 1
             }
         }
     },
