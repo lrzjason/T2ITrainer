@@ -1116,6 +1116,12 @@ def main(args, config_args):
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)
     print("freezed_layers: ", freezed_layers)
+    
+    
+    if args.use_lokr:
+        # exclude last layer for lokr training to avoid horizontal lines
+        freezed_layers.append(59)
+    print("freezed_layers: ", freezed_layers)
     # Freeze the layers
     for name, param in transformer.named_parameters():
         layer_names.append(name)
@@ -1129,6 +1135,15 @@ def main(args, config_args):
             if int(layer_order) in freezed_layers:
                 param.requires_grad = False
                 
+    if args.use_lokr:
+        for name, param in lycoris_net.named_parameters():
+            name_split = name.split("blocks_")
+            suffix = name_split[1]
+            suffix_split = suffix.split("_")
+            layer_order = suffix_split[0]
+            if int(layer_order) in freezed_layers:
+                param.requires_grad = False
+            # print(name,"param.requires_grad",param.requires_grad)
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
