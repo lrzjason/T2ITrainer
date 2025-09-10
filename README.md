@@ -11,6 +11,7 @@ pip install diffusers -U
 
 
 ## 📅 Major Updates
+- **2025-09-11:**  Fix qwen batch size > 1 cause error
 - **2025-09-06:**  Update train_qwen_image_edit ref image logic. Add ``ref_image_config`` to caption_configs.
 - **2025-09-05:**  
   - **Update**: Support lokr training of flux and qwen image/edit. 
