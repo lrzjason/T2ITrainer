@@ -120,6 +120,7 @@ from utils.training_set.select_training_set import get_training_set
 
 # Convert PEFT format to Kohya format for saving
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
+from torch.nn.utils.rnn import pad_sequence
 
 logger = get_logger(__name__)
 
@@ -498,7 +499,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_single_lokr.json",
+        default="config_qwen_single.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -619,6 +620,7 @@ def main(args, config_args):
     caption_key = "captions"
     prompt_embed_key = "prompt_embed"
     prompt_embeds_mask_key = "prompt_embeds_mask"
+    prompt_embed_length_key = "prompt_embed_length"
     image_path_key = "image_path"
     latent_key = "latent"
     latent_path_key = f"{latent_key}_path"
@@ -675,7 +677,8 @@ def main(args, config_args):
         "npz_path_key": embbeding_path_key,
         "npz_keys": {
             prompt_embed_key:prompt_embed_key,
-            prompt_embeds_mask_key:prompt_embeds_mask_key
+            prompt_embeds_mask_key:prompt_embeds_mask_key,
+            prompt_embed_length_key:prompt_embed_length_key
         },
     }
     
@@ -930,12 +933,14 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
+                                prompt_embeds, prompt_embeds_mask, prompt_embed_length = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
+                                
                                 npz_dict = {
                                     prompt_embed_key: prompt_embed.cpu(), 
                                     prompt_embeds_mask_key: prompt_embeds_mask.cpu(),
+                                    prompt_embed_length_key: prompt_embed_length.cpu(),
                                 }
                                 
                                 torch.save(npz_dict, npz_path)
@@ -1389,7 +1394,6 @@ def main(args, config_args):
                 sample[key][caption_key] = {}
                 for npz_key in dataset_configs["npz_keys"]:
                     sample[key][caption_key][npz_key] = torch.stack([example[key][caption_key][npz_key] for example in examples])
-
         return sample
     # create dataset based on input_dir
     train_dataset = CachedMutiImageDataset(datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
@@ -1631,7 +1635,16 @@ def main(args, config_args):
             if caption_key in batch[training_layout_config_key]:
                 captions[training_layout_config_key] = {}
                 for npz_key in dataset_configs["npz_keys"].keys():
-                    captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    # captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    if npz_key != prompt_embed_length_key:
+                        temp = batch[training_layout_config_key][caption_key][npz_key]
+                        prompt_embed_length = batch[training_layout_config_key][caption_key][prompt_embed_length_key]
+                        # get actual len of the embeddings
+                        if temp.ndim > 2:
+                            sliced = [temp[i, :l, :] for i, l in enumerate(prompt_embed_length)]
+                        else:
+                            sliced = [temp[i, :l] for i, l in enumerate(prompt_embed_length)]
+                        captions[training_layout_config_key][npz_key] = pad_sequence(sliced, batch_first=True, padding_value=0)
 
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
@@ -1676,9 +1689,12 @@ def main(args, config_args):
         
         latents = noisy_model_input
         
+        # img_shapes = [
+        #     (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
+        # ] * bsz
         img_shapes = [
             (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-        ] * bsz
+        ]
         
         # pack noisy latents
         noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)

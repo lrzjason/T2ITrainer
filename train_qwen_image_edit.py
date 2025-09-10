@@ -122,6 +122,7 @@ from utils.utils import find_index_from_right, ToTensorUniversal
 
 from utils.training_set.select_training_set import get_training_set
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
+from torch.nn.utils.rnn import pad_sequence
 
 
 logger = get_logger(__name__)
@@ -628,6 +629,7 @@ def main(args, config_args):
     caption_key = "captions"
     prompt_embed_key = "prompt_embed"
     prompt_embeds_mask_key = "prompt_embeds_mask"
+    prompt_embed_length_key = "prompt_embed_length"
     image_path_key = "image_path"
     latent_key = "latent"
     latent_path_key = f"{latent_key}_path"
@@ -684,7 +686,8 @@ def main(args, config_args):
         "npz_path_key": embbeding_path_key,
         "npz_keys": {
             prompt_embed_key:prompt_embed_key,
-            prompt_embeds_mask_key:prompt_embeds_mask_key
+            prompt_embeds_mask_key:prompt_embeds_mask_key,
+            prompt_embed_length_key: prompt_embed_length_key,
         },
     }
     
@@ -962,7 +965,7 @@ def main(args, config_args):
                                 if ref_image_dropout < random.random():
                                     image = crop_image(image_path,resolution=resolution)
                                     temp_processor = processor
-                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
+                                prompt_embeds, prompt_embeds_mask, prompt_embed_length = compute_text_embeddings(
                                     text_encoders,
                                     tokenizers,
                                     content,
@@ -975,6 +978,7 @@ def main(args, config_args):
                                 npz_dict = {
                                     prompt_embed_key: prompt_embed.cpu(), 
                                     prompt_embeds_mask_key: prompt_embeds_mask.cpu(),
+                                    prompt_embed_length_key: prompt_embed_length.cpu(),
                                 }
                                 
                                 torch.save(npz_dict, npz_path)
@@ -1665,7 +1669,17 @@ def main(args, config_args):
             if caption_key in batch[training_layout_config_key]:
                 captions[training_layout_config_key] = {}
                 for npz_key in dataset_configs["npz_keys"].keys():
-                    captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    # captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    if npz_key != prompt_embed_length_key:
+                        temp = batch[training_layout_config_key][caption_key][npz_key]
+                        prompt_embed_length = batch[training_layout_config_key][caption_key][prompt_embed_length_key]
+                        # get actual len of the embeddings
+                        if temp.ndim > 2:
+                            sliced = [temp[i, :l, :] for i, l in enumerate(prompt_embed_length)]
+                        else:
+                            sliced = [temp[i, :l] for i, l in enumerate(prompt_embed_length)]
+                        captions[training_layout_config_key][npz_key] = pad_sequence(sliced, batch_first=True, padding_value=0)
+
 
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
@@ -1760,7 +1774,7 @@ def main(args, config_args):
             ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
             img_shapes.append(ref_img_shape)
             
-        img_shapes = img_shapes * bsz
+        # img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
         # add ref to channel
