@@ -1184,14 +1184,15 @@ def main(args, config_args):
                 
     if args.use_lokr:
         for name, param in lycoris_net.named_parameters():
-            name_split = name.split("blocks_")
-            suffix = name_split[1]
-            suffix_split = suffix.split("_")
-            layer_order = suffix_split[0]
-            if int(layer_order) in freezed_layers:
-                param.requires_grad = False
-            # print(name,"param.requires_grad",param.requires_grad)
-        
+            if "transformer" in name:
+                name_split = name.split("blocks_")
+                suffix = name_split[1]
+                suffix_split = suffix.split("_")
+                layer_order = suffix_split[0]
+                if int(layer_order) in freezed_layers:
+                    param.requires_grad = False
+                # print(name,"param.requires_grad",param.requires_grad)
+            
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
