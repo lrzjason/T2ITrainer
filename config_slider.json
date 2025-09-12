@@ -1,8 +1,8 @@
 {
     "pretrained_model_name_or_path": "/datasets/T2ITrainer/models/flux-kontext-nf4",
     "output_dir": "/home/waas/slider_10_output",
-    "save_name": "slider_demo",
     "train_data_dir": "/home/waas/slider_10",
+    "save_name": "slider_demo",
     "script": "train_flux_lora_ui_kontext_slider.py",
     "seed": 4321,
     "mixed_precision": "bf16",

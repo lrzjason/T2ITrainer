@@ -5,6 +5,9 @@
         },
         "reference":{
             "suffix":"_R"
+        },
+        "grey":{
+            "suffix":"_G"
         }
     },
     "caption_configs": {
@@ -25,6 +28,10 @@
                 },
                 "reference": {
                     "target": "reference"
+                },
+                "grey":{
+                    "target": "grey",
+                    "dropout": 0.5
                 }
             },
             "captions_selection": {

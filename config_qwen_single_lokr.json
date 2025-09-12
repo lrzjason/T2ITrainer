@@ -1,7 +1,7 @@
 {
     "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/Qwen-Image",
-    "output_dir": "F:\\models\\qwen\\kontext_single",
-    "train_data_dir": "F:\\ImageSet\\aigate_demo\\kontext_single",
+    "output_dir": "/home/waas/kontext_single_output",
+    "train_data_dir": "/home/waas/kontext_single",
     "save_name": "highres_test",
     "repeats": 1,
     "validation_epochs": 1,
@@ -22,7 +22,7 @@
     "use_lokr": true,
     "rank": 10000,
     "rank_alpha": 1.0,
-    "lokr_factor": -1,
+    "lokr_factor": 2,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,

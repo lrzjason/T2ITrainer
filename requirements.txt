@@ -19,3 +19,4 @@ huggingface_hub
 protobuf==3.20
 gradio
 tensorboard
+lycoris-lora

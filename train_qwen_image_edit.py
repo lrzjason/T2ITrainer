@@ -122,6 +122,7 @@ from utils.utils import find_index_from_right, ToTensorUniversal
 
 from utils.training_set.select_training_set import get_training_set
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
+from torch.nn.utils.rnn import pad_sequence
 
 
 logger = get_logger(__name__)
@@ -507,6 +508,7 @@ def parse_args(input_args=None):
         default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
+        # default="config_qwen_edit_pairs.json",
     parser.add_argument(
         "--use_two_captions",
         action="store_true",
@@ -588,7 +590,7 @@ def parse_args(input_args=None):
     return args, config_args
 
 def main(args, config_args):
-    
+    d_coef = 2.0
     # args.scale_lr = False
     use_8bit_adam = True
     adam_beta1 = 0.9
@@ -627,6 +629,7 @@ def main(args, config_args):
     caption_key = "captions"
     prompt_embed_key = "prompt_embed"
     prompt_embeds_mask_key = "prompt_embeds_mask"
+    prompt_embed_length_key = "prompt_embed_length"
     image_path_key = "image_path"
     latent_key = "latent"
     latent_path_key = f"{latent_key}_path"
@@ -683,7 +686,8 @@ def main(args, config_args):
         "npz_path_key": embbeding_path_key,
         "npz_keys": {
             prompt_embed_key:prompt_embed_key,
-            prompt_embeds_mask_key:prompt_embeds_mask_key
+            prompt_embeds_mask_key:prompt_embeds_mask_key,
+            prompt_embed_length_key: prompt_embed_length_key,
         },
     }
     
@@ -907,12 +911,20 @@ def main(args, config_args):
                         mapping_key = image_pair["mapping_key"]
                         for caption_config_key in caption_configs.keys():
                             caption_config = caption_configs[caption_config_key]
-                            image_file = image_pair[caption_config_key]
-                            filename = os.path.basename(image_file)
-                            folder_path = os.path.dirname(image_file)
+                            image_target = caption_config_key
+                            
+                            # default dropout is 1 to not use image ref for training
+                            ref_image_dropout = 1
+                            if "ref_image_config" in caption_config:
+                                ref_image_config = caption_config["ref_image_config"]
+                                image_target = ref_image_config["target"]
+                                ref_image_dropout = ref_image_config["dropout"]
+                                
+                            image_path = image_pair[image_target]
+                            filename = os.path.basename(image_path)
+                            folder_path = os.path.dirname(image_path)
                             # get filename and ext from file
                             filename, _ = os.path.splitext(filename)
-                            image_path = image_file
                             json_obj = {
                             }
                             # read caption
@@ -943,20 +955,30 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                image = crop_image(image_file,resolution=resolution)
-                                prompt_embeds, prompt_embeds_mask = compute_text_embeddings(
+                                image = None
+                                temp_processor = None
+                                # if dropout is 0.1, random is 0.2
+                                # it means use image as reference
+                                # if dropout is 0.2, random is 0.1
+                                # it means use only text as reference
+                                # because dropout is cache, each recreate cache will have different reference
+                                if ref_image_dropout < random.random():
+                                    image = crop_image(image_path,resolution=resolution)
+                                    temp_processor = processor
+                                prompt_embeds, prompt_embeds_mask, prompt_embed_length = compute_text_embeddings(
                                     text_encoders,
                                     tokenizers,
                                     content,
                                     device=text_encoders[0].device,
                                     image=image,
-                                    processor=processor
+                                    processor=temp_processor
                                 )
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                 npz_dict = {
                                     prompt_embed_key: prompt_embed.cpu(), 
                                     prompt_embeds_mask_key: prompt_embeds_mask.cpu(),
+                                    prompt_embed_length_key: prompt_embed_length.cpu(),
                                 }
                                 
                                 torch.save(npz_dict, npz_path)
@@ -1128,7 +1150,6 @@ def main(args, config_args):
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
 
-    layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
         splited_layers = args.freeze_transformer_layers.split()
@@ -1136,10 +1157,13 @@ def main(args, config_args):
             print("layer: ", layer)
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)
+    
+    if args.use_lokr:
+        # exclude last layer for lokr training to avoid horizontal lines
+        freezed_layers.append(59)
     print("freezed_layers: ", freezed_layers)
     # Freeze the layers
     for name, param in transformer.named_parameters():
-        layer_names.append(name)
         if "transformer" in name:
             if 'model.' in name:
                 name = name.replace('model.', '')
@@ -1149,6 +1173,17 @@ def main(args, config_args):
             layer_order = name_split[1]
             if int(layer_order) in freezed_layers:
                 param.requires_grad = False
+                
+    if args.use_lokr:
+        for name, param in lycoris_net.named_parameters():
+            name_split = name.split("blocks_")
+            suffix = name_split[1]
+            suffix_split = suffix.split("_")
+            layer_order = suffix_split[0]
+            if int(layer_order) in freezed_layers:
+                param.requires_grad = False
+            # print(name,"param.requires_grad",param.requires_grad)
+        
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
         model = model._orig_mod if is_compiled_module(model) else model
@@ -1361,10 +1396,9 @@ def main(args, config_args):
 
         optimizer = optimizer_class(
             params_to_optimize,
-            lr=args.learning_rate,
+            d_coef=d_coef,
             betas=(adam_beta1, adam_beta2),
             beta3=prodigy_beta3,
-            d_coef=prodigy_d_coef,
             weight_decay=adam_weight_decay,
             eps=adam_epsilon,
             decouple=prodigy_decouple,
@@ -1635,7 +1669,17 @@ def main(args, config_args):
             if caption_key in batch[training_layout_config_key]:
                 captions[training_layout_config_key] = {}
                 for npz_key in dataset_configs["npz_keys"].keys():
-                    captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    # captions[training_layout_config_key][npz_key] =  batch[training_layout_config_key][caption_key][npz_key]
+                    if npz_key != prompt_embed_length_key:
+                        temp = batch[training_layout_config_key][caption_key][npz_key]
+                        prompt_embed_length = batch[training_layout_config_key][caption_key][prompt_embed_length_key]
+                        # get actual len of the embeddings
+                        if temp.ndim > 2:
+                            sliced = [temp[i, :l, :] for i, l in enumerate(prompt_embed_length)]
+                        else:
+                            sliced = [temp[i, :l] for i, l in enumerate(prompt_embed_length)]
+                        captions[training_layout_config_key][npz_key] = pad_sequence(sliced, batch_first=True, padding_value=0)
+
 
             if "transition" in training_layout_config:
                 transition_config = training_layout_config["transition"]
@@ -1709,38 +1753,34 @@ def main(args, config_args):
         
         img_shapes = [
             (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-        ] * bsz
+        ]
         # handle partial noised
-        packed_ref_latents = []
-        if len(reference_list) > 0:     
-            img_shapes = [
-                (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-            ]
+        packed_ref_latents = None
+        if len(reference_list) > 0:
+            # for ref_latent in reference_list:
+            # cat refs on width
+            ref_latent = torch.cat(reference_list, dim=-1)
+            ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
+            # pack noisy latents
+            packed_ref_latents = QwenImageEditPipeline._pack_latents(
+                ref_latent,
+                batch_size=ref_latent.shape[0],
+                num_channels_latents=latents.shape[1],
+                height=ref_latent.shape[3],
+                width=ref_latent.shape[4],
+            )
+            # packed_ref_latents.append(packed_ref_latent)
+            # token level concate images
+            ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
+            img_shapes.append(ref_img_shape)
             
-            # ref_latents = torch.cat(reference_list, dim=-1)
-            for ref_latent in reference_list:
-                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
-                # pack noisy latents
-                packed_ref_latent = QwenImageEditPipeline._pack_latents(
-                    ref_latent,
-                    batch_size=ref_latent.shape[0],
-                    num_channels_latents=latents.shape[1],
-                    height=ref_latent.shape[3],
-                    width=ref_latent.shape[4],
-                )
-                packed_ref_latents.append(packed_ref_latent)
-                
-                ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
-                img_shapes.append(ref_img_shape)
-            
-            
-            img_shapes = img_shapes * bsz
+        # img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
         # add ref to channel
-        if packed_ref_latents is not None and len(packed_ref_latents) > 0:
-            for packed_ref_latent in packed_ref_latents:
-                model_input = torch.cat((model_input, packed_ref_latent), dim=1)
+        # if packed_ref_latents is not None and len(packed_ref_latents) > 0:
+        if packed_ref_latents is not None:
+            model_input = torch.cat((model_input, packed_ref_latents), dim=1)
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions

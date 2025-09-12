@@ -22,7 +22,7 @@
     "use_lokr": false,
     "rank": 32,
     "rank_alpha": 1.0,
-    "lokr_factor": -1,
+    "lokr_factor": 2,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,

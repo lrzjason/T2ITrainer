@@ -6,7 +6,7 @@
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
-    "train_batch_size": 1,
+    "train_batch_size": 2,
     "num_train_epochs": 10,
     "resume_from_checkpoint": "",
     "gradient_accumulation_steps": 1,
@@ -19,10 +19,10 @@
     "logging_dir": "logs",
     "report_to": "wandb",
     "mixed_precision": "bf16",
+    "use_lokr": false,
     "rank": 32,
-    "use_lokr": true,
-    "rank_alpha": 2.0,
-    "lokr_factor": 8.0,
+    "rank_alpha": 1.0,
+    "lokr_factor": 2,
     "save_model_epochs": 1,
     "save_model_steps": -1,
     "skip_epoch": 0,
@@ -50,8 +50,12 @@
         }
     },
     "caption_configs": {
-        "reference":{
-            "ext":".txt"
+        "reference": {
+            "ext": ".txt",
+            "ref_image_config": {
+                "target": "reference",
+                "dropout": 1
+            }
         }
     },
     "training_set":[

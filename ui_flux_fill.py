@@ -30,8 +30,8 @@ TRANSLATIONS = {
         'model_path_placeholder': '如果不是从官方权重训练则为单个权重文件',
         'report_to': '报告到',
         'lora_config': 'LoRA 配置',
-        'rank': '秩',
-        'rank_info': '建议对小于100的训练集使用秩4',
+        'rank': 'rank',
+        'rank_info': '建议对小于100的训练集使用rank 4',
         'train_batch_size': '训练批次大小',
         'batch_size_info': '批次大小1使用18GB。请使用小批次大小以避免内存不足',
         'repeats': '重复次数',
@@ -83,7 +83,11 @@ TRANSLATIONS = {
         'slider_negative_scale': '滑块负面目标强度',
         'config_template': '训练排版配置模板(Kontext_new & qwen image)',
         'select_template': '选择配置模板',
-        'save_edited_json': '保存编辑后的JSON到Config'
+        'save_edited_json': '保存编辑后的JSON到Config',
+        'use_lokr': '使用Lokr',
+        'rank_alpha': 'Rank Alpha',
+        'lokr_factor': 'Lokr因子',
+        'lokr_info': '使用Lokr的话，Rank最好调成10000'
     },
     'en': {
         'title': '## Lora Training',
@@ -160,7 +164,11 @@ TRANSLATIONS = {
         'slider_negative_scale': 'Slider negative scale',
         'config_template': 'Train Layout Config Template (Kontext_new & qwen image)',
         'select_template': 'Select config template',
-        'save_edited_json': 'Save Edited JSON to Config'
+        'save_edited_json': 'Save Edited JSON to Config',
+        'use_lokr': 'Use Lokr',
+        'rank_alpha': 'Rank Alpha',
+        'lokr_factor': 'Lokr Factor',
+        'lokr_info': 'If use lokr, rank is better to be 10000'
     }
 }
 
@@ -218,6 +226,10 @@ def update_labels_only():
         
         save_config_btn2: gr.update(value=get_text('save')),
         load_config_btn2: gr.update(value=get_text('load')),
+        
+        use_lokr: gr.update(label=get_text('use_lokr')),
+        rank_alpha: gr.update(label=get_text('rank_alpha')),
+        lokr_factor: gr.update(label=get_text('lokr_factor')),
     }
 
 def get_text(key):
@@ -334,6 +346,9 @@ default_config = {
     "model_path": None,
     "report_to": "all",
     "rank": 16,
+    "use_lokr": False,
+    "rank_alpha": 1.0,
+    "lokr_factor": 2,
     "train_batch_size": 1,
     "repeats": 1,
     "gradient_accumulation_steps": 1,
@@ -378,7 +393,8 @@ def save_config(
     caption_dropout, cosine_restarts, max_time_steps, blocks_to_swap,
     mask_dropout, reg_ratio, reg_timestep, use_two_captions,
     slider_positive_scale, slider_negative_scale,
-    json_editor        # 这里只放 json_editor 字符串
+    use_lokr,rank_alpha,lokr_factor,
+    json_editor
 ):
     
     # 1️⃣ 先读原文件
@@ -409,6 +425,9 @@ def save_config(
         "save_model_epochs": save_model_epochs,
         "validation_epochs": validation_epochs,
         "rank": rank,
+        "use_lokr": use_lokr,
+        "rank_alpha": rank_alpha,
+        "lokr_factor": lokr_factor,
         "skip_epoch": skip_epoch,
         "skip_step": skip_step,
         "gradient_checkpointing": gradient_checkpointing,
@@ -478,7 +497,8 @@ def load_config(config_path):
         "model_path","resume_from_checkpoint","recreate_cache","resolution",
         "caption_dropout","cosine_restarts","max_time_steps","blocks_to_swap",
         "mask_dropout","reg_ratio","reg_timestep","use_two_captions",
-        "slider_positive_scale","slider_negative_scale"
+        "slider_positive_scale","slider_negative_scale",
+        "use_lokr","rank_alpha","lokr_factor"
     ]]
     
     _, _, first_template = load_first_template()
@@ -499,6 +519,7 @@ def run(
         caption_dropout, cosine_restarts, max_time_steps, blocks_to_swap,
         mask_dropout, reg_ratio, reg_timestep, use_two_captions,
         slider_positive_scale, slider_negative_scale,
+        use_lokr,rank_alpha,lokr_factor,
         json_editor
     ):
     save_config(config_path, script, seed, mixed_precision, report_to, lr_warmup_steps,
@@ -510,7 +531,9 @@ def run(
         caption_dropout, cosine_restarts, max_time_steps, blocks_to_swap,
         mask_dropout, reg_ratio, reg_timestep, use_two_captions,
         slider_positive_scale, slider_negative_scale,
-        json_editor)
+        use_lokr,rank_alpha,lokr_factor,
+        json_editor
+        )
     cmd = [sys.executable, script, "--config_path", config_path]
     subprocess.call(cmd)
     return " ".join(cmd)
@@ -574,6 +597,10 @@ with gr.Blocks() as demo:
         with gr.Row():
             rank = gr.Number(label=get_text('rank'), value=default_config["rank"], info=get_text('rank_info'), precision=0)
             train_batch_size = gr.Number(label=get_text('train_batch_size'), value=default_config["train_batch_size"], info=get_text('batch_size_info'), precision=0)
+        with gr.Row():
+            use_lokr = gr.Checkbox(label=get_text('use_lokr'), value=default_config["use_lokr"], info=get_text('lokr_info'))
+            rank_alpha = gr.Number(label=get_text('rank_alpha'), value=default_config["rank_alpha"], precision=0)
+            lokr_factor = gr.Number(label=get_text('lokr_factor'), value=default_config["lokr_factor"], precision=0)
         with gr.Row():
             repeats = gr.Number(label=get_text('repeats'), value=default_config["repeats"], precision=0)
             gradient_accumulation_steps = gr.Number(label=get_text('gradient_accumulation_steps'), value=default_config["gradient_accumulation_steps"], precision=0)
@@ -647,7 +674,8 @@ with gr.Blocks() as demo:
         caption_dropout, cosine_restarts, max_time_steps, blocks_to_swap,
         mask_dropout, reg_ratio, reg_timestep, use_two_captions,
         slider_positive_scale, slider_negative_scale,
-        json_editor  # ← 就是这一项
+        use_lokr,rank_alpha,lokr_factor,
+        json_editor
     ]
 
     # Events
@@ -687,7 +715,8 @@ with gr.Blocks() as demo:
                 caption_dropout, max_time_steps, resolution,
                 use_two_captions, slider_positive_scale, slider_negative_scale,
                 json_editor, output, run_btn,
-                save_config_btn2, load_config_btn2  # ← 加上这两行
+                save_config_btn2, load_config_btn2,
+                use_lokr,rank_alpha,lokr_factor
                 ]
     )
 
@@ -700,7 +729,8 @@ if __name__ == "__main__":
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='T2I Trainer')
     parser.add_argument('--port', type=int, default=7860, help='服务器端口号 (默认: 7860)')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='服务器主机地址 (默认: 0.0.0.0)')
+    # parser.add_argument('--host', type=str, default='0.0.0.0', help='服务器主机地址 (默认: 0.0.0.0)')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='服务器主机地址 (默认: 127.0.0.1)')
     parser.add_argument('--share', action='store_true', help='是否创建公共链接')
 
     # 解析命令行参数

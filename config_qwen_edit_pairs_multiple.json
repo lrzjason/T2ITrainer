@@ -1,9 +1,9 @@
 {
-    "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/Qwen-Image",
-    "output_dir": "/home/waas/kontext_single_output",
-    "train_data_dir": "/home/waas/kontext_single",
-    "save_name": "highres_test",
-    "repeats": 10,
+    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_edit_nf4",
+    "output_dir": "F:/models/qwen/qwen_edit_multiple_output",
+    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_edit_multiple_demo",
+    "save_name": "qwen_edit_multiple_demo",
+    "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
     "train_batch_size": 1,
@@ -40,15 +40,25 @@
     "freeze_transformer_layers": "",
     "lora_layers": "",
     "guidance_scale": 1,
-    "blocks_to_swap": 40,
+    "blocks_to_swap": 0,
     "image_configs": {
         "train":{
-            "suffix":""
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        },
+        "grey":{
+            "suffix":"_G"
         }
     },
     "caption_configs": {
-        "train":{
-            "ext":".txt"
+        "train": {
+            "ext": ".txt",
+            "ref_image_config": {
+                "target": "reference",
+                "dropout": 0.5
+            }
         }
     },
     "training_set":[
@@ -57,10 +67,17 @@
                 "train": {
                     "target": "train",
                     "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                },
+                "grey":{
+                    "target": "grey",
+                    "dropout": 0.5
                 }
             },
             "captions_selection": {
-                "target": "train"
+                "target": "reference"
             }
         }
     ]

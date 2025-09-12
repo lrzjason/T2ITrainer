@@ -32,11 +32,28 @@ from utils.utils import ToTensorUniversal
 #     (1536, 640),
 # ]
 RESOLUTION_CONFIG = {
-    # 1328: [
-    #     (1328, 1328), # 1:1
-    #     (928, 1664), # 9:16
-    #     (1140, 1472), # 3:4
-    # ],
+    2048: [
+        (2048, 2048),        # 1024*2, 1024*2
+        (1344, 3136),        # 672*2, 1568*2
+        (1408, 3008),        # 704*2, 1504*2
+        (1472, 2944),        # 736*2, 1472*2
+        (1536, 2816),        # 768*2, 1408*2
+        (1600, 2688),        # 800*2, 1344*2
+        (1664, 2496),        # 832*2, 1248*2
+        (1792, 2368),        # 896*2, 1184*2
+        (1920, 2240),        # 960*2, 1120*2
+    ],
+    1536: [
+        (1536, 1536),        # 1024*1.5, 1024*1.5
+        (1008, 2352),        # 672*1.5, 1568*1.5
+        (1056, 2256),        # 704*1.5, 1504*1.5
+        (1104, 2208),        # 736*1.5, 1472*1.5
+        (1152, 2112),        # 768*1.5, 1408*1.5
+        (1200, 2016),        # 800*1.5, 1344*1.5
+        (1248, 1872),        # 832*1.5, 1248*1.5
+        (1344, 1776),        # 896*1.5, 1184*1.5
+        (1440, 1680),        # 960*1.5, 1120*1.5
+    ],
     1328: [
         (1328, 1328),
         (880, 2032),
@@ -266,10 +283,10 @@ def crop_image(image_path,resolution):
 
 def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=None, processor=None):
     with torch.no_grad():
-        prompt_embeds, prompt_embeds_mask = encode_prompt(text_encoders, tokenizers, prompt, device=device, image=image, processor=processor)
+        prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt(text_encoders, tokenizers, prompt, device=device, image=image, processor=processor)
         prompt_embeds = prompt_embeds.to(device)
         # text_ids = text_ids.to(device)
-    return prompt_embeds, prompt_embeds_mask #, text_ids
+    return prompt_embeds, prompt_embeds_mask, prompt_embed_length #, text_ids
 
 
 def get_empty_embedding(cache_path="cache/empty_embedding.npqwen"):
@@ -284,13 +301,14 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
     if os.path.exists(cache_path):
         return torch.load(cache_path, weights_only=True)
 
-    prompt_embeds, prompt_embeds_mask = encode_prompt(text_encoders,tokenizers,"")
+    prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt(text_encoders,tokenizers,"")
     prompt_embed = prompt_embeds.squeeze(0)
     prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
     
     latent = {
         "prompt_embed": prompt_embed.cpu(), 
         "prompt_embeds_mask": prompt_embeds_mask.cpu(),
+        "prompt_embed_length": prompt_embed_length
     }
     # save latent to cache file
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
@@ -369,17 +387,25 @@ def encode_prompt_with_qwenvl(
     split_hidden_states = extract_masked_hidden(hidden_states, model_inputs.attention_mask)
     split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
     attn_mask_list = [torch.ones(e.size(0), dtype=torch.long, device=e.device) for e in split_hidden_states]
-    max_seq_len = max([e.size(0) for e in split_hidden_states])
+    prompt_embed_length = max([e.size(0) for e in split_hidden_states])
     prompt_embeds = torch.stack(
-        [torch.cat([u, u.new_zeros(max_seq_len - u.size(0), u.size(1))]) for u in split_hidden_states]
+        [torch.cat([u, u.new_zeros(prompt_embed_length - u.size(0), u.size(1))]) for u in split_hidden_states]
     )
     encoder_attention_mask = torch.stack(
-        [torch.cat([u, u.new_zeros(max_seq_len - u.size(0))]) for u in attn_mask_list]
+        [torch.cat([u, u.new_zeros(prompt_embed_length - u.size(0))]) for u in attn_mask_list]
     )
-
+    
     prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
-    return prompt_embeds, encoder_attention_mask
+    padding = torch.zeros(1, max_sequence_length - prompt_embeds.size(1), prompt_embeds.size(2), device=device)
+    prompt_embeds = torch.cat([prompt_embeds, padding], dim=1)
+    
+    mask_padding = torch.zeros(1, max_sequence_length - encoder_attention_mask.size(1), device=device)
+    encoder_attention_mask = torch.cat([encoder_attention_mask, mask_padding], dim=1)
+    
+    prompt_embed_length = torch.tensor(prompt_embed_length).to(device)
+    
+    return prompt_embeds, encoder_attention_mask, prompt_embed_length
 
 def encode_prompt(
     text_encoders,
@@ -391,7 +417,7 @@ def encode_prompt(
     processor=None
 ):
     prompt = [prompt] if isinstance(prompt, str) else prompt
-    prompt_embeds, prompt_embeds_mask = encode_prompt_with_qwenvl(
+    prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt_with_qwenvl(
         text_encoders[-1],
         tokenizers[-1],
         max_sequence_length=max_sequence_length,
@@ -400,7 +426,7 @@ def encode_prompt(
         image=image,
         processor=processor
     )
-    return prompt_embeds, prompt_embeds_mask
+    return prompt_embeds, prompt_embeds_mask, prompt_embed_length
     
 def simple_center_crop(image,scale_with_height,closest_resolution):
     height, width, _ = image.shape
