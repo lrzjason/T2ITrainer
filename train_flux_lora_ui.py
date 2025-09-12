@@ -559,6 +559,30 @@ def parse_args(input_args=None):
         help="As regularization of objective transfer learning. Set as 1 if you aren't training different objective.",
     )
     
+    parser.add_argument(
+        "--use_lokr",
+        action="store_true",
+        help="Use lokr instead of lora",
+    )
+    
+    parser.add_argument(
+        "--rank_alpha",
+        type=float,
+        default=2.0,
+        help=("The rank_alpha of the LoRA or Lokr update matrices."),
+    )
+    parser.add_argument(
+        "--lokr_factor",
+        type=float,
+        default=8.0,
+        help=("The lokr factor of the Lokr matrices."),
+    )
+    parser.add_argument(
+        "--use_torch_compile",
+        action="store_true",
+        help="use torch.compile improve performance",
+    )
+    
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -794,7 +818,9 @@ def main(args):
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
-
+    elif args.use_torch_compile:
+        # Compile the model
+        transformer = torch.compile(transformer, mode="max-autotune")
 
     transformer.requires_grad_(False)
 
