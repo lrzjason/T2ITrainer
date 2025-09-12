@@ -729,8 +729,8 @@ if __name__ == "__main__":
     # 创建命令行参数解析器
     parser = argparse.ArgumentParser(description='T2I Trainer')
     parser.add_argument('--port', type=int, default=7860, help='服务器端口号 (默认: 7860)')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='服务器主机地址 (默认: 0.0.0.0)')
-    # parser.add_argument('--host', type=str, default='127.0.0.1', help='服务器主机地址 (默认: 127.0.0.1)')
+    # parser.add_argument('--host', type=str, default='0.0.0.0', help='服务器主机地址 (默认: 0.0.0.0)')
+    parser.add_argument('--host', type=str, default='127.0.0.1', help='服务器主机地址 (默认: 127.0.0.1)')
     parser.add_argument('--share', action='store_true', help='是否创建公共链接')
 
     # 解析命令行参数
