@@ -11,6 +11,7 @@ pip install diffusers -U
 
 
 ## 📅 Major Updates
+- **2025-09-12:**  Add lokr UI support
 - **2025-09-11:**  Fix qwen batch size > 1 cause error
 - **2025-09-06:**  Update train_qwen_image_edit ref image logic. Add ``ref_image_config`` to caption_configs.
 - **2025-09-05:**  
@@ -23,7 +24,7 @@ pip install diffusers -U
 "use_lokr": true,
 "rank": 10000,
 "rank_alpha": 1.0,
-"lokr_factor": -1,
+"lokr_factor": 2,
 ```
 ```bash
 #install lycoris-lora for lokr training
