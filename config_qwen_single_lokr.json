@@ -40,7 +40,7 @@
     "freeze_transformer_layers": "",
     "lora_layers": "",
     "guidance_scale": 1,
-    "blocks_to_swap": 40,
+    "blocks_to_swap": 0,
     "image_configs": {
         "train":{
             "suffix":""
