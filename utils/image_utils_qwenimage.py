@@ -421,11 +421,17 @@ def encode_prompt_with_qwenvl(
     
     prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
-    padding = torch.zeros(1, max_sequence_length - prompt_embeds.size(1), prompt_embeds.size(2), device=device)
-    prompt_embeds = torch.cat([prompt_embeds, padding], dim=1)
+    if prompt_embeds.size(1) > max_sequence_length:
+        prompt_embeds = prompt_embeds[:, :max_sequence_length]
+    else:
+        padding = torch.zeros(1, max_sequence_length - prompt_embeds.size(1), prompt_embeds.size(2), device=device)
+        prompt_embeds = torch.cat([prompt_embeds, padding], dim=1)
     
-    mask_padding = torch.zeros(1, max_sequence_length - encoder_attention_mask.size(1), device=device)
-    encoder_attention_mask = torch.cat([encoder_attention_mask, mask_padding], dim=1)
+    if encoder_attention_mask.size(1) > max_sequence_length:
+        encoder_attention_mask = encoder_attention_mask[:, :max_sequence_length]
+    else:
+        mask_padding = torch.zeros(1, max_sequence_length - encoder_attention_mask.size(1), device=device)
+        encoder_attention_mask = torch.cat([encoder_attention_mask, mask_padding], dim=1)
     
     prompt_embed_length = torch.tensor(prompt_embed_length).to(device)
     
