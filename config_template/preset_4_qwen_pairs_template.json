@@ -28,7 +28,7 @@
                 }
             },
             "captions_selection": {
-                "target": "reference"
+                "target": "train"
             }
         }
     ]

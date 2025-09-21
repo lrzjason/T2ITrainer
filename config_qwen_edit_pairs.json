@@ -50,11 +50,11 @@
         }
     },
     "caption_configs": {
-        "reference": {
+        "train": {
             "ext": ".txt",
             "ref_image_config": {
                 "target": "reference",
-                "dropout": 1
+                "dropout": 0.5
             }
         }
     },
@@ -70,7 +70,7 @@
                 }
             },
             "captions_selection": {
-                "target": "reference"
+                "target": "train"
             }
         }
     ]
