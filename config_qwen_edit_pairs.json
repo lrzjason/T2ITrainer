@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "/datasets/T2ITrainer/models/Qwen-Image-Edit/",
-    "output_dir": "/home/waas/ootd_colour_output",
-    "save_name": "ootd_colour",
-    "train_data_dir": "/home/waas/ootd_colour",
+    "pretrained_model_name_or_path": "F:/T2ITrainer/qwen_models/qwen_image_edit_plus_nf4",
+    "output_dir": "F:/models/qwen/plus/ootd_colour_plus_output",
+    "save_name": "ootd_colour_plus",
+    "train_data_dir": "F:/ImageSet/ootd/raw_colour/ootd_colour",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
@@ -31,7 +31,7 @@
     "model_path": "",
     "allow_tf32": true,
     "recreate_cache": false,
-    "caption_dropout": 0.1,
+    "caption_dropout": 0.3,
     "resolution": "512",
     "weighting_scheme": "logit_normal",
     "logit_mean": 0.0,
@@ -53,8 +53,10 @@
         "train": {
             "ext": ".txt",
             "ref_image_config": {
-                "target": "reference",
-                "dropout": 0.5
+                "ref_image_list": [{
+                    "target": "reference",
+                    "dropout": 0.5
+                }]
             }
         }
     },

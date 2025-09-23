@@ -505,7 +505,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_edit_pairs.json",
+        default="config_qwen_edit_pairs_multiple.json",
         help="Path to the config file.",
     )
         # default="config_qwen_edit_pairs.json",
@@ -915,15 +915,14 @@ def main(args, config_args):
                         }
                         mapping_key = image_pair["mapping_key"]
                         for caption_config_key in caption_configs.keys():
+                            outter_drop_index = None
+                            drop_index = None
+                            
                             caption_config = caption_configs[caption_config_key]
                             image_target = caption_config_key
                             
                             # default dropout is 1 to not use image ref for training
-                            ref_image_dropout = 1
-                            if "ref_image_config" in caption_config:
-                                ref_image_config = caption_config["ref_image_config"]
-                                image_target = ref_image_config["target"]
-                                ref_image_dropout = ref_image_config["dropout"]
+                            ref_image_dropout = 0
                                 
                             image_path = image_pair[image_target]
                             filename = os.path.basename(image_path)
@@ -961,23 +960,42 @@ def main(args, config_args):
                                 npz_dict = torch.load(npz_path)
                             else:
                                 image = None
-                                temp_processor = None
                                 # if dropout is 0.1, random is 0.2
                                 # it means use image as reference
                                 # if dropout is 0.2, random is 0.1
                                 # it means use only text as reference
                                 # because dropout is cache, each recreate cache will have different reference
-                                if ref_image_dropout < random.random():
-                                    image = crop_image(image_path,resolution=resolution)
-                                    temp_processor = processor
-                                prompt_embeds, prompt_embeds_mask, prompt_embed_length = compute_text_embeddings(
+                                
+                                image_list = []
+                                if "ref_image_config" in caption_config:
+                                    ref_image_config = caption_config["ref_image_config"]
+                                    # ref_image_list = [{"target":"train","dropout":0.5},{"target":"reference","dropout":0.5},...]
+                                    ref_image_list = ref_image_config["ref_image_list"]
+                                    for ref_image_config in ref_image_list:
+                                        ref_image_dropout = ref_image_config["dropout"]
+                                        # get ref target
+                                        image_path_key = ref_image_config["target"]
+                                        # get path from image pair
+                                        image_path = image_pair[image_path_key]
+                                        if ref_image_dropout < random.random():
+                                            image = crop_image(image_path,resolution=384)
+                                            image_list.append(image)
+                                
+                                
+                                prompt_embeds, prompt_embeds_mask, prompt_embed_length, drop_index = compute_text_embeddings(
                                     text_encoders,
                                     tokenizers,
                                     content,
                                     device=text_encoders[0].device,
-                                    image=image,
-                                    processor=temp_processor
+                                    image=image_list,
+                                    processor=processor,
+                                    instruction=caption_config["instruction"] if "instruction" in caption_config else None,
+                                    drop_index=outter_drop_index
                                 )
+                                # use same drop index when same caption config
+                                if outter_drop_index is None and drop_index is not None:
+                                    outter_drop_index = drop_index
+                                    
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                 npz_dict = {
@@ -1239,9 +1257,7 @@ def main(args, config_args):
         file_path = f"{input_dir}/{last_part}.safetensors"
         
         
-        qwen_preset = get_lycoris_preset(
-            target_attn_mlp_layers=True,
-        )
+        qwen_preset = get_lycoris_preset()
         lycoris_net = apply_lycoris(
             transformer,
             multiplier=1.0,
@@ -1769,7 +1785,12 @@ def main(args, config_args):
         if len(reference_list) > 0:
             # for ref_latent in reference_list:
             # cat refs on width
-            ref_latent = torch.cat(reference_list, dim=-1)
+            # ref_latent = torch.cat(reference_list, dim=-1)
+            for ref_latent in reference_list:
+                ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
+                img_shapes.append(ref_img_shape)
+                
+            ref_latent = torch.cat(reference_list, dim=0)
             ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
             # pack noisy latents
             packed_ref_latents = QwenImageEditPipeline._pack_latents(
@@ -1779,10 +1800,6 @@ def main(args, config_args):
                 height=ref_latent.shape[3],
                 width=ref_latent.shape[4],
             )
-            # packed_ref_latents.append(packed_ref_latent)
-            # token level concate images
-            ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
-            img_shapes.append(ref_img_shape)
             
         # img_shapes = img_shapes * bsz
             
@@ -1790,7 +1807,9 @@ def main(args, config_args):
         # add ref to channel
         # if packed_ref_latents is not None and len(packed_ref_latents) > 0:
         if packed_ref_latents is not None:
-            model_input = torch.cat((model_input, packed_ref_latents), dim=1)
+            # model_input = torch.cat((model_input, packed_ref_latents), dim=1)
+            # convert (1, d, 64) and (3, d, 64) => (1, d*4, 64)
+            model_input = torch.cat([model_input, packed_ref_latents], dim=0).view(1, -1, model_input.size(-1))
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions

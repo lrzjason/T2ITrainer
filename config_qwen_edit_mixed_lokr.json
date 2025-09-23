@@ -1,5 +1,5 @@
 {
-   "pretrained_model_name_or_path":"/datasets/T2ITrainer/models/Qwen-Image-Edit/",
+   "pretrained_model_name_or_path":"/datasets/studio/huggingface/models/Qwen-Image-Edit-2509",
    "output_dir":"/home/waas/anatomy_reflect_v2_output",
    "train_data_dir":"/home/waas/anatomy_reflect_v2",
    "save_name":"anatomy_reflect_v2",
