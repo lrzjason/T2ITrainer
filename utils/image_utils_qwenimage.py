@@ -123,6 +123,21 @@ RESOLUTION_CONFIG = {
         (512, 512),     # 12 ← 1024x1024
         (576, 640),     # 13 ← 1024x1152 ← adjusted to avoid dup
     ],
+    384: [
+        (192, 480),     # 1
+        (240, 528),     # 2
+        (240, 576),     # 3
+        (240, 480),     # 4
+        (288, 576),     # 5
+        (288, 528),     # 6
+        (336, 528),     # 7
+        (336, 432),     # 8
+        (384, 432),     # 9
+        (384, 480),     # 10
+        (432, 432),     # 11
+        (384, 384),     # 12
+        (432, 480),     # 13
+    ],
 }
 
 
@@ -269,7 +284,6 @@ def read_image(image_path):
         print(f"An error occurred while processing {image_path}: {e}")
     return image
 
-
 def crop_image(image_path,resolution):
     image = read_image(image_path)
     ##############################################################################
@@ -305,12 +319,15 @@ def crop_image(image_path,resolution):
     # set meta data
     return image
 
-def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=None, processor=None):
+def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=None, processor=None, instruction=None, drop_index=None):
     with torch.no_grad():
-        prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt(text_encoders, tokenizers, prompt, device=device, image=image, processor=processor)
+        prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_idx = encode_prompt(text_encoders, 
+                        tokenizers, prompt, device=device, image=image, processor=processor, 
+                        instruction=instruction,
+                        drop_index=drop_index)
         prompt_embeds = prompt_embeds.to(device)
         # text_ids = text_ids.to(device)
-    return prompt_embeds, prompt_embeds_mask, prompt_embed_length #, text_ids
+    return prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_idx
 
 
 def get_empty_embedding(cache_path="cache/empty_embedding.npqwen"):
@@ -325,7 +342,7 @@ def create_empty_embedding(tokenizers,text_encoders,cache_path="cache/empty_embe
     if os.path.exists(cache_path):
         return torch.load(cache_path, weights_only=True)
 
-    prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt(text_encoders,tokenizers,"")
+    prompt_embeds, prompt_embeds_mask, prompt_embed_length, _ = encode_prompt(text_encoders,tokenizers,"")
     prompt_embed = prompt_embeds.squeeze(0)
     prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
     
@@ -366,20 +383,38 @@ def encode_prompt_with_qwenvl(
     prompt=None,
     device=None,
     image=None,
-    processor=None
+    processor=None,
+    instruction=None,
+    drop_index=None,
 ):
     device = text_encoder.device
     dtype = text_encoder.dtype
     
     prompt = [prompt] if isinstance(prompt, str) else prompt
-
-    if image is None and processor is None:
-        template = "<|im_start|>system\nDescribe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
-        drop_idx = 34
+    
+    template_prefix = "<|im_start|>system"
+    instruction_content = None
+    if instruction is not None:
+        instruction_content = instruction
+    template_suffix = "\n<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n"
+    if image is None or len(image) == 0:
+        if instruction is None:
+            instruction_content = "Describe the image by detailing the color, shape, size, texture, quantity, text, spatial relationships of the objects and background:"
+            drop_index = 34
+        template_first_part = template_prefix + instruction_content
+        
+        if drop_index is None:
+            model_inputs = tokenizer(
+                template_first_part, max_length=max_sequence_length, padding=True, truncation=True, return_tensors="pt"
+            ).to(device)
+            _, drop_index = model_inputs.input_ids.shape
+        
+        template = template_first_part + template_suffix
+            
         txt = [template.format(e) for e in prompt]
         
         model_inputs = tokenizer(
-            txt, max_length=max_sequence_length + drop_idx, padding=True, truncation=True, return_tensors="pt"
+            txt, max_length=max_sequence_length + drop_index, padding=True, truncation=True, return_tensors="pt"
         ).to(device) 
         
         outputs = text_encoder(
@@ -388,9 +423,29 @@ def encode_prompt_with_qwenvl(
             output_hidden_states=True,
         )
     else:
-        template = "<|im_start|>system\nDescribe the key features of the input image (color, shape, size, texture, objects, background), then explain how the user's text instruction should alter or modify the image. Generate a new image that meets the user's requirements while maintaining consistency with the original input where appropriate.<|im_end|>\n<|im_start|>user\n<|vision_start|><|image_pad|><|vision_end|>{}<|im_end|>\n<|im_start|>assistant\n"
-        drop_idx = 64
-        txt = [template.format(e) for e in prompt]
+        if instruction is None:
+            instruction_content = "Describe the key features of the input image (color, shape, size, texture, objects, background), then explain how the user's text instruction should alter or modify the image. Generate a new image that meets the user's requirements while maintaining consistency with the original input where appropriate."
+            drop_index = 64
+        template_first_part = template_prefix + instruction_content
+        
+        if drop_index is None:
+            model_inputs = tokenizer(
+                template_first_part, max_length=max_sequence_length, padding=True, truncation=True, return_tensors="pt"
+            ).to(device)
+            _, drop_index = model_inputs.input_ids.shape
+            
+        template = template_first_part + template_suffix
+        img_prompt_template = "Picture {}: <|vision_start|><|image_pad|><|vision_end|>"
+        if isinstance(image, list):
+            base_img_prompt = ""
+            for i, img in enumerate(image):
+                base_img_prompt += img_prompt_template.format(i + 1)
+        elif image is not None:
+            base_img_prompt = img_prompt_template.format(1)
+        else:
+            base_img_prompt = ""
+            
+        txt = [template.format(base_img_prompt + e) for e in prompt]
         
         model_inputs = processor(
             text=txt,
@@ -409,7 +464,7 @@ def encode_prompt_with_qwenvl(
        
     hidden_states = outputs.hidden_states[-1]
     split_hidden_states = extract_masked_hidden(hidden_states, model_inputs.attention_mask)
-    split_hidden_states = [e[drop_idx:] for e in split_hidden_states]
+    split_hidden_states = [e[drop_index:] for e in split_hidden_states]
     attn_mask_list = [torch.ones(e.size(0), dtype=torch.long, device=e.device) for e in split_hidden_states]
     prompt_embed_length = max([e.size(0) for e in split_hidden_states])
     prompt_embeds = torch.stack(
@@ -421,6 +476,7 @@ def encode_prompt_with_qwenvl(
     
     prompt_embeds = prompt_embeds.to(dtype=dtype, device=device)
 
+    # for stacking prompt embeds more than 1 bs
     if prompt_embeds.size(1) > max_sequence_length:
         prompt_embeds = prompt_embeds[:, :max_sequence_length]
     else:
@@ -433,9 +489,10 @@ def encode_prompt_with_qwenvl(
         mask_padding = torch.zeros(1, max_sequence_length - encoder_attention_mask.size(1), device=device)
         encoder_attention_mask = torch.cat([encoder_attention_mask, mask_padding], dim=1)
     
+    
     prompt_embed_length = torch.tensor(prompt_embed_length).to(device)
     
-    return prompt_embeds, encoder_attention_mask, prompt_embed_length
+    return prompt_embeds, encoder_attention_mask, prompt_embed_length, drop_index
 
 def encode_prompt(
     text_encoders,
@@ -444,19 +501,23 @@ def encode_prompt(
     max_sequence_length=1024,
     device=None,
     image=None,
-    processor=None
+    processor=None,
+    instruction=None,
+    drop_index=None
 ):
     prompt = [prompt] if isinstance(prompt, str) else prompt
-    prompt_embeds, prompt_embeds_mask, prompt_embed_length = encode_prompt_with_qwenvl(
+    prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_index = encode_prompt_with_qwenvl(
         text_encoders[-1],
         tokenizers[-1],
         max_sequence_length=max_sequence_length,
         prompt=prompt,
         device=device if device is not None else text_encoders[-1].device,
         image=image,
-        processor=processor
+        processor=processor,
+        instruction=instruction,
+        drop_index=drop_index
     )
-    return prompt_embeds, prompt_embeds_mask, prompt_embed_length
+    return prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_index
     
 def simple_center_crop(image,scale_with_height,closest_resolution):
     height, width, _ = image.shape

@@ -14,8 +14,16 @@
         "train": {
             "ext": ".txt",
             "ref_image_config": {
-                "target": "reference",
-                "dropout": 1
+                "ref_image_list": [
+                    {
+                        "target": "reference",
+                        "dropout": 0.1
+                    },
+                    {
+                        "target": "grey",
+                        "dropout": 0.1
+                    }
+                ]
             }
         }
     },
@@ -35,7 +43,7 @@
                 }
             },
             "captions_selection": {
-                "target": "reference"
+                "target": "train"
             }
         }
     ]

@@ -2,3 +2,15 @@ hf download "lrzjason/qwen_image_nf4" --local-dir qwen_models/qwen_image_nf4/
 
 
 hf download "Qwen/Qwen-Image-Edit" --local-dir qwen_models/qwen_image_edit/
+
+
+hf download "Qwen/Qwen-Image-Edit-2509" --local-dir qwen_models/qwen_image_edit_plus/
+
+
+
+mklink /d F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\text_encoder F:\T2ITrainer\qwen_models\qwen_image_edit_plus\text_encoder
+mklink /d F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\tokenizer F:\T2ITrainer\qwen_models\qwen_image_edit_plus\tokenizer
+mklink /d F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\vae F:\T2ITrainer\qwen_models\qwen_image_edit_plus\vae
+mklink /d F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\scheduler F:\T2ITrainer\qwen_models\qwen_image_edit_plus\scheduler
+mklink /d F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\processor F:\T2ITrainer\qwen_models\qwen_image_edit_plus\processor
+copy F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4\model_index.json F:\T2ITrainer\qwen_models\qwen_image_edit_plus\model_index.json

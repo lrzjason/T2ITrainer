@@ -59,6 +59,10 @@ def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
     if resize_method == "lanczos":
         # resized_img = cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
         # 使用PIL的缩放算法保障画质
+        # 20250920 ensure img is uint8 for pil resiez
+        if img.dtype != np.uint8: 
+            img = cv2.convertScaleAbs(img)
+            
         img_pil = Image.fromarray(img)
         resized_img = img_pil.resize((f_width, f_height), Image.LANCZOS)
         resized_img = np.array(resized_img)

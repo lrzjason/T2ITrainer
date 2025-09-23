@@ -1,5 +1,5 @@
 {
-    "pretrained_model_name_or_path": "/datasets/T2ITrainer/models/Qwen-Image-Edit/",
+    "pretrained_model_name_or_path": "/datasets/studio/huggingface/models/Qwen-Image-Edit-2509",
     "output_dir": "/home/waas/ootd_colour_output",
     "save_name": "ootd_colour",
     "train_data_dir": "/home/waas/ootd_colour",
@@ -53,8 +53,10 @@
         "train": {
             "ext": ".txt",
             "ref_image_config": {
-                "target": "reference",
-                "dropout": 0.5
+                "ref_image_list": [{
+                    "target": "reference",
+                    "dropout": 0.5
+                }]
             }
         }
     },
@@ -70,7 +72,7 @@
                 }
             },
             "captions_selection": {
-                "target": "reference"
+                "target": "train"
             }
         }
     ]

@@ -1,0 +1,140 @@
+{
+   "pretrained_model_name_or_path":"/datasets/studio/huggingface/models/Qwen-Image-Edit-2509",
+   "output_dir":"/home/waas/anatomy_reflect_v2_output",
+   "train_data_dir":"/home/waas/anatomy_reflect_v2",
+   "save_name":"anatomy_reflect_v2",
+   "repeats":5,
+   "validation_epochs":1,
+   "seed":4321,
+   "train_batch_size":1,
+   "num_train_epochs":10,
+   "resume_from_checkpoint":"",
+   "gradient_accumulation_steps":1,
+   "gradient_checkpointing":true,
+   "learning_rate":1,
+   "lr_scheduler":"cosine",
+   "optimizer":"prodigy",
+   "cosine_restarts":1,
+   "lr_warmup_steps":0,
+   "logging_dir":"logs",
+   "report_to":"wandb",
+   "mixed_precision":"bf16",
+   "rank":10000,
+   "use_lokr":true,
+   "rank_alpha":1.0,
+   "lokr_factor":2,
+   "save_model_epochs":1,
+   "save_model_steps":-1,
+   "skip_epoch":0,
+   "skip_step":0,
+   "validation_ratio":0.1,
+   "model_path":"",
+   "allow_tf32":true,
+   "recreate_cache":false,
+   "caption_dropout":0.1,
+   "resolution":"1024",
+   "weighting_scheme":"logit_normal",
+   "logit_mean":0.0,
+   "logit_std":1.0,
+   "mode_scale":1.29,
+   "freeze_transformer_layers":"",
+   "lora_layers":"",
+   "guidance_scale":1,
+   "blocks_to_swap":0,
+   "image_configs":{
+      "train":{
+         "suffix":"_T"
+      },
+      "reference":{
+         "suffix":"_R"
+      },
+      "over":{
+         "suffix":"_B"
+      },
+      "single":{
+         "suffix":"_T"
+      }
+   },
+   "caption_configs":{
+      "train":{
+         "ext":".txt",
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "reference",
+               "dropout": 0.5
+            }]
+         }
+      },
+      "reference":{
+         "ext":".txt",
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "train",
+               "dropout": 0.5
+            }]
+         }
+      },
+      "single":{
+         "ext":".txt",
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "reference",
+               "dropout": 1
+            }]
+         }
+      }
+   },
+   "training_set":[
+      {
+         "training_layout_configs":{
+            "train":{
+               "target":"train",
+               "noised":true
+            },
+            "reference":{
+               "target":"reference",
+               "dropout":0.3
+            },
+            "over":{
+               "target":"over",
+               "dropout":0.5
+            }
+         },
+         "captions_selection":{
+            "target":"train"
+         },
+         "weight":0.4
+      },
+      {
+         "training_layout_configs":{
+            "reference":{
+               "target":"reference",
+               "noised":true
+            },
+            "train":{
+               "target":"train"
+            },
+            "over":{
+               "target":"over",
+               "dropout":0.5
+            }
+         },
+         "captions_selection":{
+            "target":"reference"
+         },
+         "weight":0.3
+      },
+      {
+         "training_layout_configs":{
+            "single":{
+               "target":"single",
+               "noised":true
+            }
+         },
+         "captions_selection":{
+            "target":"single"
+         },
+         "weight":0.3
+      }
+   ]
+}

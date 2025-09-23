@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/qwen_models/qwen_image_edit_nf4",
-    "output_dir": "F:/models/qwen/qwen_edit_multiple_output",
-    "train_data_dir": "F:/ImageSet/aigate_demo/qwen_edit_multiple_demo",
-    "save_name": "qwen_edit_multiple_demo",
+    "pretrained_model_name_or_path": "F:/T2ITrainer/qwen_models/qwen_image_edit_plus_nf4",
+    "output_dir": "F:/models/qwen/plus/test_script",
+    "train_data_dir": "F:/ImageSet/tile/test_script",
+    "save_name": "test_multiple",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
@@ -30,7 +30,7 @@
     "validation_ratio": 0.1,
     "model_path": "",
     "allow_tf32": true,
-    "recreate_cache": false,
+    "recreate_cache": true,
     "caption_dropout": 0.1,
     "resolution": "512",
     "weighting_scheme": "logit_normal",
@@ -43,21 +43,37 @@
     "blocks_to_swap": 0,
     "image_configs": {
         "train":{
-            "suffix":"_T"
+            "suffix":"_H"
         },
-        "reference":{
-            "suffix":"_R"
+        "10L":{
+            "suffix":"_10L"
         },
-        "grey":{
-            "suffix":"_G"
+        "20L":{
+            "suffix":"_20L"
+        },
+        "30L":{
+            "suffix":"_30L"
         }
     },
     "caption_configs": {
         "train": {
-            "ext": ".txt",
+            "ext": ".txt",            
+            "instruction": "Analyze the input image to identify its key visual characteristics — including dominant colors, object shapes and relative sizes, surface textures, foreground/background composition, and spatial layout — while explicitly noting degradation artifacts such as motion or focus blur, JPEG compression blocks, color banding, ringing, noise, or pixelation; then, based on the user’s instruction, apply precision restoration techniques to remove blur and digital artifacts by sharpening edges without overshoot, deblocking compressed regions, recovering lost micro-textures, reducing noise while preserving detail, and correcting color distortions — all while strictly maintaining the original image’s structural, chromatic, and compositional integrity to generate a cleaner, higher-fidelity output that fulfills the user's enhancement goals without introducing hallucinated content or stylistic deviation.",
             "ref_image_config": {
-                "target": "reference",
-                "dropout": 0.5
+                "ref_image_list": [
+                    {
+                        "target": "30L",
+                        "dropout": 0.3
+                    },
+                    {
+                        "target": "20L",
+                        "dropout": 0.4
+                    },
+                    {
+                        "target": "10L",
+                        "dropout": 0.5
+                    }
+                ]
             }
         }
     },
@@ -68,16 +84,20 @@
                     "target": "train",
                     "noised": true
                 },
-                "reference": {
-                    "target": "reference"
+                "30L": {
+                    "target": "30L"
                 },
-                "grey":{
-                    "target": "grey",
+                "20L":{
+                    "target": "20L",
+                    "dropout": 0.4
+                },
+                "10L":{
+                    "target": "10L",
                     "dropout": 0.5
                 }
             },
             "captions_selection": {
-                "target": "reference"
+                "target": "train"
             }
         }
     ]
