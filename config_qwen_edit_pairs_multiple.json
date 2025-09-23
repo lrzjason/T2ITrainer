@@ -30,7 +30,7 @@
     "validation_ratio": 0.1,
     "model_path": "",
     "allow_tf32": true,
-    "recreate_cache": false,
+    "recreate_cache": true,
     "caption_dropout": 0.1,
     "resolution": "512",
     "weighting_scheme": "logit_normal",
@@ -40,7 +40,7 @@
     "freeze_transformer_layers": "",
     "lora_layers": "",
     "guidance_scale": 1,
-    "blocks_to_swap": 40,
+    "blocks_to_swap": 0,
     "image_configs": {
         "train":{
             "suffix":"_H"
@@ -57,7 +57,8 @@
     },
     "caption_configs": {
         "train": {
-            "ext": ".txt",
+            "ext": ".txt",            
+            "instruction": "Analyze the input image to identify its key visual characteristics — including dominant colors, object shapes and relative sizes, surface textures, foreground/background composition, and spatial layout — while explicitly noting degradation artifacts such as motion or focus blur, JPEG compression blocks, color banding, ringing, noise, or pixelation; then, based on the user’s instruction, apply precision restoration techniques to remove blur and digital artifacts by sharpening edges without overshoot, deblocking compressed regions, recovering lost micro-textures, reducing noise while preserving detail, and correcting color distortions — all while strictly maintaining the original image’s structural, chromatic, and compositional integrity to generate a cleaner, higher-fidelity output that fulfills the user's enhancement goals without introducing hallucinated content or stylistic deviation.",
             "ref_image_config": {
                 "ref_image_list": [
                     {

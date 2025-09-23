@@ -58,23 +58,29 @@
    "caption_configs":{
       "train":{
          "ext":".txt",
-         "ref_image_config":{
-            "target":"reference",
-            "dropout":0.5
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "reference",
+               "dropout": 0.5
+            }]
          }
       },
       "reference":{
          "ext":".txt",
-         "ref_image_config":{
-            "target":"train",
-            "dropout":0.5
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "train",
+               "dropout": 0.5
+            }]
          }
       },
       "single":{
          "ext":".txt",
-         "ref_image_config":{
-            "target":"reference",
-            "dropout":1
+         "ref_image_config": {
+            "ref_image_list": [{
+               "target": "reference",
+               "dropout": 1
+            }]
          }
       }
    },
