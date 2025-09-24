@@ -898,6 +898,9 @@ def main(args, config_args):
                         }
                         mapping_key = image_pair["mapping_key"]
                         for caption_config_key in caption_configs.keys():
+                            outter_drop_index = None
+                            drop_index = None
+                            
                             caption_config = caption_configs[caption_config_key]
                             # redux_image_path = image_pair[dataset_based_image]
                             image_file = image_pair[dataset_based_image]
@@ -938,7 +941,14 @@ def main(args, config_args):
                                     json_obj["npz_path_md5"] = get_md5_by_path(npz_path)
                                 npz_dict = torch.load(npz_path)
                             else:
-                                prompt_embeds, prompt_embeds_mask, prompt_embed_length = compute_text_embeddings(text_encoders,tokenizers,content,device=text_encoders[0].device)
+                                prompt_embeds, prompt_embeds_mask, prompt_embed_length, drop_index = compute_text_embeddings(
+                                    text_encoders,tokenizers,content,device=text_encoders[0].device,
+                                    instruction=caption_config["instruction"] if "instruction" in caption_config else None,
+                                    drop_index=outter_drop_index
+                                    )
+                                # use same drop index when same caption config
+                                if outter_drop_index is None and drop_index is not None:
+                                    outter_drop_index = drop_index
                                 prompt_embed = prompt_embeds.squeeze(0)
                                 prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                 
