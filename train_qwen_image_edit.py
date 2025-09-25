@@ -505,7 +505,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_edit_pairs_multiple.json",
+        default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
         # default="config_qwen_edit_pairs.json",
@@ -545,11 +545,11 @@ def parse_args(input_args=None):
         default=8.0,
         help=("The lokr factor of the Lokr matrices."),
     )
-    parser.add_argument(
-        "--use_torch_compile",
-        action="store_true",
-        help="use torch.compile improve performance",
-    )
+    # parser.add_argument(
+    #     "--use_torch_compile",
+    #     action="store_true",
+    #     help="use torch.compile improve performance",
+    # )
     
     
     
@@ -1135,15 +1135,18 @@ def main(args, config_args):
         transformer = transformer.to(offload_device, dtype=weight_dtype)
         transformer.requires_grad_(False)
     
+    # if args.use_torch_compile:
+    #     print("\nCompiling the model...")
+    #     # Compile the model
+    #     transformer = torch.compile(transformer, mode="max-autotune")
+     
+    # print("\nCompile completed.")
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
-    elif args.use_torch_compile:
-        # Compile the model
-        transformer = torch.compile(transformer, mode="max-autotune")
-        
+       
     if args.use_lokr:
         
         preset = get_lycoris_preset()
@@ -1179,16 +1182,16 @@ def main(args, config_args):
     # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
     freezed_layers = [59]
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split()
+        splited_layers = args.freeze_transformer_layers.split(",")
         for layer in splited_layers:
-            print("layer: ", layer)
+            # print("layer: ", layer)
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)
     
     # if args.use_lokr:
     #     # exclude last layer for lokr training to avoid horizontal lines
     #     freezed_layers.append(59)
-    # print("freezed_layers: ", freezed_layers)
+    print("freezed_layers: ", freezed_layers)
     # Freeze the layers
     for name, param in transformer.named_parameters():
         if "transformer" in name:
@@ -1790,17 +1793,23 @@ def main(args, config_args):
                 ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
                 img_shapes.append(ref_img_shape)
                 
-            ref_latent = torch.cat(reference_list, dim=0)
-            ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
-            # pack noisy latents
-            packed_ref_latents = QwenImageEditPipeline._pack_latents(
-                ref_latent,
-                batch_size=ref_latent.shape[0],
-                num_channels_latents=latents.shape[1],
-                height=ref_latent.shape[3],
-                width=ref_latent.shape[4],
-            )
-            
+                # ref_latent = torch.cat(reference_list, dim=0)
+                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
+                # pack noisy latents
+                packed_ref_latent = QwenImageEditPipeline._pack_latents(
+                    ref_latent,
+                    batch_size=ref_latent.shape[0],
+                    num_channels_latents=latents.shape[1],
+                    height=ref_latent.shape[3],
+                    width=ref_latent.shape[4],
+                )
+                print("packed_ref_latent.shape",packed_ref_latent.shape)
+                if packed_ref_latents is None:
+                    packed_ref_latents = packed_ref_latent
+                else:
+                    packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
+        if packed_ref_latents is not None: 
+            print("packed_ref_latents.shape",packed_ref_latents.shape)
         # img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
@@ -1809,7 +1818,7 @@ def main(args, config_args):
         if packed_ref_latents is not None:
             # model_input = torch.cat((model_input, packed_ref_latents), dim=1)
             # convert (1, d, 64) and (3, d, 64) => (1, d*4, 64)
-            model_input = torch.cat([model_input, packed_ref_latents], dim=0).view(1, -1, model_input.size(-1))
+            model_input = torch.cat([model_input, packed_ref_latents], dim=1)
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions

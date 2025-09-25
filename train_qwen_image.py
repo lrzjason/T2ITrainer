@@ -538,11 +538,11 @@ def parse_args(input_args=None):
         default=8.0,
         help=("The lokr factor of the Lokr matrices."),
     )
-    parser.add_argument(
-        "--use_torch_compile",
-        action="store_true",
-        help="use torch.compile improve performance",
-    )
+    # parser.add_argument(
+    #     "--use_torch_compile",
+    #     action="store_true",
+    #     help="use torch.compile improve performance",
+    # )
     
     if input_args is not None:
         args = parser.parse_args(input_args)
@@ -1094,9 +1094,9 @@ def main(args, config_args):
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
-    elif args.use_torch_compile:
-        # Compile the model
-        transformer = torch.compile(transformer, mode="max-autotune")
+    # elif args.use_torch_compile:
+    #     # Compile the model
+    #     transformer = torch.compile(transformer, mode="max-autotune")
 
     if args.use_lokr:
         
@@ -1134,9 +1134,9 @@ def main(args, config_args):
     # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
     freezed_layers = [59]
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split()
+        splited_layers = args.freeze_transformer_layers.split(",")
         for layer in splited_layers:
-            print("layer: ", layer)
+            # print("layer: ", layer)
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)
     print("freezed_layers: ", freezed_layers)
