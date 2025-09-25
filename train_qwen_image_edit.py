@@ -545,11 +545,11 @@ def parse_args(input_args=None):
         default=8.0,
         help=("The lokr factor of the Lokr matrices."),
     )
-    parser.add_argument(
-        "--use_torch_compile",
-        action="store_true",
-        help="use torch.compile improve performance",
-    )
+    # parser.add_argument(
+    #     "--use_torch_compile",
+    #     action="store_true",
+    #     help="use torch.compile improve performance",
+    # )
     
     
     
@@ -1135,15 +1135,18 @@ def main(args, config_args):
         transformer = transformer.to(offload_device, dtype=weight_dtype)
         transformer.requires_grad_(False)
     
+    # if args.use_torch_compile:
+    #     print("\nCompiling the model...")
+    #     # Compile the model
+    #     transformer = torch.compile(transformer, mode="max-autotune")
+     
+    # print("\nCompile completed.")
     is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
     if is_swapping_blocks:
         # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
         logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
         transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
-    elif args.use_torch_compile:
-        # Compile the model
-        transformer = torch.compile(transformer, mode="max-autotune")
-        
+       
     if args.use_lokr:
         
         preset = get_lycoris_preset()
