@@ -1054,6 +1054,10 @@ def main(args, config_args):
 
     flush()
     
+    
+    if datarows is None:
+        print("No datarows found. Please check config and dataset.")
+        
     datarows = datarows * args.repeats
     
     
