@@ -1808,13 +1808,13 @@ def main(args, config_args):
                     height=ref_latent.shape[3],
                     width=ref_latent.shape[4],
                 )
-                print("packed_ref_latent.shape",packed_ref_latent.shape)
+                # print("packed_ref_latent.shape",packed_ref_latent.shape)
                 if packed_ref_latents is None:
                     packed_ref_latents = packed_ref_latent
                 else:
                     packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
-        if packed_ref_latents is not None: 
-            print("packed_ref_latents.shape",packed_ref_latents.shape)
+        # if packed_ref_latents is not None: 
+            # print("packed_ref_latents.shape",packed_ref_latents.shape)
         # img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
