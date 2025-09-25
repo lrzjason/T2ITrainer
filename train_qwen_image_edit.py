@@ -1103,6 +1103,7 @@ def main(args, config_args):
     
     if datarows is None:
         print("No datarows found. Please check config and dataset.")
+        assert datarows is None
         
     datarows = datarows * args.repeats
     
