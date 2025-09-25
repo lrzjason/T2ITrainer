@@ -861,7 +861,7 @@ def main(args):
     layer_names = []
     freezed_layers = []
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split()
+        splited_layers = args.freeze_transformer_layers.split(",")
         for layer in splited_layers:
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)

@@ -1179,16 +1179,16 @@ def main(args, config_args):
     # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
     freezed_layers = [59]
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split()
+        splited_layers = args.freeze_transformer_layers.split(",")
         for layer in splited_layers:
-            print("layer: ", layer)
+            # print("layer: ", layer)
             layer_name = int(layer.strip())
             freezed_layers.append(layer_name)
     
     # if args.use_lokr:
     #     # exclude last layer for lokr training to avoid horizontal lines
     #     freezed_layers.append(59)
-    # print("freezed_layers: ", freezed_layers)
+    print("freezed_layers: ", freezed_layers)
     # Freeze the layers
     for name, param in transformer.named_parameters():
         if "transformer" in name:
