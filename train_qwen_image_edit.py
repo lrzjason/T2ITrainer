@@ -505,7 +505,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_edit_pairs_multiple.json",
+        default="config_qwen_edit_pairs.json",
         help="Path to the config file.",
     )
         # default="config_qwen_edit_pairs.json",
@@ -1790,17 +1790,23 @@ def main(args, config_args):
                 ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
                 img_shapes.append(ref_img_shape)
                 
-            ref_latent = torch.cat(reference_list, dim=0)
-            ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
-            # pack noisy latents
-            packed_ref_latents = QwenImageEditPipeline._pack_latents(
-                ref_latent,
-                batch_size=ref_latent.shape[0],
-                num_channels_latents=latents.shape[1],
-                height=ref_latent.shape[3],
-                width=ref_latent.shape[4],
-            )
-            
+                # ref_latent = torch.cat(reference_list, dim=0)
+                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
+                # pack noisy latents
+                packed_ref_latent = QwenImageEditPipeline._pack_latents(
+                    ref_latent,
+                    batch_size=ref_latent.shape[0],
+                    num_channels_latents=latents.shape[1],
+                    height=ref_latent.shape[3],
+                    width=ref_latent.shape[4],
+                )
+                print("packed_ref_latent.shape",packed_ref_latent.shape)
+                if packed_ref_latents is None:
+                    packed_ref_latents = packed_ref_latent
+                else:
+                    packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
+        if packed_ref_latents is not None: 
+            print("packed_ref_latents.shape",packed_ref_latents.shape)
         # img_shapes = img_shapes * bsz
             
         model_input = packed_noisy_latents
@@ -1809,7 +1815,7 @@ def main(args, config_args):
         if packed_ref_latents is not None:
             # model_input = torch.cat((model_input, packed_ref_latents), dim=1)
             # convert (1, d, 64) and (3, d, 64) => (1, d*4, 64)
-            model_input = torch.cat([model_input, packed_ref_latents], dim=0).view(1, -1, model_input.size(-1))
+            model_input = torch.cat([model_input, packed_ref_latents], dim=1)
             
         caption_target = captions_selection["target"]
         # caption_target should always in captions

@@ -1,8 +1,8 @@
 {
     "pretrained_model_name_or_path": "F:/T2ITrainer/qwen_models/qwen_image_edit_plus_nf4",
-    "output_dir": "F:/models/qwen/plus/ootd_colour_plus_output",
-    "save_name": "ootd_colour_plus",
-    "train_data_dir": "F:/ImageSet/ootd/raw_colour/ootd_colour",
+    "output_dir": "F:/models/qwen/plus/ootd_colour_test_output",
+    "save_name": "ootd_colour_test",
+    "train_data_dir": "F:/ImageSet/ootd/raw_colour/ootd_colour_test",
     "repeats": 1,
     "validation_epochs": 1,
     "seed": 4321,
@@ -47,16 +47,25 @@
         },
         "reference":{
             "suffix":"_R"
+        },
+        "small":{
+            "suffix":"_S"
         }
     },
     "caption_configs": {
         "train": {
             "ext": ".txt",
             "ref_image_config": {
-                "ref_image_list": [{
-                    "target": "reference",
-                    "dropout": 0.5
-                }]
+                "ref_image_list": [
+                    {
+                        "target": "reference",
+                        "dropout": 0.3
+                    },
+                    {
+                        "target": "small",
+                        "dropout": 0.1
+                    }
+                ]
             }
         }
     },
@@ -69,6 +78,10 @@
                 },
                 "reference": {
                     "target": "reference"
+                },
+                "small": {
+                    "target": "small",
+                    "dropout": 0.5
                 }
             },
             "captions_selection": {
