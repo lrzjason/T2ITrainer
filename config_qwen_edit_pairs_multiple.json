@@ -62,8 +62,8 @@
             "ref_image_config": {
                 "ref_image_list": [
                     {
-                        "target": "30L",
-                        "dropout": 0.3
+                        "target": "10L",
+                        "resize": false
                     },
                     {
                         "target": "20L",

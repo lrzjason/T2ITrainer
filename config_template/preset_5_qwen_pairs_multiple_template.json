@@ -17,7 +17,7 @@
                 "ref_image_list": [
                     {
                         "target": "reference",
-                        "dropout": 0.1
+                        "resized": false
                     },
                     {
                         "target": "grey",

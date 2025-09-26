@@ -13,7 +13,8 @@
             "ref_image_config": {
                 "ref_image_list": [{
                     "target": "reference",
-                    "dropout": 0.1
+                    "dropout": 0.1,
+                    "resized": false
                 }]
             }
         }

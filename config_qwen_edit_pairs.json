@@ -59,7 +59,7 @@
                 "ref_image_list": [
                     {
                         "target": "reference",
-                        "dropout": 0.3
+                        "resize": false
                     },
                     {
                         "target": "small",

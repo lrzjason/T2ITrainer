@@ -973,12 +973,19 @@ def main(args, config_args):
                                     ref_image_list = ref_image_config["ref_image_list"]
                                     for ref_image_config in ref_image_list:
                                         ref_image_dropout = ref_image_config["dropout"]
+                                        # default resize is true
+                                        ref_resize = ref_image_config["resize"] if "resize" in ref_image_config else True
                                         # get ref target
                                         image_path_key = ref_image_config["target"]
                                         # get path from image pair
                                         image_path = image_pair[image_path_key]
                                         if ref_image_dropout < random.random():
-                                            image = crop_image(image_path,resolution=384)
+                                            # resize image to 384 if multiple images
+                                            if ref_resize:
+                                                image = crop_image(image_path,resolution=384)
+                                            # resize to target size to match training resolution
+                                            else:
+                                                image = crop_image(image_path,resolution=resolution)
                                             image_list.append(image)
                                 
                                 
