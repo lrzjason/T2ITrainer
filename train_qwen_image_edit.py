@@ -970,9 +970,9 @@ def main(args, config_args):
                                 if "ref_image_config" in caption_config:
                                     ref_image_config = caption_config["ref_image_config"]
                                     # ref_image_list = [{"target":"train","dropout":0.5},{"target":"reference","dropout":0.5},...]
-                                    ref_image_list = ref_image_config["ref_image_list"]
+                                    ref_image_list = ref_image_config["ref_image_list"] if "ref_image_list" in ref_image_config else []
                                     for ref_image_config in ref_image_list:
-                                        ref_image_dropout = ref_image_config["dropout"]
+                                        ref_image_dropout = ref_image_config["dropout"] if "dropout" in ref_image_config else 0
                                         # default resize is true
                                         ref_resize = ref_image_config["resize"] if "resize" in ref_image_config else True
                                         # get ref target
