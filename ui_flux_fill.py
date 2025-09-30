@@ -452,7 +452,7 @@ def save_config(
 
     # 3️⃣ json_editor 只做「缺键补全」
     try:
-        editor_partial = json.loads(json_editor)
+        editor_partial = json.loads(json_editor, strict=False)
     except json.JSONDecodeError:
         editor_partial = {}
         
