@@ -982,7 +982,7 @@ def main(args, config_args):
                                         if ref_image_dropout < random.random():
                                             # resize image to 384 if multiple images
                                             if ref_resize:
-                                                image = crop_image(image_path,resolution=392)
+                                                image = crop_image(image_path,resolution=384)
                                             # resize to target size to match training resolution
                                             else:
                                                 image = crop_image(image_path,resolution=resolution)
