@@ -3,36 +3,16 @@
 ---
 T2ITrainer is a diffusers based training script. It aims to provide simple yet implementation for lora training.
 
-- ❗ **Mandatory:** Update diffusers to latest v0.35.0 release version for qwen edit related classes.
+- ❗ **Mandatory:** Update diffusers to latest github version
 
 ```bash
-pip install diffusers -U
+pip install git+https://github.com/huggingface/diffusers.git -U
 ```
 
 
 ## 📅 Major Updates
-- **2025-10-04:**  Fix qwen vl image resize buckets
-- **2025-09-26:**  Support Qwen Edit Plus training. (Qwen Edit 2509)
-- **2025-09-25:**  Fix incorrect buckets assignment.
-- **2025-09-12:**  Add lokr UI support
-- **2025-09-11:**  Fix qwen batch size > 1 cause error
-- **2025-09-06:**  Update train_qwen_image_edit ref image logic. Add ``ref_image_config`` to caption_configs.
-- **2025-09-05:**  
-  - **Update**: Support lokr training of flux and qwen image/edit. 
-  - Lokr training only available for original repo model. Not support quantized model. It requires 48 GB GPU for the training without blockswap.
-  - Update qwen multiple reference logic. Concat ref image and use one img shape instead of multiple.
-  - Remove some unused model training script to /old
-  - Please refer to `config_qwen_single_lokr.json` for lokr training. add `use_lokr`, `rank_alpha` and `lokr_factor` for lokr config
-```bash
-"use_lokr": true,
-"rank": 10000,
-"rank_alpha": 1.0,
-"lokr_factor": 2,
-```
-```bash
-#install lycoris-lora for lokr training
-pip install lycoris-lora
-```
+- **2025-12-20:**  Node Based Frontend UI for configuration. Flexible dataset configuration. (Still under development)
+- **2025-12-20:**  Support LongCat Image and LongCat Edit, 6B MMDIT flux vae models, Lora Training
 - Thanks to 猫不爱吃香菜 sponsor for adding lokr support.
 - Thanks to AIGate(https://waas.aigate.cc/) providing compute power for the development.
   
@@ -44,15 +24,16 @@ pip install lycoris-lora
 ## 💻 Supported Training Configurations
 | Model Type       | VRAM Requirements          | Status       |
 |------------------|----------------------------|--------------|
+| LongCat Image/Edit | 24GB GPU | ✅ Supported  |
+| Qwen Edit | 48GB GPU (bf16)| ✅ Supported  |
 | Qwen Edit | 48GB GPU (bf16)| ✅ Supported  |
 | Qwen Image | 24GB GPU (nf4) 48GB GPU (bf16)| ✅ Supported  |
 | Flux Fill, Kontext| 24GB GPU                   | ✅ Supported  |
-| SD3.5 | 24GB GPU                   | ✅ Supported  |
-| Kolors           | 11GB GPU                   | ✅ Supported  |
 
 ---
 
 ## ⚙️ Installation Guide
+Installation needs to be updated. The following steps is missing so guidance for frontend.
 
 ### 0. System Requirements
 ❗ **Mandatory:** Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) if encountering DLL errors
