@@ -52,8 +52,8 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute left-20 top-4 bottom-4 w-[500px] bg-white/20 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-40 animate-in slide-in-from-left-4 fade-in duration-200">
-      <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white/70 dark:bg-zinc-900/70 rounded-t-2xl">
+    <div className="absolute left-20 top-2 bottom-2 w-[500px] bg-white/20 dark:bg-zinc-900/50 backdrop-blur-sm border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col z-40 animate-in slide-in-from-left-4 fade-in duration-200">
+      <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-white/70 dark:bg-zinc-900/70 rounded-t-2xl">
         <h2 className="text-zinc-600 dark:text-zinc-400 text-xs font-bold uppercase tracking-wider">
           {t('about')}
         </h2>
@@ -65,28 +65,28 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md">
         <button 
           onClick={() => setActiveTab('about')}
-          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'about' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-blue-600 dark:text-blue-400 border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
+          className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'about' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-blue-600 dark:text-blue-400 border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
         >
-          About
+          {t('about_tab')}
         </button>
         <button 
           onClick={() => setActiveTab('docs')}
-          className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'docs' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
+          className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'docs' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
         >
-          Docs
+          {t('docs_tab')}
         </button>
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden overflow-y-auto scrollbar-thin py-4 px-5 flex flex-col gap-5">
+      <div className="flex-1 overflow-hidden overflow-y-auto scrollbar-thin py-3 px-4 flex flex-col gap-4">
         {activeTab === 'about' ? (
-          <div className="space-y-7 text-zinc-700 dark:text-zinc-300">
+          <div className="space-y-6 text-zinc-700 dark:text-zinc-300">
             {/* Repo Info */}
             <section className="text-center pt-1">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-3 flex items-center justify-center gap-2">
-                <Github size={20}/> T2ITrainer Repository
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 flex items-center justify-center gap-2">
+                <Github size={20}/> {t('t2itrainer_repository')}
               </h3>
-              <a href="https://github.com/lrzjason/T2ITrainer" target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 hover:underline text-xs bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
+              <a href="https://github.com/lrzjason/T2ITrainer" target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 hover:underline text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">
                 https://github.com/lrzjason/T2ITrainer
               </a>
             </section>
@@ -95,32 +95,32 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
 
             {/* Contact Info */}
             <section>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-4 flex items-center gap-2">
-                📬 Contact Information
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-3 flex items-center gap-2">
+                📬 {t('contact_information')}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">Twitter</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('twitter')}</span>
                   <a href="https://twitter.com/Lrzjason" target="_blank" rel="noreferrer" className="text-blue-500 text-sm font-medium hover:underline truncate">@Lrzjason</a>
                 </div>
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">Email</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('email')}</span>
                   <a href="mailto:lrzjason@gmail.com" className="text-blue-500 text-sm font-medium hover:underline truncate">lrzjason@gmail.com</a>
                 </div>
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">QQ Group</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('qq_group')}</span>
                   <span className="font-mono text-sm truncate">866612947</span>
                 </div>
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">WeChat ID</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('wechat_id')}</span>
                   <span className="font-mono text-sm truncate">fkdeai</span>
                 </div>
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">CivitAI</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('civitai')}</span>
                   <a href="https://civitai.com/user/xiaozhijason" target="_blank" rel="noreferrer" className="text-blue-500 text-sm font-medium hover:underline truncate">xiaozhijason</a>
                 </div>
-                <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
-                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">Bilibili</span>
+                <div className="bg-zinc-50 dark:bg-zinc-900 p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 flex flex-col">
+                  <span className="font-bold text-zinc-500 text-[10px] uppercase mb-1">{t('bilibili')}</span>
                   <a href="https://space.bilibili.com/443010" target="_blank" rel="noreferrer" className="text-blue-500 text-sm font-medium hover:underline truncate">小志Jason</a>
                 </div>
               </div>
@@ -130,34 +130,34 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
 
             {/* Sponsor Info */}
             <section>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-4 text-center">
-                ❤️ Sponsor me for more open source projects
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-3 text-center">
+                ❤️ {t('sponsor_message')}
               </h3>
-              <div className="flex gap-6 justify-center bg-zinc-50 dark:bg-zinc-900/30 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                <div className="text-center group">
-                  <div className="bg-white p-2 rounded-xl shadow-sm mb-2 group-hover:shadow-md transition-shadow">
-                    <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/bmc_qr.png?raw=true" alt="Buy Me a Coffee QR" className="w-32 h-32 object-contain mix-blend-multiply dark:mix-blend-normal" />
+              <div className="flex justify-center bg-zinc-50 dark:bg-zinc-900/30 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+                <div className="text-center group px-1">
+                  <div className="bg-white p-1.5 rounded-lg shadow-sm mb-1.5 group-hover:shadow-md transition-shadow">
+                    <img src="/images/bmc_qr.png" alt="Buy Me a Coffee QR" className="w-40 h-40 object-contain mix-blend-multiply dark:mix-blend-normal" />
                   </div>
-                  <p className="font-bold text-xs uppercase tracking-wide text-zinc-500">Buy me a coffee</p>
+                  <p className="font-bold text-[10px] uppercase tracking-wide text-zinc-500">{t('buy_me_a_coffee')}</p>
                 </div>
                 <div className="text-center group">
-                  <div className="bg-white p-2 rounded-xl shadow-sm mb-2 group-hover:shadow-md transition-shadow">
-                    <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/wechat.jpg?raw=true" alt="WeChat QR" className="w-32 h-32 object-contain mix-blend-multiply dark:mix-blend-normal" />
+                  <div className="bg-white p-1.5 rounded-lg shadow-sm mb-1.5 group-hover:shadow-md transition-shadow">
+                    <img src="/images/wechat.jpg" alt="WeChat QR" className="w-40 h-40 object-contain mix-blend-multiply dark:mix-blend-normal" />
                   </div>
-                  <p className="font-bold text-xs uppercase tracking-wide text-zinc-500">WeChat</p>
+                  <p className="font-bold text-[10px] uppercase tracking-wide text-zinc-500">{t('wechat')}</p>
                 </div>
               </div>
             </section>
           </div>
         ) : (
-          <div className="pb-6">
-            <p className="mb-4 text-xs text-zinc-500 dark:text-zinc-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-100 dark:border-blue-900/50">
-              <Info size={14} className="inline mr-1 text-blue-500 mb-0.5"/>
-              The following documentation details the inputs and configuration fields for every node type in the editor.
+          <div className="pb-4">
+            <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400 bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded border border-blue-100 dark:border-blue-900/50">
+              <Info size={13} className="inline mr-1 text-blue-500 mb-0.5"/>
+              {t('documentation_description')}
             </p>
             
-            <div className="space-y-5">
-              <DocSection title="Core Nodes" icon={Terminal}>
+            <div className="space-y-4">
+              <DocSection title={t('core_nodes')} icon={Terminal}>
                 <NodeDoc 
                   title="Script Loader"
                   desc="The main entry point for generating the training command and configuration file."
@@ -184,7 +184,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
                 />
               </DocSection>
 
-              <DocSection title="Structure Nodes (New Schema)" icon={Layers}>
+              <DocSection title={t('structure_nodes')} icon={Layers}>
                 <NodeDoc 
                   title="Dataset List"
                   desc="Aggregates multiple dataset configurations."
@@ -199,7 +199,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
                 />
               </DocSection>
 
-              <DocSection title="Component Nodes" icon={Component}>
+              <DocSection title={t('component_nodes')} icon={Component}>
                 <NodeDoc 
                   title="Lists (Image, Target, Caption, Batch, Reference)"
                   desc="Intermediate nodes that manage lists of specific items. Connects Dataset Config to individual Items."
@@ -244,7 +244,7 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
                 />
               </DocSection>
               
-              <DocSection title="Old Schema Nodes" icon={Box}>
+              <DocSection title={t('old_schema_nodes')} icon={Box}>
                 <NodeDoc 
                   title="Old Schema Root"
                   desc="Root node for the legacy configuration schema."

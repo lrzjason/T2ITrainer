@@ -209,6 +209,31 @@ export const TRANSLATIONS = {
     enter_template_name: "Enter template name:",
     confirm_clear_nodes: "Are you sure you want to clear all nodes?",
     confirm_delete_template: "Are you sure you want to delete \"{templateName}\"?",
+    
+    // Contact Information Labels
+    twitter: "Twitter",
+    email: "Email",
+    qq_group: "QQ Group",
+    wechat_id: "WeChat ID",
+    civitai: "CivitAI",
+    bilibili: "Bilibili",
+    
+    // About Panel Content
+    t2itrainer_repository: "T2ITrainer Repository",
+    contact_information: "Contact Information",
+    sponsor_message: "Sponsor me for more open source projects",
+    buy_me_a_coffee: "Buy me a coffee",
+    wechat: "WeChat",
+    node_documentation: "Node documentation",
+    documentation_description: "The following documentation details the inputs and configuration fields for every node type in the editor.",
+    core_nodes: "Core Nodes",
+    structure_nodes: "Structure Nodes (New Schema)",
+    component_nodes: "Component Nodes",
+    old_schema_nodes: "Old Schema Nodes",
+    
+    // About Panel Tabs
+    about_tab: "About",
+    docs_tab: "Docs",
   },
   cn: {
     palette: "节点",
@@ -369,5 +394,30 @@ export const TRANSLATIONS = {
     enter_template_name: "输入模板名称:",
     confirm_clear_nodes: "确定要清除所有节点吗？",
     confirm_delete_template: "确定要删除 \"{templateName}\" 吗？",
+    
+    // Contact Information Labels
+    twitter: "推特",
+    email: "邮箱",
+    qq_group: "QQ群",
+    wechat_id: "微信ID",
+    civitai: "CivitAI",
+    bilibili: "哔哩哔哩",
+    
+    // About Panel Content
+    t2itrainer_repository: "T2ITrainer 仓库",
+    contact_information: "联系信息",
+    sponsor_message: "赞助我以支持更多开源项目",
+    buy_me_a_coffee: "请我喝咖啡",
+    wechat: "微信",
+    node_documentation: "节点文档",
+    documentation_description: "以下文档详细介绍了编辑器中每种节点类型的输入和配置字段。",
+    core_nodes: "核心节点",
+    structure_nodes: "结构节点（新架构）",
+    component_nodes: "组件节点",
+    old_schema_nodes: "旧架构节点",
+    
+    // About Panel Tabs
+    about_tab: "关于",
+    docs_tab: "文档",
   }
 };
