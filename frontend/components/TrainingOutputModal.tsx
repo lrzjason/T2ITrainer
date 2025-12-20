@@ -291,41 +291,6 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     setOutput([]);
   };
 
-  const runTest = async () => {
-    try {
-      console.log('[Training Modal Debug] Starting test mode');
-      setIsTestMode(true);
-      setStatus('connecting');
-      setOutput(['Starting test connection...']);
-      setIsRunning(true);
-
-      // Connect to the test WebSocket
-      connectTestWebSocket(handleOutput);
-      
-      // Wait a bit for connection to establish
-      setTimeout(() => {
-        try {
-          console.log('[Training Modal Debug] Sending test message');
-          sendTestMessage('test from frontend');
-          setOutput(prev => [...prev, 'Test message sent to backend']);
-          setStatus('running');
-        } catch (error) {
-          console.error('[Training Modal Debug] Error sending test message:', error);
-          setOutput(prev => [...prev, `Error sending test message: ${error instanceof Error ? error.message : String(error)}`]);
-          setStatus('error');
-          setIsTestMode(false);
-          setIsRunning(false);
-        }
-      }, 1000);
-    } catch (error) {
-      console.error('[Training Modal Debug] Error in test mode:', error);
-      setOutput(prev => [...prev, `Error in test mode: ${error instanceof Error ? error.message : String(error)}`]);
-      setStatus('error');
-      setIsTestMode(false);
-      setIsRunning(false);
-    }
-  };
-
   const copyOutput = () => {
     navigator.clipboard.writeText(output.join('\n'));
   };
@@ -398,23 +363,14 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/30 dark:bg-zinc-900/30">
           <div className="flex items-center gap-3">
             {!isRunning ? (
-              <>
-                <button
-                  onClick={startTraining}
-                  disabled={status === 'connecting'}
-                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
-                >
-                  <Play size={16} />
-                  {status === 'connecting' ? 'Connecting...' : 'Start Training'}
-                </button>
-                <button
-                  onClick={runTest}
-                  disabled={status === 'connecting'}
-                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
-                >
-                  Test WebSocket
-                </button>
-              </>
+              <button
+                onClick={startTraining}
+                disabled={status === 'connecting'}
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
+              >
+                <Play size={16} />
+                {status === 'connecting' ? 'Connecting...' : 'Start Training'}
+              </button>
             ) : (
               <button
                 onClick={() => {
