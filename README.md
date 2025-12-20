@@ -11,11 +11,12 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 
 
 ## 📅 Major Updates
-- **2025-12-20:**  Node Based Frontend UI for configuration. Flexible dataset configuration. (Still under development)
+- **2025-12-20:**  Node Based Frontend UI for configuration with visualization capabilities. Flexible dataset configuration. (Still under development)
 - **2025-12-20:**  Support LongCat Image and LongCat Edit, 6B MMDIT flux vae models, Lora Training
 
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
+- **Node.js**: `node>=14.0.0` (Required for frontend UI) [![Node.js](https://img.shields.io/badge/Node.js-14.0.0+-green)](https://nodejs.org/)
 
 ---
 
@@ -31,10 +32,18 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 ---
 
 ## ⚙️ Installation Guide
-Installation needs to be updated. The following steps is missing so guidance for frontend.
 
 ### 0. System Requirements
 ❗ **Mandatory:** Install [Microsoft Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist) if encountering DLL errors
+
+### 0.1 Frontend Requirements
+❗ **Mandatory:** Install [Node.js](https://nodejs.org/) (version 14 or higher) for the Node-Based Frontend UI
+
+After installing Node.js, verify the installation:
+```bash
+node --version
+npm --version
+```
 
 ### 1. Automated Setup
 Recommended Method
@@ -43,7 +52,14 @@ Recommended Method
   cd T2ITrainer
   setup.bat
 ```
-- Handles: Virtual Environment • Dependency Installation • Model Downloads
+- Handles: Virtual Environment • Dependency Installation • Model Downloads • Frontend Dependencies
+
+The automated setup will:
+1. Create a Python virtual environment
+2. Install Python dependencies
+3. Install Node.js dependencies for the frontend
+4. Build the frontend UI
+5. Download required models
 
 ### 2. Manual Installation
 **Clone Repository** 🌐
@@ -57,6 +73,19 @@ Recommended Method
     python -m venv venv
     call venv\Scripts\activate
     pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+```
+
+**Frontend Setup** 🖥️
+```bash
+    cd frontend
+    npm install
+    npm run build
+    cd ..
+```
+
+**Backend Dependencies** 📦
+```bash
+    pip install -r requirements.txt
 ```
 
 **Model Downloads** 📥 
@@ -84,12 +113,48 @@ You could find the download scripts in download_xxx.txt
 ```
 
 ## 🚀 Launch Options
+
+### Command Line Interface
 | Model          | Command                  | Special Notes                     |
 |-----------------|--------------------------|-----------------------------------|
 | Qwen Edit    | `python train_qwen_image_edit.py` | 48GB VRAM Recommended for original model|
 | Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
 | Flux kontext    | `python ui_flux_fill.py` | 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | 24GB VRAM Recommended |
+
+### Node-Based Frontend UI (Recommended)
+For the new Node-Based Frontend UI with visualization capabilities:
+
+**Development Mode (Fastest for development):**
+```bash
+# Terminal 1: Start backend
+python backend_api.py
+
+# Terminal 2: Start frontend (auto-reloads on changes)
+cd frontend
+npm run dev
+```
+Access at: http://localhost:3000
+
+**Production Mode (Optimized for performance):**
+```bash
+# Build and serve the frontend with backend
+python main.py
+```
+Access at: http://localhost:7860
+
+**Preview Mode (Pre-built optimized version):**
+```bash
+# Terminal 1: Start backend
+python backend_api.py
+
+# Terminal 2: Serve pre-built frontend (faster than main.py)
+cd frontend
+npm run preview
+```
+Access at: http://localhost:7860
+
+> **Performance Note**: `npm run dev` provides the fastest experience with hot reloading, while `npm run preview` offers optimized performance similar to production. The `python main.py` approach uses `npm run preview` internally for better performance but still requires the backend to be running separately.
 
 
 ## 🔧 Parameter Configuration Guide
@@ -271,6 +336,9 @@ tensorboard --logdir=.\logs
 - **Kolors Black Image Issue**: Ensure you're using [FP16 Fixed VAE](https://huggingface.co/madebyollin/sdxl-vae-fp16-fix)
 - **VRAM Limitations**: Adjust `blocks_to_swap` parameter (higher values reduce memory usage)
 - **Windows DLL Errors**: Verify VC++ Redistributable installation
+- **Frontend Not Loading**: Ensure Node.js is installed and frontend is built (`cd frontend && npm install && npm run build`)
+- **Templates Not Found**: In production builds, ensure the backend is running (`python backend_api.py`) before accessing the frontend
+- **Slow Frontend Performance**: Use `npm run dev` for development or `npm run preview` for optimized local serving instead of `python main.py`
 ---
 
 
