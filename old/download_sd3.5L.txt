@@ -1,0 +1,1 @@
+hf download"stabilityai/stable-diffusion-3.5-large" --local-dir sd3.5L/

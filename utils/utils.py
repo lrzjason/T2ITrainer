@@ -15,7 +15,88 @@ from PIL import Image
 from hashlib import md5
 import cv2
 import numpy as np
-from typing import Tuple
+from typing import List, Tuple, Union
+from typing import List
+import glob
+
+def get_image_files(target_dir: str, image_extensions: list = None) -> list:
+    if image_extensions is None:
+        image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp', '.gif']
+    
+    # Build glob pattern: match all files with image extensions (case-insensitive via glob's `*`)
+    patterns = [os.path.join(target_dir, f"*{ext}") for ext in image_extensions]
+    # Add uppercase variants just in case (some OSes are case-sensitive)
+    # patterns += [os.path.join(target_dir, f"*{ext.upper()}") for ext in image_extensions if ext.upper() != ext]
+    
+    # Use glob to get candidate files
+    candidate_files = []
+    for pattern in patterns:
+        candidate_files.extend(glob.glob(pattern, recursive=False))
+    
+    return candidate_files
+
+def find_image_files_by_regex(candidate_files: list, regex_pattern: str, image_extensions: list = None) -> list:
+    """
+    Find image files in `target_dir` that match `regex_pattern`.
+    
+    Args:
+        target_dir (str): Directory to search.
+        regex_pattern (str): Regex pattern to match full file *names* (not paths).
+        image_extensions (list, optional): Allowed image extensions (case-insensitive).
+                                           Defaults to common formats.
+    
+    Returns:
+        list: Sorted list of absolute paths to matching image files.
+    """
+
+    if image_extensions is None:
+        image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp', '.gif']
+    
+    # Normalize extensions to lowercase for case-insensitive matching
+    image_exts_lower = {ext.lower() for ext in image_extensions}
+    
+    # Compile regex for efficiency
+    compiled_re = re.compile(regex_pattern)
+    
+    # Filter: keep only files whose *basename* matches regex AND has valid image extension
+    matched_files = []
+    for f in candidate_files:
+        basename = os.path.basename(f)
+        _, ext = os.path.splitext(basename)
+        if ext.lower() in image_exts_lower and compiled_re.search(basename):
+            matched_files.append(os.path.abspath(f))
+    
+    return sorted(matched_files)
+
+def linear_interpolation(
+    learning_target: torch.Tensor,      # (B, 16, F, H, W)
+    reference_list: torch.Tensor,       # (B, 16, F, H, W)
+    reasoning_frame: int,                # e.g., 6
+    gamma: float = 0.5                  # >1 to bias toward target
+) -> List[torch.Tensor]:
+    assert reference_list.shape == learning_target.shape
+    assert reasoning_frame >= 0
+    B, C, F, H, W = learning_target.shape
+    assert F == 1, "Only single-frame interpolation supported"
+
+    ref = reference_list.squeeze(2)      # (B, C, H, W)
+    tgt = learning_target.squeeze(2)     # (B, C, H, W)
+
+    total_steps = reasoning_frame + 2
+    # alphas = torch.linspace(0.0, 1.0, steps=total_steps, device=ref.device)
+    t = torch.linspace(0.0, 1.0, steps=total_steps, device=ref.device)
+    alphas = t ** gamma  # Non-linear spacing biased toward target
+
+    latents = []
+    for alpha in alphas:
+        if alpha > 0.9:  # 纯参考帧
+            # skip reference
+            continue
+        interp = (1 - alpha) * tgt + alpha * ref  # (B, C, H, W)
+        interp = interp.unsqueeze(2)              # (B, C, 1, H, W)
+        latents.append(interp)
+
+    return latents
 
 class ToTensorUniversal:
     """
@@ -56,115 +137,12 @@ class ToTensorUniversal:
 # resize_method: str, "fs_resize" or "lanczos"
 def resize(img: np.ndarray, resolution, resize_method="lanczos") -> np.ndarray:
     f_width, f_height = resolution
-    if resize_method == "lanczos":
-        # resized_img = cv2.resize(img, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
-        # 使用PIL的缩放算法保障画质
-        # 20250920 ensure img is uint8 for pil resiez
-        if img.dtype != np.uint8: 
-            img = cv2.convertScaleAbs(img)
-            
-        img_pil = Image.fromarray(img)
-        resized_img = img_pil.resize((f_width, f_height), Image.LANCZOS)
-        resized_img = np.array(resized_img)
-    else:
-        # --- 1. 设置设备 ---
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if not torch.cuda.is_available():
-            print("Warning: CUDA is not available. Running on CPU. This might not be faster than NumPy.")
-        # print(f"Using device: {device}") # 可选：打印使用的设备
-
-        h, w = img.shape[:2]
-        # if (w, h) == (f_width, f_height): # 简单处理，即使尺寸相同也执行后续逻辑
-        #     pass
-
-        # --- 2. 预处理 (在 CPU 上使用 OpenCV) ---
-        img_for_filtering = img # 保留原始 img 用于后续色彩校正参考
-        # if reduce_texture and pre_sigma > 0:
-        #     img_blur_input = img_for_filtering.astype(np.float32) if img_for_filtering.dtype != np.float32 else img_for_filtering
-        #     img_for_filtering = cv2.GaussianBlur(img_blur_input, (0, 0), pre_sigma, borderType=cv2.BORDER_REFLECT)
-        #     if img_blur_input.dtype == np.uint8 and img_for_filtering.dtype != np.uint8:
-        #          img_for_filtering = np.clip(img_for_filtering, 0, 255).astype(np.uint8)
-
-        # --- 3. 转换到频域 (在 GPU 上使用 PyTorch) ---
-        # 确保输入是 float32 以便于 PyTorch 处理
-        img_float32 = img_for_filtering.astype(np.float32) if img_for_filtering.dtype != np.float32 else img_for_filtering
-
-        # 分离通道 (NumPy)
-        if len(img_float32.shape) == 3:
-            channels = cv2.split(img_float32)
-        else:
-            channels = [img_float32]
-
-        # --- 4. 创建滤波器掩膜 (在 GPU 上使用 PyTorch) ---
-        # rows, cols = h, w
-        # crow, ccol = rows // 2, cols // 2
-
-        k_w = f_width / w
-        k_h = f_height / h
-        k = min(k_w, k_h)
-        # dynamic_cutoff = cutoff_ratio * min(k, 1.0)
-        # dynamic_cutoff = max(dynamic_cutoff, 0.05) # 防止截止频率过低
-        # D0 = dynamic_cutoff * (min(rows, cols) / 2)
-
-        # # 在 GPU 上创建网格和距离矩阵
-        # u = torch.arange(rows, dtype=torch.float32, device=device)
-        # v = torch.arange(cols, dtype=torch.float32, device=device)
-        # U, V = torch.meshgrid(u, v, indexing='ij')
-        # D = torch.sqrt((U - crow)**2 + (V - ccol)**2 + 1e-10) # 添加小量防止 sqrt(0)
-
-        # 在 GPU 上创建滤波器掩膜
-        # if filter_type == 'gaussian':
-        #     mask = torch.exp(- (D**2) / (2 * (D0**2) + 1e-10))
-        # elif filter_type == 'ideal':
-        #     mask = (D <= D0).float() # 使用 .float() 转换布尔值为 0/1
-        # elif filter_type == 'butterworth':
-        #     # 使用 torch.where 处理除零情况
-        #     mask = torch.where(
-        #         D > 1e-10, # 避免除以零
-        #         1.0 / (1.0 + (D / (D0 + 1e-10))**(2 * order)),
-        #         torch.tensor(1.0, dtype=torch.float32, device=device) # D=0 时为 1
-        #     )
-        # else:
-        #     raise ValueError("filter_type must be 'ideal', 'butterworth', or 'gaussian'")
-
-        # --- 5. 对每个通道应用滤波器 (在 GPU 上) ---
-        filtered_channels_out = []
-        for ch in channels:
-            # NumPy -> PyTorch Tensor -> GPU
-            ch_tensor = torch.from_numpy(ch).to(device)
-
-            # FFT (PyTorch)
-            F = torch.fft.fft2(ch_tensor)
-            F_shifted = torch.fft.fftshift(F)
-
-            # Apply filter (PyTorch, broadcasting)
-            # F_filtered_shifted = F_shifted * mask
-            F_filtered_shifted = F_shifted
-
-            # IFFT (PyTorch)
-            F_filtered = torch.fft.ifftshift(F_filtered_shifted)
-            f_filtered = torch.fft.ifft2(F_filtered)
-
-            # 获取实部并转换回 CPU NumPy
-            img_filtered_ch = torch.real(f_filtered).cpu().numpy()
-            filtered_channels_out.append(img_filtered_ch)
-
-        # --- 6. 后处理 (在 CPU 上使用 NumPy/OpenCV) ---
-        # 合并通道
-        if len(img.shape) == 3:
-            img_filtered = cv2.merge(filtered_channels_out)
-        else:
-            img_filtered = filtered_channels_out[0]
-
-        # 裁剪和类型转换
-        img_filtered = np.clip(img_filtered, 0, 255).astype(np.uint8)
-
-        # --- 7. 调整尺寸到目标分辨率 (在 CPU 上使用 OpenCV) ---
-        if k < 1: # 缩小
-            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_AREA)
-        else: # 放大
-            resized_img = cv2.resize(img_filtered, (f_width, f_height), interpolation=cv2.INTER_LANCZOS4)
-
+    if img.dtype != np.uint8: 
+        img = cv2.convertScaleAbs(img)
+        
+    img_pil = Image.fromarray(img)
+    resized_img = img_pil.resize((f_width, f_height), Image.LANCZOS)
+    resized_img = np.array(resized_img)
     return resized_img # 返回最终（可能已校正）的图像
 
 def find_index_from_right(lst, value):
@@ -700,3 +678,364 @@ def get_md5_by_path(file_path):
     except:
         print(f"Error getting md5 for {file_path}")
         return ''
+    
+
+def sample_reference_timesteps(
+    t: float,
+    t_low: float = 0.15,
+    t_high: float = 0.85,
+    max_references: int = 3,
+    min_step: float = 0.05,
+    max_step: float = 0.1,
+    seed: int = None
+) -> list[float]:
+    """
+    根据当前时间步 t 动态采样参考时间步。
+    
+    Args:
+        t: 当前归一化时间步 (0=清晰, 1=噪声)
+        t_low: 有效区间的下界（低于此值无参考）
+        t_high: 有效区间的上界（高于此值无参考）
+        max_references: 区间中心最多参考步数
+        min_step: 最小时间步间隔
+        max_step: 最大时间步间隔
+        seed: 随机种子（可选）
+    
+    Returns:
+        list[float]: 参考时间步列表（按时间递增排序），若无参考则返回 []
+    """
+    if seed is not None:
+        random.seed(seed)
+    
+    # 1. 区间左侧外：无参考
+    if t < t_low:
+        return []
+    
+    # 2. 区间右侧外：返回 1 - t
+    if t >= (t_high - min_step):
+        return [ 0.0001 ]
+    
+    # 2. 计算当前位置在有效区间中的归一化位置 (0=左边界, 1=右边界)
+    interval_length = t_high - t_low
+    interval_pos = (t - t_low) / interval_length  # ∈ (0, 1)
+    
+    # 3. 距离最近边界的归一化距离 ∈ (0, 0.5]
+    distance_to_edge = min(interval_pos, 1 - interval_pos)
+    
+    # 4. 线性映射到参考数量：0.0 → 0, 0.5 → max_references
+    ref_count_float = max_references * (2 * distance_to_edge)  # ∈ (0, max_references]
+    ref_count = max(1, min(max_references, int(round(ref_count_float))))
+    
+    # 5. 采样参考时间步（必须 > t，且 <= t_high）
+    references = []
+    current_t = t
+    for _ in range(ref_count):
+        available_range = t_high - current_t  # 关键修正：上限是 t_high，不是 1.0
+        if available_range < min_step:
+            break  # 无法再放置一个有效参考
+        
+        step_upper = min(max_step, available_range)
+        if step_upper <= min_step:
+            step = min_step
+        else:
+            step = random.uniform(min_step, step_upper)
+        
+        ref_t = current_t + step
+        # 理论上 ref_t <= t_high，但加个保险
+        if ref_t > t_high:
+            break
+        
+        references.append(ref_t)
+        current_t = ref_t
+    
+    return sorted(references)
+
+
+def simple_center_crop(image,scale_with_height,closest_resolution):
+    height, width, _ = image.shape
+    # print("ori size:",width,height)
+    if scale_with_height: 
+        up_scale = height / closest_resolution[1]
+    else:
+        up_scale = width / closest_resolution[0]
+
+    expanded_closest_size = (int(closest_resolution[0] * up_scale + 0.5), int(closest_resolution[1] * up_scale + 0.5))
+    
+    diff_x = abs(expanded_closest_size[0] - width)
+    diff_y = abs(expanded_closest_size[1] - height)
+
+    crop_x = 0
+    crop_y = 0
+    # crop extra part of the resized images
+    if diff_x>0:
+        crop_x =  diff_x //2
+        cropped_image = image[:,  crop_x:width-diff_x+crop_x]
+    elif diff_y>0:
+        crop_y =  diff_y//2
+        cropped_image = image[crop_y:height-diff_y+crop_y, :]
+    else:
+        # 1:1 ratio
+        cropped_image = image
+
+    # print(f"ori ratio:{width/height}")
+    height, width, _ = cropped_image.shape  
+    return resize(cropped_image, closest_resolution, resize_method="lanczos"), crop_x, crop_y
+
+
+def read_image(image_path):
+    try:
+        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        if image is not None:
+            # Convert to RGB format (assuming the original image is in BGR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        else:
+            print(f"Failed to open {image_path}.")
+    except Exception as e:
+        print(f"An error occurred while processing {image_path}: {e}")
+    return image
+
+
+# return closest_ratio and width,height closest_resolution
+def get_nearest_resolution_utils(image, resolution_set):
+    height, width, _ = image.shape
+    # get ratio
+    image_ratio = width / height
+
+    target_set = resolution_set.copy()
+    reversed_set = [(y, x) for x, y in target_set]
+    target_set = sorted(set(target_set + reversed_set))
+    target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
+    
+    # Find the closest vertical ratio
+    closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
+    closest_resolution = target_set[target_ratio.index(closest_ratio)]
+
+    return closest_ratio,closest_resolution
+
+def crop_image_utils(image_path,resolution_set):
+    image = read_image(image_path)
+    ##############################################################################
+    # Simple center crop for others
+    ##############################################################################
+    # width, height = image.size
+    # original_size = (height, width)
+    # image = numpy.array(image)
+    
+    height, width, _ = image.shape
+    # original_size = (height, width)
+    
+    # get nearest resolution
+    closest_ratio,closest_resolution = get_nearest_resolution_utils(image,resolution_set)
+    # we need to expand the closest resolution to target resolution before cropping
+    scale_ratio = closest_resolution[0] / closest_resolution[1]
+    image_ratio = width / height
+    scale_with_height = True
+    # crops_coords_top_left = (0,0)
+    # referenced kohya ss code
+    if image_ratio < scale_ratio: 
+        scale_with_height = False
+    try:
+        # image = simple_center_crop(image,scale_with_height,closest_resolution)
+        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
+        # crops_coords_top_left = (crop_y,crop_x)
+        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
+    except Exception as e:
+        print(e)
+        raise e
+    # test = Image.fromarray(image)
+    # test.show()
+    # set meta data
+    return image
+
+
+
+@torch.no_grad()
+def vae_encode_utils(vae,image, vae_type="wan"):
+    # create tensor latent
+    
+    pixel_values = []
+    pixel_values.append(image)
+    pixel_values = torch.stack(pixel_values).to(vae.device)
+    # del image
+    
+    if vae_type=="wan":
+        # Qwen expects a `num_frames` dimension too.
+        if pixel_values.ndim == 4:
+            pixel_values = pixel_values.unsqueeze(2)
+    
+    latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
+    
+    del pixel_values
+    latent_dict = {
+        'latent': latent.cpu()
+    }
+    return latent_dict
+
+def project_timestep_snr(
+    t_actual: torch.Tensor,
+    comfort_zone_steps: Union[List[float], torch.Tensor],
+    schedule: str = "linear"
+) -> torch.Tensor:
+    """
+    修正版SNR投影函数 - 张量优先设计
+    1. 支持浮点输入 (874.9999)
+    2. 精确处理0步语义
+    3. 自动四舍五入到最近舒适步
+    """
+    if not isinstance(t_actual, torch.Tensor):
+        raise TypeError("t_actual must be a torch.Tensor")
+    if t_actual.dim() not in [1, 2]:
+        raise ValueError(f"t_actual must be 1D or 2D tensor, got shape {t_actual.shape}")
+    
+    # 保存原始形状，展平处理
+    original_shape = t_actual.shape
+    t_flat = t_actual.reshape(-1)
+    
+    device = t_flat.device
+    
+    # 1. 预处理舒适区：转换为张量 + 四舍五入 + 去重 + 排序
+    if not isinstance(comfort_zone_steps, torch.Tensor):
+        comfort_zone_steps = torch.tensor(comfort_zone_steps, device=device)
+    
+    # 四舍五入到最近整数，钳位到[0,1000]
+    comfort_steps = torch.round(comfort_zone_steps).long().clamp(0, 1000)
+    comfort_steps = torch.unique(comfort_steps.sort().values)
+    
+    if len(comfort_steps) == 0:
+        raise ValueError("No valid comfort steps after filtering. Must be between 0-1000")
+    
+    # 2. 处理输入时间步：四舍五入 + 钳位
+    t_rounded = torch.round(t_flat).long().clamp(0, 1000)
+    
+    # 3. 核心投影逻辑
+    # 3.1 特殊处理0步 (关键!)
+    has_zero = (comfort_steps == 0).any()
+    comfort_nonzero = comfort_steps[comfort_steps > 0]
+    
+    # 3.2 初始化投影结果
+    t_proj = torch.empty_like(t_rounded)
+    
+    if has_zero and len(comfort_nonzero) > 0:
+        last_nonzero = comfort_nonzero.min()  # 最小的非零舒适步 (300)
+        threshold = last_nonzero // 2         # 150 for SDXL
+        
+        # 规则1: t=0 必须映射到0
+        zero_mask = (t_rounded == 0)
+        t_proj[zero_mask] = 0
+        
+        # 规则2: t <= threshold 且 t>0 -> 用SNR决策
+        candidate_mask = (t_rounded > 0) & (t_rounded <= threshold)
+        if candidate_mask.any():
+            # 获取SNR缓存
+            T = 1000
+            cache_key = (schedule, str(device))
+            
+            if not hasattr(project_timestep_snr, "snr_cache"):
+                project_timestep_snr.snr_cache = {}
+            
+            if cache_key not in project_timestep_snr.snr_cache:
+                if schedule == "linear":
+                    beta_start, beta_end = 0.00085, 0.012
+                    betas = torch.linspace(beta_start**0.5, beta_end**0.5, T, device=device)**2
+                    alphas_cumprod = torch.cumprod(1.0 - betas, dim=0)
+                elif schedule == "cosine":
+                    s = 0.008
+                    x = torch.linspace(0, T, T + 1, device=device)
+                    f_t = torch.cos(((x / T) + s) / (1 + s) * math.pi * 0.5) ** 2
+                    alphas_cumprod = f_t / f_t[0]
+                    alphas_cumprod = torch.clamp(alphas_cumprod[1:], 0.0001, 0.9999)
+                elif schedule == "scaled_linear":
+                    beta_start, beta_end = 0.0001, 0.02
+                    betas = torch.linspace(beta_start**0.5, beta_end**0.5, T, device=device)**2
+                    alphas_cumprod = torch.cumprod(1.0 - betas, dim=0)
+                else:
+                    raise ValueError(f"Unsupported schedule: {schedule}")
+                
+                sigmas = torch.sqrt(1.0 - alphas_cumprod)
+                snrs = torch.log(alphas_cumprod / (sigmas ** 2 + 1e-8))
+                project_timestep_snr.snr_cache[cache_key] = snrs
+            
+            snrs = project_timestep_snr.snr_cache[cache_key]
+            
+            # 获取候选步的SNR
+            candidate_ts = t_rounded[candidate_mask]
+            candidate_snrs = snrs[candidate_ts - 1]  # t=1使用snrs[0]
+            
+            # 0步的SNR (理论+∞)
+            zero_snr = 1e6
+            
+            # 300步的SNR
+            nonzero_snr = snrs[last_nonzero - 1]
+            
+            # 决策：如果候选步的SNR更接近0步或SNR>5.0则映射到0
+            dist_to_zero = torch.abs(candidate_snrs - zero_snr)
+            dist_to_nonzero = torch.abs(candidate_snrs - nonzero_snr)
+            map_to_zero = (dist_to_zero < dist_to_nonzero) | (candidate_snrs > 5.0)
+            
+            # 应用映射
+            t_proj_candidate = torch.where(
+                map_to_zero,
+                torch.zeros_like(candidate_ts),
+                torch.full_like(candidate_ts, last_nonzero)
+            )
+            t_proj[candidate_mask] = t_proj_candidate
+        
+        # 规则3: 剩余步骤 (t > threshold) 用线性距离
+        remaining_mask = ~(zero_mask | candidate_mask)
+    else:
+        remaining_mask = torch.ones_like(t_rounded, dtype=torch.bool)
+    
+    # 3.3 剩余步骤：使用线性距离
+    if remaining_mask.any():
+        remaining_ts = t_rounded[remaining_mask]
+        dist_matrix = torch.abs(remaining_ts.unsqueeze(1) - comfort_steps.unsqueeze(0))
+        nearest_idx = torch.argmin(dist_matrix, dim=1)
+        t_proj[remaining_mask] = comfort_steps[nearest_idx]
+    
+    # 恢复原始形状
+    return t_proj.reshape(original_shape).detach()
+
+def parse_indices(indices_str):
+    indices = []
+    if indices_str.strip() == "":
+        return []
+    parts = indices_str.split(",")
+    for part in parts:
+        part = part.strip()
+        
+        # skip empty parts
+        if not part:
+            continue
+        
+        if "-" in part:
+            # Handle range notation like "50-53"
+            try:
+                start, end = part.split("-")
+                start_idx = int(start.strip())
+                end_idx = int(end.strip())
+                if start_idx > end_idx:
+                    raise ValueError(f"Invalid range: {part} (start index greater than end index)")
+                indices.extend(range(start_idx, end_idx + 1))
+            except ValueError:
+                raise ValueError(f"Invalid range format: {part}. Use format like '10-15'.")
+        else:
+            # Handle single integer
+            try:
+                indices.append(int(part))
+            except ValueError:
+                raise ValueError(f"Invalid layer index: {part}")
+    return indices
+
+def print_end_signal():
+    print("=========== End Training ===========")
+
+# Example usage:
+if __name__ == "__main__":
+    target_dir = r"F:\ImageSet\general_editing\style_gen_test\aelion"
+    # Example: match files like "cat_001.jpg", "dog_2025.png", but NOT "cat_old.jpg"
+    pattern = r".*_T\.(?:jpg|jpeg|png|bmp|tiff|tif|webp|gif)$"  # lowercase word + underscore + digits + .jpg/.png
+    
+    matches = find_image_files_by_regex(target_dir, pattern)
+    for f in matches:
+        print(f)
+        

@@ -136,7 +136,7 @@ from torchvision import transforms
 
 from diffusers.image_processor import VaeImageProcessor
 
-from utils.utils import find_index_from_right, ToTensorUniversal
+from utils.utils import find_index_from_right, ToTensorUniversal, print_end_signal
 
 from utils.training_set.select_training_set import get_training_set
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
@@ -2051,10 +2051,15 @@ def main(args, config_args):
         # end validation part
         # ==================================================
     
+    # Properly close the progress bar to avoid cleanup errors
+    if 'progress_bar' in locals():
+        progress_bar.close()
+    
     accelerator.end_training()
     print("Saved to ")
     print(args.output_dir)
-
+    
+    print_end_signal()
 
 if __name__ == "__main__":
     args, config_args = parse_args()

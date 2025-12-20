@@ -1,0 +1,12 @@
+hf download "meituan-longcat/LongCat-Image-Dev" --local-dir longcat_models/LongCat-Image-Dev/
+
+hf download "meituan-longcat/LongCat-Image" --local-dir longcat_models/LongCat-Image/transformer --include "transformer/*"
+
+hf download "meituan-longcat/LongCat-Image-Edit" --local-dir longcat_models/LongCat-Image-Edit/transformer --include "transformer/*"
+
+mklink /d F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\text_encoder F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\text_encoder
+mklink /d F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\tokenizer F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\tokenizer
+mklink /d F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\vae F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\vae
+mklink /d F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\scheduler F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\scheduler
+mklink /d F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\text_processor F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\text_processor
+copy F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Dev\model_index.json F:\T2ITrainer_pulic\T2ITrainer\longcat_models\LongCat-Image-Edit\model_index.json

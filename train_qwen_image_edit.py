@@ -41,8 +41,8 @@ import torch
 from accelerate import Accelerator
 from accelerate.utils import DistributedDataParallelKwargs, ProjectConfiguration, set_seed
 from accelerate.logging import get_logger
-from accelerate.utils import ProjectConfiguration, set_seed
-from tqdm.auto import tqdm
+from accelerate.utils import ProjectConfiguration, set_seed, tqdm
+# from tqdm.auto import tqdm
 # from transformers import AutoTokenizer, PretrainedConfig
 from diffusers import (
     AutoencoderKLQwenImage,
@@ -118,12 +118,11 @@ from utils.image_utils_qwenimage import compute_text_embeddings, replace_non_utf
 
 from torchvision import transforms
 
-from utils.utils import find_index_from_right, ToTensorUniversal
+from utils.utils import find_index_from_right, ToTensorUniversal, sample_reference_timesteps, linear_interpolation, print_end_signal
 
 from utils.training_set.select_training_set import get_training_set
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 from torch.nn.utils.rnn import pad_sequence
-
 
 logger = get_logger(__name__)
 
@@ -545,6 +544,75 @@ def parse_args(input_args=None):
         default=8.0,
         help=("The lokr factor of the Lokr matrices."),
     )
+    
+    # enable_traj_refs
+    # traj_drop_rate = 0.15
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    # pior_weight = 0.3
+    parser.add_argument(
+        "--enable_traj_refs",
+        action="store_true",
+        help="enable_traj_refs",
+    )
+    parser.add_argument(
+        "--traj_drop_rate",
+        type=float,
+        default=0.15,
+        help=("traj_drop_rate"),
+    )
+    parser.add_argument(
+        "--t_low",
+        type=float,
+        default=0.2,
+        help=("t_low"),
+    )
+    parser.add_argument(
+        "--t_high",
+        type=float,
+        default=0.85,
+        help=("t_high"),
+    )
+    parser.add_argument(
+        "--min_step",
+        type=float,
+        default=0.05,
+        help=("min_step"),
+    )
+    parser.add_argument(
+        "--traj_weight",
+        type=float,
+        default=0.4,
+        help=("traj_weight"),
+    )
+    parser.add_argument(
+        "--reasoning_frame",
+        type=int,
+        default=2,
+        help=("reasoning_frame"),
+    )
+    parser.add_argument(
+        "--reasoning_gamma",
+        type=float,
+        default=1.25,
+        help=("reasoning_gamma"),
+    )
+    
+    parser.add_argument(
+        "--use_new_rope",
+        action="store_true",
+        help="Use new rope style for main image + multiple reference images",
+    )
+    
+    
+    # parser.add_argument(
+    #     "--pior_weight",
+    #     type=float,
+    #     default=0.3,
+    #     help=("pior_weight"),
+    # )
     # parser.add_argument(
     #     "--use_torch_compile",
     #     action="store_true",
@@ -595,6 +663,39 @@ def parse_args(input_args=None):
     return args, config_args
 
 def main(args, config_args):
+    # start using reference timestep
+    # enable_traj_refs = True
+    # traj_drop_rate = 0.15
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    # pior_weight = 0.3
+    enable_traj_refs = args.enable_traj_refs
+    traj_drop_rate = args.traj_drop_rate
+    t_low = args.t_low
+    t_high = args.t_high
+    min_step = args.min_step
+    traj_weight = args.traj_weight
+    max_references = 2
+    reasoning_frame = args.reasoning_frame
+    reasoning_gamma = args.reasoning_gamma
+    # pior_weight = args.pior_weight
+    
+    # baseline
+    # traj_drop_rate = 0.15
+    # t_low = 0.15
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    
+    # low traj
+    # traj_drop_rate = 0.1
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.3
+    
     d_coef = 2.0
     # args.scale_lr = False
     use_8bit_adam = True
@@ -702,7 +803,7 @@ def main(args, config_args):
         True,
         True
     ]
-    vae_scale_factor = 2 ** len(temperal_downsample)
+    vae_scale_factor = int(2 ** len(temperal_downsample))
     
     # to avoid cache mutiple times on same embedding
     # use_same_embedding = True
@@ -722,9 +823,10 @@ def main(args, config_args):
     
     # logging_dir = "logs"
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=args.logging_dir)
-    kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+    # kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
+    kwargs = DistributedDataParallelKwargs()
     # run name is save name + datetime
-    run_name = f"{args.save_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # run_name = f"{args.save_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     accelerator = Accelerator(
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         mixed_precision=args.mixed_precision,
@@ -838,7 +940,7 @@ def main(args, config_args):
                     filename_without_suffix = filename
                     
                 subdir = os.path.dirname(file)
-                mapping_key = f"{subdir}_{filename_without_suffix}"
+                mapping_key = f"{subdir}/{filename_without_suffix}"
                 if not mapping_key in mapping[key]:
                     mapping[key][mapping_key] = []
                 mapping[key][mapping_key].append(file)
@@ -871,12 +973,12 @@ def main(args, config_args):
             with torch.no_grad():
                 if os.path.exists(metadata_path) and not args.recreate_cache:
                     with open(metadata_path, "r", encoding='utf-8') as readfile:
-                        metadata_datarows = json.loads(readfile.read())
+                        metadata_datarows = json.loads(readfile.read(), strict=False)
                         full_datarows += metadata_datarows
                     
                     if os.path.exists(val_metadata_path):
                         with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                            val_metadata_datarows = json.loads(readfile.read())
+                            val_metadata_datarows = json.loads(readfile.read(), strict=False)
                             full_datarows += val_metadata_datarows
                 else:
                     # Offload models to CPU and load necessary components
@@ -1036,12 +1138,15 @@ def main(args, config_args):
                         temp_image_pool = { }
                         for image_config_key in image_configs.keys():
                             image_config = image_configs[image_config_key]
+                            image_resolution = resolution
+                            if "resolution" in image_config:
+                                image_resolution = int(image_config["resolution"])
                             image_path = json_obj[image_config_key][image_path_key]
                             filename, _ = os.path.splitext(image_path)
                             
                             json_obj[image_config_key][latent_path_key] = f"{filename}{latent_ext}"
                             latent_cache_path = f"{filename}{latent_ext}"
-                            image = crop_image(image_path,resolution=resolution)
+                            image = crop_image(image_path,resolution=image_resolution)
                             image_height, image_width, _ = image.shape
                             
                             json_obj['bucket'] = f"{image_width}x{image_height}"
@@ -1139,6 +1244,9 @@ def main(args, config_args):
                         transformer_folder, variant=variant,  
                         torch_dtype=weight_dtype
                     ).to(offload_device)
+    
+    # set rope style
+    transformer.select_rope(args.use_new_rope)
     flush()
 
     if "quantization_config" in transformer.config:
@@ -1432,7 +1540,7 @@ def main(args, config_args):
 
         if args.learning_rate <= 0.1:
             logger.warning(
-                "Learning rate is too low. When using prodigy, it's generally better to set learning rate around 1.0"
+                "Learning rate is too low. When using prodigy, it's generally bettere to set learning rate around 1.0"
             )
 
         optimizer = optimizer_class(
@@ -1472,17 +1580,24 @@ def main(args, config_args):
 
     # referenced from everyDream discord minienglish1 shared script
     #create bucket batch sampler
-    bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
+    distributed_bucket_batch_sampler = BucketBatchSampler(train_dataset, batch_size=args.train_batch_size)
+    # distributed_bucket_batch_sampler = DistributedBucketBatchSampler(train_dataset, 
+    #                                                                 batch_size=args.train_batch_size,
+    #                                                                 num_replicas=accelerator.num_processes,
+    #                                                                 rank=accelerator.process_index,
+    #                                                                 seed=args.seed)
 
     #initialize the DataLoader with the bucket batch sampler
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_sampler=bucket_batch_sampler, #use bucket_batch_sampler instead of shuffle
+        batch_sampler=distributed_bucket_batch_sampler,
         collate_fn=collate_fn,
         num_workers=dataloader_num_workers,
     )
     
-    
+    train_dataloader = accelerator.prepare(
+        train_dataloader
+    )
 
     # Scheduler and math around the number of training steps.
     override_max_train_steps = False
@@ -1499,11 +1614,16 @@ def main(args, config_args):
     args.num_train_epochs = math.ceil(max_train_steps / num_update_steps_per_epoch)
 
 
-    print("  Num examples = ", len(train_dataset))
-    print("  Num Epochs = ", args.num_train_epochs)
-    print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
-    print("  max_train_steps = ", max_train_steps)
-
+    if accelerator.is_main_process:
+        print(f"Dataset size: {len(train_dataset)}")
+        print(f"Per-GPU batches per epoch: {len(train_dataloader)}")
+        print(f"Global batches per epoch: {len(train_dataloader) * accelerator.num_processes}")
+        print(f"Update steps per epoch: {num_update_steps_per_epoch}")
+        print(f"Total training steps: {max_train_steps}")
+    # print("  Num examples = ", len(train_dataset))
+    # print("  Num Epochs = ", args.num_train_epochs)
+    # print("  num_update_steps_per_epoch = ", num_update_steps_per_epoch)
+    # print("  max_train_steps = ", max_train_steps)
     lr_scheduler = get_scheduler(
         args.lr_scheduler,
         optimizer=optimizer,
@@ -1512,9 +1632,12 @@ def main(args, config_args):
         num_cycles=lr_num_cycles,
         power=lr_power,
     )
-    optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        optimizer, train_dataloader, lr_scheduler
+    
+    print("Before:", type(train_dataloader.batch_sampler).__name__)
+    optimizer, lr_scheduler = accelerator.prepare(
+        optimizer, lr_scheduler
     )
+    print("After:", type(train_dataloader.batch_sampler).__name__)
     
     # load transformer to cpu
     transformer.to("cuda")
@@ -1525,8 +1648,9 @@ def main(args, config_args):
         transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
     else:
         transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
-    
-
+        
+    # torch._inductor.config.inplace_buffers = False  # 🔥 Critical fix for this KeyError
+    # transformer = torch.compile(transformer)
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
     if accelerator.is_main_process:
@@ -1547,6 +1671,10 @@ def main(args, config_args):
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {max_train_steps}")
+    if accelerator.is_main_process:
+        print(f"[Rank {accelerator.process_index}] "
+        f"len(dataset)={len(train_dataset)}, "
+        f"len(dataloader)={len(train_dataloader)}, ")
     global_step = 0
     first_epoch = 0
 
@@ -1599,12 +1727,19 @@ def main(args, config_args):
             
     else:
         initial_global_step = 0
+    # progress_bar = tqdm(
+    #     range(0, max_train_steps),
+    #     initial=initial_global_step,
+    #     desc="Steps",
+    #     # Only show the progress bar once on each machine.
+    #     disable=not accelerator.is_local_main_process,
+    # )
+    
     progress_bar = tqdm(
-        range(0, max_train_steps),
+        range(0, max_train_steps),  # = len(train_dataloader) // grad_acc
         initial=initial_global_step,
-        desc="Steps",
-        # Only show the progress bar once on each machine.
         disable=not accelerator.is_local_main_process,
+        desc="Steps",
     )
     
     # handle guidance
@@ -1612,7 +1747,9 @@ def main(args, config_args):
         sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
         
         schedule_timesteps = noise_scheduler_copy.timesteps.to(accelerator.device)
-        timesteps = timesteps.to(accelerator.device)
+        # schedule_timesteps = torch.arange(1000, 0, -1, dtype=torch.int64, device=accelerator.device)
+        # schedule_timesteps is 1000 to 1
+        # timesteps = timesteps.round().to(torch.int64).to(accelerator.device)
         step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
 
         sigma = sigmas[step_indices].flatten()
@@ -1627,6 +1764,8 @@ def main(args, config_args):
             dataset_configs,
             captions_selection,
             # enable_prior_loss=True
+            train_type="train",
+            is_reasoning=False
         ):
         
         accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
@@ -1691,6 +1830,7 @@ def main(args, config_args):
             batch[image_config_key][latent_key] = latent.to(device=accelerator.device,dtype=weight_dtype)
         
         reference_list = []
+        tcfm_ref_list = []
         noised_latent_list = []
         dropout_ref_list = []
         target_list = []
@@ -1721,24 +1861,6 @@ def main(args, config_args):
                             sliced = [temp[i, :l] for i, l in enumerate(prompt_embed_length)]
                         captions[training_layout_config_key][npz_key] = pad_sequence(sliced, batch_first=True, padding_value=0)
 
-
-            if "transition" in training_layout_config:
-                transition_config = training_layout_config["transition"]
-                timesteps_config = transition_config["timesteps"]
-                from_timestep =  timesteps_config["from"]
-                to_timestep =  timesteps_config["to"]
-                mask = (from_timestep >= timesteps) & (timesteps >= to_timestep)
-                # mask_for_latents = mask.view((-1,) + (1,) * (batch_size - 1))
-                mask_for_latents = mask.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
-                
-                images_config = transition_config["images"]
-                from_image_key =  images_config["from"]
-                from_image = batch[from_image_key][latent_key]
-                
-                to_image_key =  images_config["to"]
-                to_image = batch[to_image_key][latent_key]
-                x = torch.where(mask_for_latents, from_image, to_image)
-            
             if "target" in training_layout_config:
                 target_key = training_layout_config["target"]
                 x = batch[target_key][latent_key]
@@ -1746,10 +1868,21 @@ def main(args, config_args):
             x = x.to(device=accelerator.device,dtype=weight_dtype)
             # control to noise which latent
             if "noised" in training_layout_config and training_layout_config["noised"]:
-                noised_latent_list.append(x)
+                if "noised_latent_weight" in training_layout_config and training_layout_config["noised_latent_weight"] > random.random():
+                    noised_latent_target_key = training_layout_config["noised_latent_target"]
+                    noised_latent_target = batch[noised_latent_target_key][latent_key]
+                    noised_latent_list.append(noised_latent_target)
+                else:
+                    noised_latent_list.append(x)
                 target_list.append(x)
+                tcfm_ref_list.append(x)
             else:
                 reference_key = training_layout_config["target"]
+                
+                # set first image as tcfm latent bridge mapping start point
+                # if len(tcfm_ref_list) == 0:
+                tcfm_ref_list.append(x)
+                
                 if "dropout" in training_layout_config:
                     # the following logic is to keep the seq consistence
                     # if there is no dropout, ref 3 could be dropout, if ref 3 remains, ref 4 could be dropout
@@ -1765,8 +1898,9 @@ def main(args, config_args):
                 reference_list.append(x)
                 
         # cat factual_images as image guidance
-        learning_target = torch.cat(target_list, dim=0)
+        learning_target = torch.cat(target_list, dim=0) # (1,16,1,h,w)
         noised_latents = torch.cat(noised_latent_list, dim=0)
+        
         # reference_latents = torch.cat(reference_list, dim=0)
         bsz = noised_latents.shape[0]
         # noise = torch.randn_like(noised_latents) + args.noise_offset * torch.randn(noised_latents.shape[0], noised_latents.shape[1], 1, 1).to(accelerator.device)
@@ -1775,11 +1909,70 @@ def main(args, config_args):
         # zt = (1 - texp) * x + texp * z1
         sigmas = get_sigmas(timesteps, n_dim=noised_latents.ndim, dtype=noised_latents.dtype)
         
+        
+        if is_reasoning and reasoning_frame > 0 and len(reference_list) > 0 and train_type == "train":
+            # calc the liner interpolation of learning target and reference_list
+            learning_target_latent = learning_target
+            reference_latent = reference_list[0]
+            # reasoning_latents is a list of latents which mixed the target and reference
+            # from ref to target
+            reasoning_latents = linear_interpolation(learning_target_latent, reference_latent, reasoning_frame, gamma=reasoning_gamma)
+            learning_target = torch.cat(reasoning_latents, dim=4)
+            
+            # repeat learning_target_latent to match with the size of reasoning_latents
+            # learning_target = torch.cat([learning_target_latent] * len(reasoning_latents), dim=4)
+            
+            
+            noised_latents = torch.cat(reasoning_latents, dim=4)
+            print("\nnoised_latents.shape")
+            print(noised_latents.shape)
+            noise = torch.randn_like(noised_latents).to(accelerator.device)
+            # Add noise according to flow matching.
+            # zt = (1 - texp) * x + texp * z1
+            sigmas = get_sigmas(timesteps, n_dim=noised_latents.ndim, dtype=noised_latents.dtype)
+        
+        
+        is_traj_training = False
+        if not is_reasoning and enable_traj_refs and traj_weight > random.random() and train_type == "train":
+            # turn on traj training to dropout prompt embs
+            is_traj_training = True
+            # remove exists references, training on uncondition space to optimal traj
+            reference_list = []
+            degraded_xt_list = []
+            
+            timestep = timesteps[0].item() / 1000
+            # print("\ntimestep")
+            # print(timestep)
+            ref_timesteps = sample_reference_timesteps(timestep, t_low=t_low, t_high=t_high, min_step=min_step, max_references=max_references)
+            # print("ref_timesteps")
+            # print(ref_timesteps)
+            for ref_timestep in ref_timesteps:
+                # out of traj range t >= t_high
+                if (timestep >= (t_high - min_step)):
+                    degraded_xt_list = tcfm_ref_list
+                    break
+                else:
+                    # set target to target image, e.g. object removed image
+                    target = learning_target
+                    perturbated = noise
+                    # dropout after first ref
+                    if traj_drop_rate > random.random():
+                        # print("dropout ref_timestep and break", ref_timestep)
+                        break
+                    
+                    ref_timestep_indices = int(1000 - ref_timestep * 1000)
+                    ref_timesteps = torch.stack([noise_scheduler_copy.timesteps[ref_timestep_indices].to(device=accelerator.device)])
+                    t_n_sigmas = get_sigmas(ref_timesteps, n_dim=target.ndim, dtype=target.dtype)
+                    perturbated_t_n = (1.0 - t_n_sigmas) * target + t_n_sigmas * perturbated
+                    degraded_xt_list.append(perturbated_t_n)
+            
+            # print("degraded_xt_list len", len(degraded_xt_list))
+            reference_list = reference_list + degraded_xt_list
+        
+        
         noisy_model_input = (1.0 - sigmas) * noised_latents + sigmas * noise
         
         latents = noisy_model_input
-        
-        
         # pack noisy latents
         noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)
         packed_noisy_latents = QwenImageEditPipeline._pack_latents(
@@ -1789,12 +1982,10 @@ def main(args, config_args):
             height=latents.shape[3],
             width=latents.shape[4],
         )
-        
-        packed_ref_latents = None
-        
         img_shapes = [
             (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
         ]
+        
         # handle partial noised
         packed_ref_latents = None
         if len(reference_list) > 0:
@@ -1822,7 +2013,7 @@ def main(args, config_args):
                     packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
         # if packed_ref_latents is not None: 
             # print("packed_ref_latents.shape",packed_ref_latents.shape)
-        # img_shapes = img_shapes * bsz
+        img_shapes = [img_shapes] * bsz
             
         model_input = packed_noisy_latents
         # add ref to channel
@@ -1846,6 +2037,12 @@ def main(args, config_args):
         
         if "dropout" in captions_selection and random.random() < captions_selection["dropout"]:
             prompt_embeds = torch.zeros_like(prompt_embeds)
+            prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)
+        
+        # dropout embs for training unconditional space
+        if is_traj_training:
+            prompt_embeds = torch.zeros_like(prompt_embeds)
+            prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)
         
         txt_seq_lens = [prompt_embeds_mask.shape[1]]
         # txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
@@ -1853,6 +2050,8 @@ def main(args, config_args):
         with accelerator.autocast():
             # Predict the noise residual
             timesteps = timesteps.expand(latents.shape[0]).to(latents.dtype)
+            # if not args.use_lokr:
+            #     transformer.enable_adapters()   # 开启 LoRA
             model_pred = transformer(
                 hidden_states=model_input,
                 encoder_hidden_states=prompt_embeds,
@@ -1863,71 +2062,109 @@ def main(args, config_args):
                 return_dict=False,
             )[0]
         
-            model_pred = model_pred[:, : packed_noisy_latents.size(1)]
-            
-            model_pred = QwenImageEditPipeline._unpack_latents(
-                model_pred,
-                height=latents.shape[3] * vae_scale_factor,
-                width=latents.shape[4] * vae_scale_factor,
-                vae_scale_factor=vae_scale_factor,
-            )
+        model_pred = model_pred[:, : packed_noisy_latents.size(1)]
+        
+        model_pred = QwenImageEditPipeline._unpack_latents(
+            model_pred,
+            height=int(latents.shape[3] * vae_scale_factor),
+            width=int(latents.shape[4] * vae_scale_factor),
+            vae_scale_factor=vae_scale_factor,
+        )
 
-            # ====================Debug latent====================
-            # vae = AutoencoderKL.from_single_file(
-            #     vae_path
-            # )
-            # vae.to(device=accelerator.device)
-            # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
-            # with torch.no_grad():
-            #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
-            # image = image_processor.postprocess(image, output_type="pil")[0]
-            # image.save("model_pred.png")
-            # ====================Debug latent====================
+        # ====================Debug latent====================
+        # vae = AutoencoderKL.from_single_file(
+        #     vae_path
+        # )
+        # vae.to(device=accelerator.device)
+        # image_processor = VaeImageProcessor(vae_scale_factor=vae.config.scaling_factor)
+        # with torch.no_grad():
+        #     image = vae.decode(model_pred / vae.config.scaling_factor, return_dict=False)[0]
+        # image = image_processor.postprocess(image, output_type="pil")[0]
+        # image.save("model_pred.png")
+        # ====================Debug latent====================
+        
+        target = noise - learning_target
+        
+        weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+        
+        # use L1 loss for traj training
+        # if is_traj_training:
+        #     # L1 loss in latent space (simple and effective)
+        #     loss = torch.mean(
+        #         (weighting.float() * torch.abs(model_pred.float() - target.float())).reshape(target.shape[0], -1),
+        #         dim=1,
+        #     ).mean()
+        # else:
+        # Compute regular loss.
+        loss = torch.mean(
+            (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+            1,
+        ).mean()
+        total_loss = loss
             
-            target = noise - learning_target
+        # if not is_traj_training:
+        #     timestep = timesteps[0].item() / 1000
+        #     # only apply prior loss when timestep >= t_high
+        #     transformer.disable_adapters()  # 关闭 LoRA
+        #     with torch.no_grad():
+        #         pior_model_pred = transformer(
+        #             hidden_states=model_input,
+        #             encoder_hidden_states=prompt_embeds,
+        #             encoder_hidden_states_mask=prompt_embeds_mask,
+        #             timestep=timesteps / 1000,
+        #             img_shapes=img_shapes,
+        #             txt_seq_lens=txt_seq_lens,
+        #             return_dict=False
+        #         )[0]  # 原模型 velocity
+        #         pior_model_pred = pior_model_pred.detach()
             
-            weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
-            
-            # Compute regular loss.
-            loss = torch.mean(
-                (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-                1,
-            )
-            
-            loss = loss.mean()
-            
-            total_loss = loss
-            
-            return total_loss
+        #         pior_model_pred = pior_model_pred[:, : packed_noisy_latents.size(1)]
+                
+        #         pior_model_pred = QwenImageEditPipeline._unpack_latents(
+        #             pior_model_pred,
+        #             height=int(latents.shape[3] * vae_scale_factor),
+        #             width=int(latents.shape[4] * vae_scale_factor),
+        #             vae_scale_factor=vae_scale_factor,
+        #         )
+                
+        #     pior_loss = torch.mean(
+        #         (weighting.float() * (pior_model_pred.float() - model_pred.float()) ** 2).reshape(target.shape[0], -1),
+        #         1,
+        #     ).mean()
+        #     transformer.enable_adapters()   # 开启 LoRA
+        #     pior_loss=pior_weight * pior_loss
+        #     total_loss = total_loss + pior_loss
+        return total_loss
     
-    print("Start training...")
+    print("\nStart training...")
     for epoch in range(first_epoch, args.num_train_epochs):
         transformer.train()
-        
         for step, batch in enumerate(train_dataloader):
             optimizer.zero_grad()
             with accelerator.accumulate(transformer):
                 target_set = get_training_set(training_set)
                 training_layout_configs = target_set["training_layout_configs"]
                 captions_selection = target_set["captions_selection"]
+                is_reasoning = True if "is_reasoning" in target_set else False
                 loss = train_process(
                     batch,
                     training_layout_configs,
                     dataset_configs,
                     captions_selection,
+                    is_reasoning=is_reasoning
                 )
                 
                 # Backpropagate
                 accelerator.backward(loss)
-                step_loss = loss.detach().item()
+                # step_loss = loss.detach().item()
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
                     accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
 
-                del loss
-                flush()
+                # del loss
+                # flush()
                 # ensure model in cuda
-                transformer.to(accelerator.device)
+                # transformer.to(accelerator.device)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
@@ -1947,10 +2184,18 @@ def main(args, config_args):
                     else:
                         lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
-                logs = {"step_loss": step_loss, lr_name: lr}
+                # use global_loss for logging due to multiple devices
+                # step_loss = loss.detach().item()
+                
+                # Log global mean loss (every N steps or every step — up to you)
+                # if accelerator.is_main_process:
+                # Safe: detach → reduce → item
+                # if accelerator.sync_gradients:
+                global_loss = accelerator.reduce(loss.detach(), reduction="mean").item()
+                logs = {"step_loss": global_loss, lr_name: lr}
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
-                
+                    
                 if global_step >= max_train_steps:
                     break
                 # del step_loss
@@ -1964,82 +2209,89 @@ def main(args, config_args):
                         logger.info(f"Saved state to {save_path}")
                 
                 if global_step % args.save_model_steps == 0 and args.save_model_steps > 0 and os.path.exists(val_metadata_path):
-                    # store rng before validation
-                    before_state = torch.random.get_rng_state()
-                    np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
-                    py_state = python_get_rng_state()
-                    with torch.no_grad():
-                        transformer = unwrap_model(transformer)
-                        # freeze rng
-                        np.random.seed(val_seed)
-                        torch.manual_seed(val_seed)
-                        dataloader_generator = torch.Generator()
-                        dataloader_generator.manual_seed(val_seed)
-                        torch.backends.cudnn.deterministic = True
-                        
-                        validation_datarows = []
-                        with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                            validation_datarows = json.loads(readfile.read())
-                        
-                        if len(validation_datarows)>0:
-                            validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
-                            # batch_size  = 1
-                            val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
-                            val_dataloader = torch.utils.data.DataLoader(
-                                validation_dataset,
-                                batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-                                collate_fn=collate_fn,
-                                num_workers=dataloader_num_workers,
-                            )
+                    if accelerator.is_main_process:
+                        # store rng before validation
+                        before_state = torch.random.get_rng_state()
+                        np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
+                        py_state = python_get_rng_state()
+                        with torch.no_grad():
+                            transformer = unwrap_model(transformer)
+                            # freeze rng
+                            np.random.seed(val_seed)
+                            torch.manual_seed(val_seed)
+                            dataloader_generator = torch.Generator()
+                            dataloader_generator.manual_seed(val_seed)
+                            torch.backends.cudnn.deterministic = True
+                            
+                            validation_datarows = []
+                            with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                                validation_datarows = json.loads(readfile.read(), strict=False)
+                            
+                            if len(validation_datarows)>0:
+                                validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
+                                # batch_size  = 1
+                                val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
+                                # val_batch_sampler = DistributedBucketBatchSampler(validation_dataset, 
+                                #                                         batch_size=args.train_batch_size,
+                                #                                         num_replicas=accelerator.num_processes,
+                                #                                         rank=accelerator.process_index,
+                                #                                         seed=args.seed)
+                                val_dataloader = torch.utils.data.DataLoader(
+                                    validation_dataset,
+                                    batch_sampler=val_batch_sampler,
+                                    collate_fn=collate_fn,
+                                    num_workers=dataloader_num_workers,
+                                )
 
-                            print("\nStart val_loss\n")
-                            total_loss = 0.0
-                            num_batches = len(val_dataloader)
-                            # if no val data, skip the following 
-                            if num_batches == 0:
-                                print("No validation data, skip validation.")
-                            else:
-                                # basically the as same as the training loop
-                                enumerate_val_dataloader = enumerate(val_dataloader)
-                                for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                                    target_set = get_training_set(training_set)
-                                    training_layout_configs = target_set["training_layout_configs"]
-                                    captions_selection = target_set["captions_selection"]
-                                    if "val_layout_configs" in target_set:
-                                        training_layout_configs = target_set["val_layout_configs"]
-                                    if "val_captions_selection" in target_set:
-                                        captions_selection = target_set["val_captions_selection"]
-                                    loss = train_process(
-                                        batch,
-                                        training_layout_configs,
-                                        dataset_configs,
-                                        captions_selection
-                                    )
-                                    total_loss+=loss.detach()
+                                print("\nStart val_loss\n")
+                                total_loss = 0.0
+                                num_batches = len(val_dataloader)
+                                # if no val data, skip the following 
+                                if num_batches == 0:
+                                    print("No validation data, skip validation.")
+                                else:
+                                    # basically the as same as the training loop
+                                    enumerate_val_dataloader = enumerate(val_dataloader)
+                                    for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                                        target_set = get_training_set(training_set)
+                                        training_layout_configs = target_set["training_layout_configs"]
+                                        captions_selection = target_set["captions_selection"]
+                                        if "val_layout_configs" in target_set:
+                                            training_layout_configs = target_set["val_layout_configs"]
+                                        if "val_captions_selection" in target_set:
+                                            captions_selection = target_set["val_captions_selection"]
+                                        loss = train_process(
+                                            batch,
+                                            training_layout_configs,
+                                            dataset_configs,
+                                            captions_selection,
+                                            train_type="val"
+                                        )
+                                        total_loss+=loss.detach()
+                                        
+                                    avg_loss = total_loss / num_batches
+                                    # convert to float
+                                    avg_loss = float(avg_loss.cpu().numpy())
                                     
-                                avg_loss = total_loss / num_batches
-                                # convert to float
-                                avg_loss = float(avg_loss.cpu().numpy())
-                                
-                                logs = {"val_loss": avg_loss, "epoch": epoch}
-                                # print(logs)
-                                progress_bar.set_postfix(**logs)
-                                accelerator.log(logs, step=global_step)
-                                
-                            flush()
-                            print("\nEnd val_loss\n")
-                        
-                        
-                    # restore rng before validation
-                    np.random.seed(np_seed)
-                    torch.random.set_rng_state(before_state)
-                    torch.backends.cudnn.deterministic = False
-                    version, state, gauss = py_state
-                    python_set_rng_state((version, tuple(state), gauss))
-            
-                    # del before_state, np_seed, py_state
-                    flush()
-                        
+                                    logs = {"val_loss": avg_loss, "epoch": epoch}
+                                    # print(logs)
+                                    progress_bar.set_postfix(**logs)
+                                    accelerator.log(logs, step=global_step)
+                                    
+                                flush()
+                                print("\nEnd val_loss\n")
+                            
+                            
+                        # restore rng before validation
+                        np.random.seed(np_seed)
+                        torch.random.set_rng_state(before_state)
+                        torch.backends.cudnn.deterministic = False
+                        version, state, gauss = py_state
+                        python_set_rng_state((version, tuple(state), gauss))
+                
+                        # del before_state, np_seed, py_state
+                        flush()
+                            
         # ==================================================
         # validation part
         # ==================================================
@@ -2048,99 +2300,106 @@ def main(args, config_args):
             continue
         
         
-        # store rng before validation
-        before_state = torch.random.get_rng_state()
-        np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
-        py_state = python_get_rng_state()
-        
-        if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
-            # accelerator.wait_for_everyone()
-            if accelerator.is_main_process:
-                save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
-                accelerator.save_state(save_path)
-                logger.info(f"Saved state to {save_path}")
-                
-        
-        # only execute when val_metadata_path exists
-        if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
-            with torch.no_grad():
-                transformer = unwrap_model(transformer)
-                # freeze rng
-                np.random.seed(val_seed)
-                torch.manual_seed(val_seed)
-                dataloader_generator = torch.Generator()
-                dataloader_generator.manual_seed(val_seed)
-                torch.backends.cudnn.deterministic = True
-                
-                validation_datarows = []
-                with open(val_metadata_path, "r", encoding='utf-8') as readfile:
-                    validation_datarows = json.loads(readfile.read())
-                
-                if len(validation_datarows)>0:
-                    validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
+        if accelerator.is_main_process:
+            # store rng before validation
+            before_state = torch.random.get_rng_state()
+            np_seed = abs(int(args.seed)) if args.seed is not None else np.random.seed()
+            py_state = python_get_rng_state()
+            
+            if (epoch >= args.skip_epoch and epoch % args.save_model_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0):
+                # accelerator.wait_for_everyone()
+                if accelerator.is_main_process:
+                    save_path = os.path.join(args.output_dir, f"{args.save_name}-{epoch}-{global_step}")
+                    accelerator.save_state(save_path)
+                    logger.info(f"Saved state to {save_path}")
                     
-                    val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
-
-                    #initialize the DataLoader with the bucket batch sampler
-                    val_dataloader = torch.utils.data.DataLoader(
-                        validation_dataset,
-                        batch_sampler=val_batch_sampler, #use bucket_batch_sampler instead of shuffle
-                        collate_fn=collate_fn,
-                        num_workers=dataloader_num_workers,
-                    )
-
-                    print("\nStart val_loss\n")
+            
+            # only execute when val_metadata_path exists
+            if ((epoch >= args.skip_epoch and epoch % args.validation_epochs == 0) or epoch == args.num_train_epochs - 1 or (global_step % args.save_model_steps == 0 and args.save_model_steps > 0)) and os.path.exists(val_metadata_path):
+                with torch.no_grad():
+                    transformer = unwrap_model(transformer)
+                    # freeze rng
+                    np.random.seed(val_seed)
+                    torch.manual_seed(val_seed)
+                    dataloader_generator = torch.Generator()
+                    dataloader_generator.manual_seed(val_seed)
+                    torch.backends.cudnn.deterministic = True
                     
-                    total_loss = 0.0
-                    num_batches = len(val_dataloader)
-                    # if no val data, skip the following 
-                    if num_batches == 0:
-                        print("No validation data, skip validation.")
-                    else:
-                        # basically the as same as the training loop
-                        enumerate_val_dataloader = enumerate(val_dataloader)
-                        for i, batch in tqdm(enumerate_val_dataloader,position=1):
-                            target_set = get_training_set(training_set)
-                            training_layout_configs = target_set["training_layout_configs"]
-                            captions_selection = target_set["captions_selection"]
-                            if "val_layout_configs" in target_set:
-                                training_layout_configs = target_set["val_layout_configs"]
-                            if "val_captions_selection" in target_set:
-                                captions_selection = target_set["val_captions_selection"]
-                            loss = train_process(
-                                batch,
-                                training_layout_configs,
-                                dataset_configs,
-                                captions_selection
-                            )
+                    validation_datarows = []
+                    with open(val_metadata_path, "r", encoding='utf-8') as readfile:
+                        validation_datarows = json.loads(readfile.read(), strict=False)
+                    
+                    if len(validation_datarows)>0:
+                        validation_dataset = CachedMutiImageDataset(validation_datarows,conditional_dropout_percent=args.caption_dropout, dataset_configs=dataset_configs)
+                        
+                        val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
+                        # val_batch_sampler = DistributedBucketBatchSampler(validation_dataset, 
+                        #                                         batch_size=args.train_batch_size,
+                        #                                         num_replicas=accelerator.num_processes,
+                        #                                         rank=accelerator.process_index,
+                        #                                         seed=args.seed)
 
-                            total_loss+=loss.detach()
+                        #initialize the DataLoader with the bucket batch sampler
+                        val_dataloader = torch.utils.data.DataLoader(
+                            validation_dataset,
+                            batch_sampler=val_batch_sampler,
+                            collate_fn=collate_fn,
+                            num_workers=dataloader_num_workers,
+                        )
+
+                        print("\nStart val_loss\n")
+                        
+                        total_loss = 0.0
+                        num_batches = len(val_dataloader)
+                        # if no val data, skip the following 
+                        if num_batches == 0:
+                            print("No validation data, skip validation.")
+                        else:
+                            # basically the as same as the training loop
+                            enumerate_val_dataloader = enumerate(val_dataloader)
+                            for i, batch in tqdm(enumerate_val_dataloader,position=1):
+                                target_set = get_training_set(training_set)
+                                training_layout_configs = target_set["training_layout_configs"]
+                                captions_selection = target_set["captions_selection"]
+                                if "val_layout_configs" in target_set:
+                                    training_layout_configs = target_set["val_layout_configs"]
+                                if "val_captions_selection" in target_set:
+                                    captions_selection = target_set["val_captions_selection"]
+                                loss = train_process(
+                                    batch,
+                                    training_layout_configs,
+                                    dataset_configs,
+                                    captions_selection,
+                                    train_type="val"
+                                )
+
+                                total_loss+=loss.detach()
+                                
+                            avg_loss = total_loss / num_batches
+                            avg_loss = float(avg_loss.cpu().numpy())
+                            # adaptive_scheduler.update(avg_loss)
                             
-                        avg_loss = total_loss / num_batches
-                        avg_loss = float(avg_loss.cpu().numpy())
-                        # adaptive_scheduler.update(avg_loss)
-                        
-                        lr = lr_scheduler.get_last_lr()[0]
-                        logs = {"val_loss": avg_loss, "epoch": epoch}
-                        print(logs)
-                        progress_bar.set_postfix(**logs)
-                        
-                        accelerator.log(logs, step=global_step)
-                        
-                    flush()
-                    print("\nEnd val_loss\n")
+                            lr = lr_scheduler.get_last_lr()[0]
+                            logs = {"val_loss": avg_loss, "epoch": epoch}
+                            print(logs)
+                            progress_bar.set_postfix(**logs)
+                            
+                            accelerator.log(logs, step=global_step)
+                            
+                        flush()
+                        print("\nEnd val_loss\n")
 
-        # restore rng before validation
-        np.random.seed(np_seed)
-        torch.random.set_rng_state(before_state)
-        torch.backends.cudnn.deterministic = False
-        version, state, gauss = py_state
-        python_set_rng_state((version, tuple(state), gauss))
-        
-        # del before_state, np_seed, py_state
-        gc.collect()
-        torch.cuda.empty_cache()
-        
+            # restore rng before validation
+            np.random.seed(np_seed)
+            torch.random.set_rng_state(before_state)
+            torch.backends.cudnn.deterministic = False
+            version, state, gauss = py_state
+            python_set_rng_state((version, tuple(state), gauss))
+            
+            # del before_state, np_seed, py_state
+            gc.collect()
+            torch.cuda.empty_cache()
+            
         
         # ==================================================
         # end validation part
@@ -2149,8 +2408,9 @@ def main(args, config_args):
     accelerator.end_training()
     print("Saved to ")
     print(args.output_dir)
+    print_end_signal()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     args, config_args = parse_args()
     main(args, config_args)

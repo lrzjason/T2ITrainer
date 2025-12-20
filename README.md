@@ -11,6 +11,7 @@ pip install diffusers -U
 
 
 ## 📅 Major Updates
+- **2025-10-04:**  Fix qwen vl image resize buckets
 - **2025-09-26:**  Support Qwen Edit Plus training. (Qwen Edit 2509)
 - **2025-09-25:**  Fix incorrect buckets assignment.
 - **2025-09-12:**  Add lokr UI support

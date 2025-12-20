@@ -1,0 +1,387 @@
+{
+  "nodes": [
+    {
+      "id": "script",
+      "type": "scriptNode",
+      "position": {
+        "x": 50,
+        "y": 300
+      },
+      "data": {
+        "scriptName": "train_longcat.py",
+        "configPath": "config_new.json"
+      },
+      "width": 265,
+      "height": 380
+    },
+    {
+      "id": "dir",
+      "type": "directoryNode",
+      "position": {
+        "x": 448.6026832460733,
+        "y": -12.879253926701546
+      },
+      "data": {
+        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
+        "output_dir": "F:/ImageSet/longcat_test_edit_output",
+        "save_name": "test_edit",
+        "logging_dir": "/home/waas/kontext_output/logs",
+        "train_data_dir": "F:/ImageSet/longcat",
+        "model_path": "",
+        "vae_path": "",
+        "pinned": true
+      },
+      "width": 514,
+      "height": 341,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 448.6026832460733,
+        "y": -12.879253926701546
+      },
+      "dragging": false,
+      "draggable": false
+    },
+    {
+      "id": "lora",
+      "type": "loraNode",
+      "position": {
+        "x": 451.3973167539267,
+        "y": 350
+      },
+      "data": {
+        "rank": 16,
+        "rank_alpha": 16,
+        "use_lokr": false,
+        "lokr_factor": 8,
+        "lora_layers": "all",
+        "pinned": true
+      },
+      "width": 429,
+      "height": 249,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 451.3973167539267,
+        "y": 350
+      },
+      "dragging": false,
+      "draggable": false
+    },
+    {
+      "id": "misc",
+      "type": "miscNode",
+      "position": {
+        "x": 973.9886430145234,
+        "y": -97.09904702172521
+      },
+      "data": {
+        "resolution": "1024",
+        "train_batch_size": 1,
+        "num_train_epochs": 10,
+        "learning_rate": 1e-4,
+        "optimizer": "adamw",
+        "mixed_precision": "bf16",
+        "seed": 4321,
+        "gradient_checkpointing": true,
+        "caption_dropout": 0.1,
+        "save_model_epochs": 1,
+        "blocks_to_swap": 10,
+        "recreate_cache": false,
+        "validation_epochs": 1,
+        "validation_ratio": 0.1,
+        "weighting_scheme": "logit_normal",
+        "logit_mean": 0.0,
+        "logit_std": 1.0,
+        "mode_scale": 1.29,
+        "guidance_scale": 1.0,
+        "mask_dropout": 0.0,
+        "nln_method": "default",
+        "nln_samples": 10,
+        "nln_scale": 0.02,
+        "freeze_transformer_layers": "",
+        "freeze_single_transformer_layers": "",
+        "pinned": true
+      },
+      "width": 786,
+      "height": 869,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 973.9886430145234,
+        "y": -97.09904702172521
+      },
+      "dragging": false,
+      "draggable": false
+    },
+    {
+      "id": "ds_list",
+      "type": "datasetListNode",
+      "position": {
+        "x": 450,
+        "y": 1000
+      },
+      "data": {
+        "slots": [
+          "dataset_0"
+        ]
+      },
+      "width": 250,
+      "height": 155
+    },
+    {
+      "id": "dataset",
+      "type": "datasetConfigNode",
+      "position": {
+        "x": 762.2724476439791,
+        "y": 983.2321989528796
+      },
+      "data": {
+        "train_data_dir": "F:/ImageSet/longcat"
+      },
+      "width": 348,
+      "height": 502,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 762.2724476439791,
+        "y": 983.2321989528796
+      },
+      "dragging": false
+    },
+    {
+      "id": "img_list",
+      "type": "imageListNode",
+      "position": {
+        "x": 1200,
+        "y": 800
+      },
+      "data": {
+        "slots": [
+          "img_0"
+        ]
+      },
+      "width": 250,
+      "height": 183
+    },
+    {
+      "id": "tgt_list",
+      "type": "targetListNode",
+      "position": {
+        "x": 1200,
+        "y": 1000
+      },
+      "data": {
+        "slots": [
+          "tgt_0"
+        ]
+      },
+      "width": 250,
+      "height": 183
+    },
+    {
+      "id": "cap_list",
+      "type": "captionListNode",
+      "position": {
+        "x": 1206.08217443617,
+        "y": 1300.504678493624
+      },
+      "data": {
+        "slots": [
+          "cap_0"
+        ]
+      },
+      "width": 250,
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1206.08217443617,
+        "y": 1300.504678493624
+      },
+      "dragging": false
+    },
+    {
+      "id": "batch_list",
+      "type": "batchListNode",
+      "position": {
+        "x": 1203.649304661702,
+        "y": 1567.6609365383058
+      },
+      "data": {
+        "slots": [
+          "batch_0"
+        ]
+      },
+      "width": 250,
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1203.649304661702,
+        "y": 1567.6609365383058
+      },
+      "dragging": false
+    },
+    {
+      "id": "img_1",
+      "type": "imageConfigNode",
+      "position": {
+        "x": 1600,
+        "y": 800
+      },
+      "data": {
+        "key": "train",
+        "suffix": "_T"
+      },
+      "width": 348,
+      "height": 136
+    },
+    {
+      "id": "tgt_1",
+      "type": "targetConfigNode",
+      "position": {
+        "x": 1600,
+        "y": 1000
+      },
+      "data": {
+        "key": "train",
+        "image": "train",
+        "from_image": ""
+      },
+      "width": 348,
+      "height": 191
+    },
+    {
+      "id": "cap_1",
+      "type": "captionConfigNode",
+      "position": {
+        "x": 1570.805562706384,
+        "y": 1299.2882436063899
+      },
+      "data": {
+        "key": "train",
+        "ext": ".txt",
+        "image": "train"
+      },
+      "width": 506,
+      "height": 185,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1570.805562706384,
+        "y": 1299.2882436063899
+      },
+      "dragging": false
+    },
+    {
+      "id": "batch_1",
+      "type": "batchConfigNode",
+      "position": {
+        "x": 1565.939823157448,
+        "y": 1561.578762102136
+      },
+      "data": {
+        "target_config": "train",
+        "caption_config": "train",
+        "caption_dropout": 0.1
+      },
+      "width": 348,
+      "height": 191,
+      "selected": true,
+      "positionAbsolute": {
+        "x": 1565.939823157448,
+        "y": 1561.578762102136
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "script",
+      "sourceHandle": "dir_out",
+      "target": "dir",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e2",
+      "source": "script",
+      "sourceHandle": "lora_out",
+      "target": "lora",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e3",
+      "source": "script",
+      "sourceHandle": "misc_out",
+      "target": "misc",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e4",
+      "source": "script",
+      "sourceHandle": "json_out",
+      "target": "ds_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e5",
+      "source": "ds_list",
+      "sourceHandle": "dataset_0",
+      "target": "dataset",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e6",
+      "source": "dataset",
+      "sourceHandle": "image_config",
+      "target": "img_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e7",
+      "source": "dataset",
+      "sourceHandle": "target_config",
+      "target": "tgt_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e9",
+      "source": "dataset",
+      "sourceHandle": "caption_config",
+      "target": "cap_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e10",
+      "source": "dataset",
+      "sourceHandle": "batch_config",
+      "target": "batch_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e11",
+      "source": "img_list",
+      "sourceHandle": "img_0",
+      "target": "img_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e12",
+      "source": "tgt_list",
+      "sourceHandle": "tgt_0",
+      "target": "tgt_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e14",
+      "source": "cap_list",
+      "sourceHandle": "cap_0",
+      "target": "cap_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e15",
+      "source": "batch_list",
+      "sourceHandle": "batch_0",
+      "target": "batch_1",
+      "targetHandle": "in"
+    }
+  ],
+  "timestamp": 1766056860887,
+  "version": "1.0"
+}

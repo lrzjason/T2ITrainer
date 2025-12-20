@@ -1,0 +1,50 @@
+{
+    "image_configs": {
+        "train":{
+            "suffix":"_T"
+        },
+        "reference":{
+            "suffix":"_R"
+        },
+        "grey":{
+            "suffix":"_G"
+        }
+    },
+    "caption_configs": {
+        "train": {
+            "ext": ".txt",
+            "ref_image_config": {
+                "ref_image_list": [
+                    {
+                        "target": "reference",
+                        "resized": false
+                    },
+                    {
+                        "target": "grey",
+                        "dropout": 0.1
+                    }
+                ]
+            }
+        }
+    },
+    "training_set":[
+        {
+            "training_layout_configs":{
+                "train": {
+                    "target": "train",
+                    "noised": true
+                },
+                "reference": {
+                    "target": "reference"
+                },
+                "grey":{
+                    "target": "grey",
+                    "dropout": 0.5
+                }
+            },
+            "captions_selection": {
+                "target": "train"
+            }
+        }
+    ]
+}

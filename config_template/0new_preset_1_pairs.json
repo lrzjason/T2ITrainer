@@ -1,0 +1,51 @@
+{
+    "dataset_configs":
+    [
+        {
+            "train_data_dir": "F:/ImageSet/longcat_test_multiple_dataset/dataset_1",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 1,
+            "image_configs": {
+                "train":{
+                    "suffix":"_T"
+                },
+                "reference":{
+                    "suffix":"_R"
+                }
+            },
+            "target_configs": {
+                "train": [
+                    {
+                        "image":"train"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "train": [
+                    {
+                        "image": "reference"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "train": {
+                    "image":"train",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "train",
+                        "resize": "512"
+                    }
+                }
+            },
+            "batch_configs":[
+                {
+                    "target_config": "train",
+                    "reference_config": "train",
+                    "caption_config": "train",
+                    "caption_dropout": 0.1
+                }
+            ]
+        }
+    ]
+}

@@ -12,3 +12,6 @@ python /root/T2ITrainer/train_flux_lora_ui_kontext_new.py --config_path /root/T2
 
 Qwen Image Training:
 python /root/T2ITrainer/train_qwen_image.py --config_path /root/T2ITrainer/config_qwen_single.json
+
+
+python /root/T2ITrainer/train_qwen_image_edit.py --config_path /root/T2ITrainer/config_qwen_edit_pairs_multiple.json

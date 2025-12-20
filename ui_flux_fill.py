@@ -261,14 +261,51 @@ def change_script(selected_script, config_path):
     by merging them from preset_0_single.json when they are absent.
     The merged (or original) config is then returned for display.
     """
-    if selected_script != "train_qwen_image.py" and selected_script != "train_flux_lora_ui_kontext_new.py":
+    
+    pairs = {
+        "train_qwen_image.py": {
+            "type": "old",
+            "preset": "preset_0_single.json",
+            "mandatory": {"image_configs", "caption_configs", "training_set"}
+        },
+        "train_qwen_image_edit.py": {
+            "type": "old",
+            "preset": "preset_0_single.json",
+            "mandatory": {"image_configs", "caption_configs", "training_set"}
+        },
+        "train_flux_lora_ui_kontext_new.py": {
+            "type": "old",
+            "preset": "preset_0_single.json",
+            "mandatory": {"image_configs", "caption_configs", "training_set"}
+        },
+        "train_qwen_image_edit_new.py": {
+            "type": "new",
+            "preset": "preset_0_single.json",
+            "mandatory": {"dataset_configs"}
+        },
+        "train_longcat_edit.py": {
+            "type": "new",
+            "preset": "preset_0_single.json",
+            "mandatory": {"dataset_configs"}
+        },
+        "train_longcat.py": {
+            "type": "new",
+            "preset": "preset_0_single.json",
+            "mandatory": {"dataset_configs"}
+        },
+    }
+    
+    scripts = pairs.keys()
+    
+    if not selected_script in scripts:
         return ""
-    preset_name = "preset_0_single.json"
+    preset_config = pairs[selected_script]
+    preset_name = preset_config["preset"]
     preset_path = os.path.join(TEMPLATE_DIR, preset_name)
 
     editor = {}
     preset = {}
-    mandatory = {"image_configs", "caption_configs", "training_set"}
+    mandatory = preset_config["mandatory"]
     if os.path.isfile(config_path):
         try:
             with open(config_path, "r", encoding="utf-8") as f:
@@ -330,13 +367,15 @@ def load_template(template_name, config_path):
 default_config = {
     "script": "train_flux_lora_ui_kontext.py",
     "script_choices": [
+        "train_longcat_edit.py",
+        "train_longcat.py",
+        "train_qwen_image_edit_new.py",
         "train_qwen_image_edit.py",
         "train_qwen_image.py",
         "train_flux_lora_ui_kontext_new.py",
-        "train_flux_lora_ui_kontext.py",
-        "train_flux_lora_ui_kontext_slider.py",
         "train_flux_lora_ui_with_mask.py",
         "train_flux_lora_ui.py",
+        "train_z_image.py"
     ],
     "output_dir": "/home/waas/kontext_output",
     "save_name": "flux-lora",

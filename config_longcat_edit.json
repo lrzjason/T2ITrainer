@@ -1,0 +1,263 @@
+{
+    "pretrained_model_name_or_path": "/datasets/studio/huggingface/models/LongCat-Image-Edit",
+    "output_dir": "/home/waas/lc_any2real_mix_output",
+    "save_name": "lc_any2real_mix",
+    "validation_epochs": 1,
+    "seed": 4321,
+    "train_batch_size": 1,
+    "num_train_epochs": 20,
+    "resume_from_checkpoint": "",
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": true,
+    "learning_rate": 0.0001,
+    "lr_scheduler": "cosine",
+    "cosine_restarts": 1,
+    "lr_warmup_steps": 0,
+    "optimizer": "adamw",
+    "logging_dir": "logs",
+    "report_to": "wandb",
+    "mixed_precision": "bf16",
+    "use_lokr": false,
+    "rank": 64,
+    "rank_alpha": 1.0,
+    "lokr_factor": 2,
+    "save_model_epochs": 1,
+    "save_model_steps": -1,
+    "skip_epoch": 0,
+    "skip_step": 0,
+    "validation_ratio": 0.1,
+    "model_path": "",
+    "allow_tf32": true,
+    "recreate_cache": false,
+    "caption_dropout": 0.1,
+    "resolution": "1024",
+    "weighting_scheme": "logit_normal",
+    "logit_mean": 0.0,
+    "logit_std": 1.0,
+    "mode_scale": 1.29,
+    "freeze_transformer_layers": "",
+    "lora_layers": "",
+    "skip_lora_layers": "",
+    "guidance_scale": 1,
+    "blocks_to_swap": 0,
+    "nln_method": "default",
+    "nln_samples": 10,
+    "nln_scale": 0.02,
+    "dataset_configs":[
+        {
+            "train_data_dir": "/home/waas/longcat_edit/dataset_any2real",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 10,
+            "image_configs": {
+                "AT":{
+                    "suffix":"_AT"
+                },
+                "DT":{
+                    "suffix":"_DT"
+                },
+                "FT":{
+                    "suffix":"_FT"
+                },
+                "GT":{
+                    "suffix":"_GT"
+                },
+                "LT":{
+                    "suffix":"_LT"
+                },
+                "R":{
+                    "suffix":"_R"
+                },
+                "ST":{
+                    "suffix":"_ST"
+                },
+                "T":{
+                    "suffix":"_T"
+                },
+                "WT":{
+                    "suffix":"_WT"
+                }
+            },
+            "target_configs": {
+                "T": [
+                    {
+                        "image":"T",
+                        "from_image": "DT"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "AT": [
+                    {
+                        "image":"AT"
+                    }
+                ],
+                "FT": [
+                    {
+                        "image":"FT"
+                    }
+                ],
+                "GT": [
+                    {
+                        "image":"GT"
+                    }
+                ],
+                "LT": [
+                    {
+                        "image":"LT"
+                    }
+                ],
+                "R": [
+                    {
+                        "image":"R"
+                    }
+                ],
+                "ST": [
+                    {
+                        "image":"ST"
+                    }
+                ],
+                "WT": [
+                    {
+                        "image":"WT"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "AT": {
+                    "image":"AT",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "AT",
+                        "resize": "512"
+                    }
+                },
+                "FT": {
+                    "image":"FT",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "FT",
+                        "resize": "512"
+                    }
+                },
+                "GT": {
+                    "image":"GT",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "GT",
+                        "resize": "512"
+                    }
+                },
+                "LT": {
+                    "image":"LT",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "LT",
+                        "resize": "512"
+                    }
+                },
+                "R": {
+                    "image":"R",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "R",
+                        "resize": "512"
+                    }
+                },
+                "ST": {
+                    "image":"ST",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "ST",
+                        "resize": "512"
+                    }
+                },
+                "WT": {
+                    "image":"WT",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "WT",
+                        "resize": "512"
+                    }
+                }
+            },
+            "batch_configs":[
+                {
+                    "target_config": "T",
+                    "reference_config": "AT",
+                    "caption_config": "AT",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "FT",
+                    "caption_config": "FT",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "GT",
+                    "caption_config": "GT",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "LT",
+                    "caption_config": "LT",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "R",
+                    "caption_config": "R",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "ST",
+                    "caption_config": "ST",
+                    "caption_dropout": 0.1
+                },
+                {
+                    "target_config": "T",
+                    "reference_config": "WT",
+                    "caption_config": "WT",
+                    "caption_dropout": 0.1
+                }
+            ]
+        },
+        {
+            "train_data_dir": "/home/waas/longcat_edit/dataset_tworef",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 2,
+            "image_configs": {
+                "train":{
+                    "suffix":""
+                }
+            },
+            "target_configs": {
+                "train": [
+                    {
+                        "image":"train"
+                    }
+                ]
+            },
+            "reference_configs": {
+            },
+            "caption_configs": {
+                "train": {
+                    "image":"train",
+                    "ext": ".txt"
+                }
+            },
+            "batch_configs":[
+                {
+                    "target_config": "train",
+                    "caption_config": "train",
+                    "caption_dropout": 0.1
+                }
+            ]
+        }
+    ]
+}

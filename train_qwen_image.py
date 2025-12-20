@@ -114,7 +114,7 @@ from utils.image_utils_qwenimage import compute_text_embeddings, replace_non_utf
 
 from torchvision import transforms
 
-from utils.utils import find_index_from_right, ToTensorUniversal
+from utils.utils import find_index_from_right, ToTensorUniversal, print_end_signal
 
 from utils.training_set.select_training_set import get_training_set
 
@@ -2074,6 +2074,7 @@ def main(args, config_args):
     accelerator.end_training()
     print("Saved to ")
     print(args.output_dir)
+    print_end_signal()
 
 
 if __name__ == "__main__":

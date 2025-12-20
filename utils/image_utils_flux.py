@@ -20,7 +20,7 @@ import pandas as pd
 from diffusers.image_processor import VaeImageProcessor
 from diffusers.utils import load_image
 
-from utils.utils import ToTensorUniversal
+from utils.utils import ToTensorUniversal, vae_encode_utils
 
 # BASE_RESOLUTION = 1024
 
@@ -774,17 +774,7 @@ def cache_file(vae,json_obj,resolution=1024,cache_ext=".npflux",latent_ext=".npf
 @torch.no_grad()
 def vae_encode(vae,image):
     # create tensor latent
-    pixel_values = []
-    pixel_values.append(image)
-    pixel_values = torch.stack(pixel_values).to(vae.device)
-    # del image
-    
-    with torch.no_grad():
-        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
-        del pixel_values
-    latent_dict = {
-        'latent': latent.cpu()
-    }
+    latent_dict = vae_encode_utils(vae,image, vae_type="flux")   
     return latent_dict
 
 def read_image(image_path):

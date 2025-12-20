@@ -20,8 +20,9 @@ import pandas as pd
 from diffusers.image_processor import VaeImageProcessor
 from diffusers.utils import load_image
 
-from utils.utils import ToTensorUniversal
+from utils.utils import ToTensorUniversal, get_nearest_resolution_utils, crop_image_utils, vae_encode_utils
 
+from torch.nn.utils.rnn import pad_sequence
 # BASE_RESOLUTION = 1024
 
 # RESOLUTION_SET = [
@@ -123,6 +124,36 @@ RESOLUTION_CONFIG = {
         (512, 512),     # 12 ← 1024x1024
         (576, 640),     # 13 ← 1024x1152 ← adjusted to avoid dup
     ],
+    256: [
+        (128, 320),
+        (160, 352),
+        (160, 384),
+        (160, 320),
+        (192, 384),
+        (192, 352),
+        (224, 352),
+        (224, 288),
+        (256, 288),
+        (256, 320),
+        (288, 288),
+        (256, 256),
+        (288, 320),
+    ],
+    128: [
+        (64, 160),
+        (80, 176),
+        (80, 192),
+        (80, 160),
+        (96, 192),
+        (96, 176),
+        (112, 176),
+        (112, 144),
+        (128, 144),
+        (128, 160),
+        (144, 144),
+        (128, 128),
+        (144, 160),
+    ],
     384: [
         (192, 480),     # 1
         (240, 528),     # 2
@@ -179,22 +210,147 @@ def closest_mod_64(value):
 
 # return closest_ratio and width,height closest_resolution
 def get_nearest_resolution(image, resolution=1024):
-    height, width, _ = image.shape
+    # height, width, _ = image.shape
     resolution_set = RESOLUTION_CONFIG[resolution]
     
-    # get ratio
-    image_ratio = width / height
+    # # get ratio
+    # image_ratio = width / height
 
-    target_set = resolution_set.copy()
-    reversed_set = [(y, x) for x, y in target_set]
-    target_set = sorted(set(target_set + reversed_set))
-    target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
+    # target_set = resolution_set.copy()
+    # reversed_set = [(y, x) for x, y in target_set]
+    # target_set = sorted(set(target_set + reversed_set))
+    # target_ratio = sorted(set([round(width/height, 2) for width,height in target_set]))
     
-    # Find the closest vertical ratio
-    closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
-    closest_resolution = target_set[target_ratio.index(closest_ratio)]
+    # # Find the closest vertical ratio
+    # closest_ratio = min(target_ratio, key=lambda x: abs(x - image_ratio))
+    # closest_resolution = target_set[target_ratio.index(closest_ratio)]
+
+    closest_ratio,closest_resolution = get_nearest_resolution_utils(image, resolution_set)
 
     return closest_ratio,closest_resolution
+
+def crop_image(image_path, resolution=1024):
+    resolution_set = RESOLUTION_CONFIG[resolution]
+    image = crop_image_utils(image_path,resolution_set)
+    return image
+
+
+def get_latent(latent_path,latent_key, vae_config_shift_factor, vae_config_scaling_factor, device, weight_dtype):
+    cached_latent = torch.load(latent_path, weights_only=True)
+    latent = cached_latent[latent_key].to(device=device,dtype=weight_dtype)
+    latent = (latent - vae_config_shift_factor) * vae_config_scaling_factor
+    latent = latent.to(device=device,dtype=weight_dtype)
+    # print("latent.shape",latent.shape)
+    # latent = latent.unsqueeze(1)
+    # [B, C, T=1, H, W]
+    return latent
+
+# def get_actual_emb(emb, prompt_embed_length):
+#     if emb.ndim > 2:
+#         sliced = [emb[i, :l, :] for i, l in enumerate([prompt_embed_length])]
+#     else:
+#         sliced = [emb[i, :l] for i, l in enumerate([prompt_embed_length])]
+#     return pad_sequence(sliced, batch_first=True, padding_value=0)
+
+def get_actual_emb(emb, prompt_embed_length):
+    if emb.ndim > 2:
+        sliced = [emb[i, :l, :] for i, l in enumerate([prompt_embed_length])]
+    else:
+        sliced = [emb[i, :l] for i, l in enumerate([prompt_embed_length])]
+    return pad_sequence(sliced, batch_first=True, padding_value=0)
+
+def get_caption_embedding(npz_path, device, weight_dtype, prompt_embed_key, prompt_embeds_mask_key, prompt_embed_length_key):
+    cached_npz = torch.load(npz_path, weights_only=True)
+    prompt_embed = torch.stack([cached_npz[prompt_embed_key].to(device=device,dtype=weight_dtype)])
+    prompt_embeds_mask = torch.stack([cached_npz[prompt_embeds_mask_key].to(device=device,dtype=weight_dtype)])
+    prompt_embed_length = torch.stack([cached_npz[prompt_embed_length_key]]).to(device=device)
+    
+    # print("prompt_embed_length", prompt_embed_length)
+    prompt_embed = get_actual_emb(prompt_embed, prompt_embed_length)
+    prompt_embeds_mask = get_actual_emb(prompt_embeds_mask, prompt_embed_length)
+    
+    
+    return prompt_embed, prompt_embeds_mask
+
+
+class ImagePairsDataset(Dataset):
+    def __init__(self, datarows):
+        # self.has_redux = has_redux
+        self.datarows = datarows
+        self.leftover_indices = []  #initialize an empty list to store indices of leftover items
+    
+        #returns dataset length
+    def __len__(self):
+        return len(self.datarows)
+    #returns dataset item, using index
+    def __getitem__(self, index):
+        if self.leftover_indices:
+            # Fetch from leftovers first
+            actual_index = self.leftover_indices.pop(0)
+        else:
+            actual_index = index
+        return self.datarows[actual_index] 
+
+class CachedJsonDataset(Dataset):
+    def __init__(self, datarows, 
+                 vae_config_shift_factor, vae_config_scaling_factor, device, weight_dtype,
+                 latent_path_key, latent_key, npz_path_key, prompt_embed_key, prompt_embeds_mask_key, prompt_embed_length_key,
+                 from_latent_path_key, from_latent_key): 
+        # self.has_redux = has_redux
+        self.datarows = datarows
+        self.leftover_indices = []  #initialize an empty list to store indices of leftover items
+        # self.dataset_configs = dataset_configs
+        self.empty_embedding = get_empty_embedding()
+        
+        
+        self.vae_config_shift_factor = vae_config_shift_factor
+        self.vae_config_scaling_factor = vae_config_scaling_factor
+        self.device = device
+        self.weight_dtype = weight_dtype
+        
+        self.latent_path_key = latent_path_key
+        self.latent_key = latent_key
+        
+        self.npz_path_key = npz_path_key
+        self.prompt_embed_key = prompt_embed_key
+        self.prompt_embeds_mask_key = prompt_embeds_mask_key
+        self.prompt_embed_length_key = prompt_embed_length_key
+        self.from_latent_path_key = from_latent_path_key
+        self.from_latent_key = from_latent_key
+    #returns dataset length
+    def __len__(self):
+        return len(self.datarows)
+    #returns dataset item, using index
+    def __getitem__(self, index):
+        if self.leftover_indices:
+            # Fetch from leftovers first
+            actual_index = self.leftover_indices.pop(0)
+        else:
+            actual_index = index
+        path_obj = self.datarows[actual_index] 
+        json_path = path_obj["json_path"]
+        # load metadata
+        with open(json_path, 'r', encoding='utf-8') as f:
+            json_obj = json.load(f)
+        
+        for _, group_configs in json_obj.items():
+            # check item is dict
+            if isinstance(group_configs, dict):
+                for _, configs in group_configs.items():
+                    if isinstance(configs, list):
+                        for item in configs:
+                            if self.latent_path_key in item:
+                                item[self.latent_key] = get_latent(item[self.latent_path_key], self.latent_key, self.vae_config_shift_factor, self.vae_config_scaling_factor, self.device, self.weight_dtype)
+                                if self.from_latent_path_key in item:
+                                    item[self.from_latent_key] = get_latent(item[self.from_latent_path_key], self.latent_key, self.vae_config_shift_factor, self.vae_config_scaling_factor, self.device, self.weight_dtype)
+                            
+                    elif isinstance(configs, dict):
+                        if self.npz_path_key in configs:
+                            item = configs
+                            item[self.prompt_embed_key], item[self.prompt_embeds_mask_key] = get_caption_embedding(item[self.npz_path_key], self.device, self.weight_dtype, self.prompt_embed_key, self.prompt_embeds_mask_key, self.prompt_embed_length_key)
+
+        json_obj["dataset"] = path_obj["dataset"]
+        return json_obj
 
 class CachedMutiImageDataset(Dataset):
     def __init__(self, datarows,conditional_dropout_percent=0.1, has_redux=False, dataset_configs=None): 
@@ -250,75 +406,6 @@ class CachedMutiImageDataset(Dataset):
                     }
         return result
 
-@torch.no_grad()
-def vae_encode(vae,image):
-    # create tensor latent
-    
-    pixel_values = []
-    pixel_values.append(image)
-    pixel_values = torch.stack(pixel_values).to(vae.device)
-    # del image
-    
-    # Qwen expects a `num_frames` dimension too.
-    if pixel_values.ndim == 4:
-        pixel_values = pixel_values.unsqueeze(2)
-        
-    with torch.no_grad():
-        latent = vae.encode(pixel_values).latent_dist.sample().squeeze(0)
-        
-        del pixel_values
-    latent_dict = {
-        'latent': latent.cpu()
-    }
-    return latent_dict
-
-def read_image(image_path):
-    try:
-        image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-        if image is not None:
-            # Convert to RGB format (assuming the original image is in BGR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        else:
-            print(f"Failed to open {image_path}.")
-    except Exception as e:
-        print(f"An error occurred while processing {image_path}: {e}")
-    return image
-
-def crop_image(image_path,resolution):
-    image = read_image(image_path)
-    ##############################################################################
-    # Simple center crop for others
-    ##############################################################################
-    # width, height = image.size
-    # original_size = (height, width)
-    # image = numpy.array(image)
-    
-    height, width, _ = image.shape
-    # original_size = (height, width)
-    
-    # get nearest resolution
-    closest_ratio,closest_resolution = get_nearest_resolution(image,resolution=resolution)
-    # we need to expand the closest resolution to target resolution before cropping
-    scale_ratio = closest_resolution[0] / closest_resolution[1]
-    image_ratio = width / height
-    scale_with_height = True
-    # crops_coords_top_left = (0,0)
-    # referenced kohya ss code
-    if image_ratio < scale_ratio: 
-        scale_with_height = False
-    try:
-        # image = simple_center_crop(image,scale_with_height,closest_resolution)
-        image,crop_x,crop_y = simple_center_crop(image,scale_with_height,closest_resolution)
-        # crops_coords_top_left = (crop_y,crop_x)
-        # save_webp(simple_crop_image,filename,'simple',os.path.join(output_dir,"simple"))
-    except Exception as e:
-        print(e)
-        raise e
-    # test = Image.fromarray(image)
-    # test.show()
-    # set meta data
-    return image
-
 def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=None, processor=None, instruction=None, drop_index=None):
     with torch.no_grad():
         prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_idx = encode_prompt(text_encoders, 
@@ -329,6 +416,8 @@ def compute_text_embeddings(text_encoders, tokenizers, prompt, device, image=Non
         # text_ids = text_ids.to(device)
     return prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_idx
 
+def vae_encode(vae,image):
+    return vae_encode_utils(vae,image)
 
 def get_empty_embedding(cache_path="cache/empty_embedding.npqwen"):
     if os.path.exists(cache_path):
@@ -392,7 +481,7 @@ def encode_prompt_with_qwenvl(
     
     prompt = [prompt] if isinstance(prompt, str) else prompt
     
-    template_prefix = "<|im_start|>system"
+    template_prefix = "<|im_start|>system\n"
     instruction_content = None
     if instruction is not None:
         instruction_content = instruction
@@ -458,7 +547,7 @@ def encode_prompt_with_qwenvl(
             input_ids=model_inputs.input_ids,
             attention_mask=model_inputs.attention_mask,
             pixel_values=model_inputs.pixel_values,
-            image_grid_thw=model_inputs.image_grid_thw,
+            image_grid_thw=model_inputs.image_grid_thw.cpu(),
             output_hidden_states=True,
         )
        
@@ -519,40 +608,3 @@ def encode_prompt(
     )
     return prompt_embeds, prompt_embeds_mask, prompt_embed_length, return_drop_index
     
-def simple_center_crop(image,scale_with_height,closest_resolution):
-    height, width, _ = image.shape
-    # print("ori size:",width,height)
-    if scale_with_height: 
-        up_scale = height / closest_resolution[1]
-    else:
-        up_scale = width / closest_resolution[0]
-
-    expanded_closest_size = (int(closest_resolution[0] * up_scale + 0.5), int(closest_resolution[1] * up_scale + 0.5))
-    
-    diff_x = abs(expanded_closest_size[0] - width)
-    diff_y = abs(expanded_closest_size[1] - height)
-
-    crop_x = 0
-    crop_y = 0
-    # crop extra part of the resized images
-    if diff_x>0:
-        crop_x =  diff_x //2
-        cropped_image = image[:,  crop_x:width-diff_x+crop_x]
-    elif diff_y>0:
-        crop_y =  diff_y//2
-        cropped_image = image[crop_y:height-diff_y+crop_y, :]
-    else:
-        # 1:1 ratio
-        cropped_image = image
-
-    # print(f"ori ratio:{width/height}")
-    height, width, _ = cropped_image.shape  
-    # print(f"cropped ratio:{width/height}")
-    # print(f"closest ratio:{closest_resolution[0]/closest_resolution[1]}")
-    # resize image to target resolution
-    # return cv2.resize(cropped_image, closest_resolution)
-    
-    # rollback to fs_resize, because I trained two images with lanczos, horizontal line appears
-    # return resize(cropped_image,closest_resolution, resize_method="fs_resize"),crop_x,crop_y
-    return resize(cropped_image, closest_resolution, resize_method="lanczos"), crop_x, crop_y
-

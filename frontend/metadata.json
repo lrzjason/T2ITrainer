@@ -1,0 +1,5 @@
+{
+  "name": "LoRA Trainer Node Editor",
+  "description": "A node-based visual editor for constructing LoRA training configurations and Python commands, inspired by ComfyUI.",
+  "requestFramePermissions": []
+}

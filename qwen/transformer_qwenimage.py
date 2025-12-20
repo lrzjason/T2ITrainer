@@ -26,6 +26,7 @@ logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 class QwenEmbedRopeFix(QwenEmbedRope):
     def __init__(self, theta: int, axes_dim: List[int], scale_rope=False):
         super().__init__(theta, axes_dim, scale_rope)
+        self.rope_cache = {}
     
     
     def forward(self, video_fhw, txt_seq_lens, device):
@@ -37,11 +38,58 @@ class QwenEmbedRopeFix(QwenEmbedRope):
             self.pos_freqs = self.pos_freqs.to(device)
             self.neg_freqs = self.neg_freqs.to(device)
 
-        # fix video_fhw issue
-        # if isinstance(video_fhw, list):
-        #     video_fhw = video_fhw[0]
-        # if not isinstance(video_fhw, list):
-        #     video_fhw = [video_fhw]
+        if isinstance(video_fhw, list):
+            video_fhw = video_fhw[0]
+        if not isinstance(video_fhw, list):
+            video_fhw = [video_fhw]
+            
+        vid_freqs = []
+        for idx, fhw in enumerate(video_fhw):
+            frame, height, width = fhw
+            rope_key = f"{idx}_{height}_{width}"
+
+            if not torch.compiler.is_compiling():
+                if rope_key not in self.rope_cache:
+                    self.rope_cache[rope_key] = self._compute_video_freqs(frame, height, width, idx)
+                video_freq = self.rope_cache[rope_key]
+            else:
+                video_freq = self._compute_video_freqs(frame, height, width, idx)
+            video_freq = video_freq.to(device)
+            vid_freqs.append(video_freq)
+
+        vid_freqs = torch.cat(vid_freqs, dim=0)
+        
+        
+        main_frame, main_height, main_width = video_fhw[0]
+        if self.scale_rope:
+              base_index = max(main_height // 2, main_width // 2)
+        else:
+              base_index = max(main_height, main_width)
+        
+        rows = torch.arange(base_index, base_index + max(txt_seq_lens), device=device)
+        
+        txt_freqs = self.pos_freqs.index_select(0, rows).to(device)
+
+        return vid_freqs, txt_freqs
+
+class QwenEmbedRopeFixOld(QwenEmbedRope):
+    def __init__(self, theta: int, axes_dim: List[int], scale_rope=False):
+        super().__init__(theta, axes_dim, scale_rope)
+    
+    
+    def forward(self, video_fhw, txt_seq_lens, device):
+        """
+        Args: video_fhw: [frame, height, width] a list of 3 integers representing the shape of the video Args:
+        txt_length: [bs] a list of 1 integers representing the length of the text
+        """
+        if self.pos_freqs.device != device:
+            self.pos_freqs = self.pos_freqs.to(device)
+            self.neg_freqs = self.neg_freqs.to(device)
+
+        if isinstance(video_fhw, list):
+            video_fhw = video_fhw[0]
+        if not isinstance(video_fhw, list):
+            video_fhw = [video_fhw]
 
         vid_freqs = []
         max_vid_index = 0
@@ -93,6 +141,8 @@ class BlockSwapQwenImageTransformer2DModel(QwenImageTransformer2DModel):
             Whether to use guidance embeddings for guidance-distilled variant of the model.
         axes_dims_rope (`Tuple[int]`, defaults to `(16, 56, 56)`):
             The dimensions to use for the rotary positional embeddings.
+        use_new_rope (`bool`, defaults to `True`):
+            Use main image + multiple reference images style rope. If False, use old rope.
     """
 
     _supports_gradient_checkpointing = True
@@ -110,7 +160,7 @@ class BlockSwapQwenImageTransformer2DModel(QwenImageTransformer2DModel):
         num_attention_heads: int = 24,
         joint_attention_dim: int = 3584,
         guidance_embeds: bool = False,  # TODO: this should probably be removed
-        axes_dims_rope: Tuple[int, int, int] = (16, 56, 56),
+        axes_dims_rope: Tuple[int, int, int] = (16, 56, 56)
     ):
         super().__init__(
             patch_size=patch_size,
@@ -128,10 +178,15 @@ class BlockSwapQwenImageTransformer2DModel(QwenImageTransformer2DModel):
 
         self.offloader_double = None
         self.num_double_blocks = len(self.transformer_blocks)
-        
+        self.axes_dims_rope = axes_dims_rope
         self.pos_embed = QwenEmbedRopeFix(theta=10000, axes_dim=list(axes_dims_rope), scale_rope=True)
 
-
+    def select_rope(self, use_new_rope: bool = False):
+        # if use_new_rope:
+        #     self.pos_embed = QwenEmbedRopeFix(theta=10000, axes_dim=list(self.axes_dims_rope), scale_rope=True)
+        # else:
+        #     self.pos_embed = QwenEmbedRopeFixOld(theta=10000, axes_dim=list(self.axes_dims_rope), scale_rope=True)
+        self.pos_embed = QwenEmbedRopeFix(theta=10000, axes_dim=list(self.axes_dims_rope), scale_rope=True)
     def enable_block_swap(self, num_blocks: int, device: torch.device):
         self.blocks_to_swap = num_blocks
         double_blocks_to_swap = num_blocks

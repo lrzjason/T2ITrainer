@@ -3,6 +3,8 @@ import math
 from collections import defaultdict
 from typing import Dict, List, Iterator, Any, Tuple
 
+from typing import Iterator
+from torch.utils.data import Sampler
 
 class _FakeDataset:
     def __init__(self, rows: List[Dict[str, Any]]):
@@ -25,6 +27,7 @@ class BucketBatchSampler:
     def _bucket_indices(self) -> Dict[str, List[int]]:
         buckets = defaultdict(list)
         for idx, row in enumerate(self.datarows):
+            # print("row:", row)
             key = row['bucket']
             buckets[key].append(idx)
         for indices in buckets.values():
@@ -62,3 +65,25 @@ class BucketBatchSampler:
             for i in range(0, len(indices), self.batch_size):
                 yield indices[i:i + self.batch_size]
         self.leftover_items.clear()
+        
+
+class FlatBatchSampler:  # Renamed to reflect flat sampling; change back if needed
+    def __init__(self, dataset, batch_size: int):
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        self.dataset = dataset
+        self.datarows = dataset.datarows
+        self.batch_size = batch_size
+        self.indices = list(range(len(self.datarows)))
+
+    def __len__(self) -> int:
+        return math.ceil(len(self.datarows) / self.batch_size)
+
+    def __iter__(self) -> Iterator[List[int]]:
+        # Shuffle all indices globally each epoch
+        shuffled = self.indices.copy()
+        random.shuffle(shuffled)
+
+        # Yield batches sequentially
+        for i in range(0, len(shuffled), self.batch_size):
+            yield shuffled[i:i + self.batch_size]

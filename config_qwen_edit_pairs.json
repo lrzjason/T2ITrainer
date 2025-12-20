@@ -1,9 +1,9 @@
 {
-    "pretrained_model_name_or_path": "F:/T2ITrainer/qwen_models/qwen_image_edit_plus_nf4",
-    "output_dir": "F:/models/qwen/plus/ootd_colour_test_output",
-    "save_name": "ootd_colour_test",
-    "train_data_dir": "F:/ImageSet/ootd/raw_colour/ootd_colour_test",
-    "repeats": 1,
+    "pretrained_model_name_or_path": "/datasets/studio/huggingface/models/Qwen-Image-Edit-2509",
+    "output_dir": "/home/waas/style_gen_training/style_gen_output",
+    "save_name": "style_gen",
+    "train_data_dir": "/home/waas/style_gen_training/style_gen",
+    "repeats": 2,
     "validation_epochs": 1,
     "seed": 4321,
     "train_batch_size": 2,
@@ -12,7 +12,7 @@
     "gradient_accumulation_steps": 1,
     "gradient_checkpointing": true,
     "learning_rate": 0.0001,
-    "lr_scheduler": "constant",
+    "lr_scheduler": "cosine",
     "cosine_restarts": 1,
     "lr_warmup_steps": 0,
     "optimizer": "adamw",
@@ -30,9 +30,12 @@
     "validation_ratio": 0.1,
     "model_path": "",
     "allow_tf32": true,
-    "recreate_cache": false,
+    "recreate_cache": true,
+    "recreate_cache_target": false,
+    "recreate_cache_reference": false,
+    "recreate_cache_caption": false,
     "caption_dropout": 0.3,
-    "resolution": "512",
+    "resolution": "1024",
     "weighting_scheme": "logit_normal",
     "logit_mean": 0.0,
     "logit_std": 1.0,
@@ -41,52 +44,255 @@
     "lora_layers": "",
     "guidance_scale": 1,
     "blocks_to_swap": 0,
+    "use_new_rope": true,
+    "nln_samples": 10,
+    "nln_scale": 0.02,
+    "nln_method": "default",
     "image_configs": {
         "train":{
             "suffix":"_T"
         },
-        "reference":{
+        "R":{
             "suffix":"_R"
         },
-        "small":{
-            "suffix":"_S"
+        "3D":{
+            "suffix":"_3D"
+        },
+        "A":{
+            "suffix":"_A"
+        },
+        "L":{
+            "suffix":"_L"
+        },
+        "SIMPLE":{
+            "suffix":"_SIMPLE"
+        },
+        "W":{
+            "suffix":"_W"
         }
+    },
+    "target_configs": {
+        "train_R": [
+            {
+                "image":"train",
+                "from_image": "R"
+            }
+        ],
+        "train_3D": [
+            {
+                "image": "train",
+                "from_image": "3D"
+            }
+        ],
+        "train_A": [
+            {
+                "image":"train",
+                "from_image": "A"
+            }
+        ],
+        "train_L": [
+            {
+                "image":"train",
+                "from_image": "L"
+            }
+        ],
+        "train_SIMPLE": [
+            {
+                "image":"train",
+                "from_image": "SIMPLE"
+            }
+        ],
+        "train_W": [
+            {
+                "image":"train",
+                "from_image": "W"
+            }
+        ]
+    },
+    "reference_configs": {
+        "train_R": [
+            {
+                "sample_type":"from_same_name",
+                "image": "R"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ],
+        "train_3D": [
+            {
+                "sample_type":"from_same_name",
+                "image": "3D"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ],
+        "train_A": [
+            {
+                "sample_type":"from_same_name",
+                "image": "A"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ],
+        "train_L": [
+            {
+                "sample_type":"from_same_name",
+                "image": "L"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ],
+        "train_SIMPLE": [
+            {
+                "sample_type":"from_same_name",
+                "image": "SIMPLE"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ],
+        "train_W": [
+            {
+                "sample_type":"from_same_name",
+                "image": "W"
+            },
+            {
+                "sample_type":"from_subdir",
+                "image": "train",
+                "suffix":"_T",
+                "resize":"512",
+                "count":3
+            }
+        ]
     },
     "caption_configs": {
-        "train": {
+        "train_3D": {
+            "image":"train",
             "ext": ".txt",
-            "ref_image_config": {
-                "ref_image_list": [
-                    {
-                        "target": "reference",
-                        "resize": false
-                    },
-                    {
-                        "target": "small",
-                        "dropout": 0.1
-                    }
-                ]
+            "reference_list": {
+                "reference_config": "train_3D",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
+            }
+        },
+        "train_A": {
+            "image":"train",
+            "ext": ".txt",
+            "reference_list": {
+                "reference_config": "train_A",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
+            }
+        },
+        "train_L": {
+            "image":"train",
+            "ext": ".txt",
+            "reference_list": {
+                "reference_config": "train_L",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
+            }
+        },
+        "train_R": {
+            "image":"train",
+            "ext": ".txt",
+            "reference_list": {
+                "reference_config": "train_R",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
+            }
+        },
+        "train_SIMPLE": {
+            "image":"train",
+            "ext": ".txt",
+            "reference_list": {
+                "reference_config": "train_SIMPLE",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
+            }
+        },
+        "train_W": {
+            "image":"train",
+            "ext": ".txt",
+            "reference_list": {
+                "reference_config": "train_W",
+                "resize": "384",
+                "dropout": 0.1,
+                "min_length": 2
             }
         }
     },
-    "training_set":[
+    "batch_configs":[
         {
-            "training_layout_configs":{
-                "train": {
-                    "target": "train",
-                    "noised": true
-                },
-                "reference": {
-                    "target": "reference"
-                },
-                "small": {
-                    "target": "small",
-                    "dropout": 0.5
-                }
-            },
-            "captions_selection": {
-                "target": "train"
-            }
+            "target_config": "train_3D",
+            "reference_config": "train_3D",
+            "reference_dropout": 0.75,
+            "caption_config": "train_3D",
+            "caption_dropout": 0.1
+        },
+        {
+            "target_config": "train_A",
+            "reference_config": "train_A",
+            "reference_dropout": 0.75,
+            "caption_config": "train_A",
+            "caption_dropout": 0.1
+        },
+        {
+            "target_config": "train_L",
+            "reference_config": "train_L",
+            "reference_dropout": 0.75,
+            "caption_config": "train_L",
+            "caption_dropout": 0.1
+        },
+        {
+            "target_config": "train_R",
+            "reference_config": "train_R",
+            "reference_dropout": 0.75,
+            "caption_config": "train_R",
+            "caption_dropout": 0.1
+        },
+        {
+            "target_config": "train_SIMPLE",
+            "reference_config": "train_SIMPLE",
+            "reference_dropout": 0.75,
+            "caption_config": "train_SIMPLE",
+            "caption_dropout": 0.1
+        },
+        {
+            "target_config": "train_W",
+            "reference_config": "train_W",
+            "reference_dropout": 0.75,
+            "caption_config": "train_W",
+            "caption_dropout": 0.1
         }
     ]
 }

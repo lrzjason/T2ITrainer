@@ -1,8 +1,8 @@
 {
-    "pretrained_model_name_or_path": "/datasets/ai-toolkit/models/Qwen-Image",
-    "output_dir": "/home/waas/kontext_single_output",
-    "train_data_dir": "/home/waas/kontext_single",
-    "save_name": "highres_test",
+    "pretrained_model_name_or_path": "F:/T2ITrainer/qwen_models/qwen_image_edit_2509_14B_nf4",
+    "output_dir": "F:/ImageSet/0outsource/digital human/3d_human_small_output",
+    "train_data_dir": "F:/ImageSet/0outsource/digital human/3d_human_small",
+    "save_name": "3d_ssl_test",
     "repeats": 10,
     "validation_epochs": 1,
     "seed": 4321,
@@ -41,6 +41,12 @@
     "lora_layers": "",
     "guidance_scale": 1,
     "blocks_to_swap": 0,
+    "enable_traj_refs" : true,
+    "traj_drop_rate" : 0.15,
+    "t_low" : 0.2,
+    "t_high" :  0.85,
+    "min_step" : 0.05,
+    "traj_weight" : 0.4,
     "image_configs": {
         "train":{
             "suffix":""

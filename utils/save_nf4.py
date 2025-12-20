@@ -12,7 +12,7 @@ quant_config = DiffusersBitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16
 )
 
-model_id = r"F:\T2ITrainer\qwen_models\qwen_image_edit_plus"
+model_id = r"F:\T2ITrainer\qwen_models\Qwen-Image-Edit-2509-14B"
 transformer = QwenImageTransformer2DModel.from_pretrained(
     model_id,
     subfolder="transformer",
@@ -21,4 +21,4 @@ transformer = QwenImageTransformer2DModel.from_pretrained(
 )
 
 # save quantized model to reuse
-transformer.save_pretrained(r"F:\T2ITrainer\qwen_models\qwen_image_edit_plus_nf4")
+transformer.save_pretrained(r"F:\T2ITrainer\qwen_models\qwen_image_edit_2509_14B_nf4")

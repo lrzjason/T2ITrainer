@@ -1,6 +1,6 @@
 from diffusers import BitsAndBytesConfig as DiffusersBitsAndBytesConfig
 from transformers import BitsAndBytesConfig as TransformersBitsAndBytesConfig
-
+from diffusers import QwenImageLayeredPipeline
 import torch
 from diffusers import QwenImageTransformer2DModel
 
@@ -9,7 +9,17 @@ quant_config = DiffusersBitsAndBytesConfig(
     load_in_8bit=True,  
 )
 
-model_id = r"F:\T2ITrainer\qwen_models\qwen_image"
+model_id = r"F:\HF_Models\Qwen\qwen_image_layered"
+
+# pipeline = QwenImageLayeredPipeline.from_pretrained(
+#                 model_id,
+#                 scheduler=None,
+#                 vae=None,
+#                 text_encoder=None,
+#                 tokenizer=None,
+#                 processor=None
+#             )
+# transformer = pipeline.transformer
 transformer = QwenImageTransformer2DModel.from_pretrained(
     model_id,
     subfolder="transformer",
@@ -18,4 +28,4 @@ transformer = QwenImageTransformer2DModel.from_pretrained(
 )
 
 # Save quantized model to reuse
-transformer.save_pretrained("F:/T2ITrainer/qwen_models/qwen_image_int8/transformer")
+transformer.save_pretrained("F:/HF_Models/Qwen/qwen_image_layered/transformer_int8")

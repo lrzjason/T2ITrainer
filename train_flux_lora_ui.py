@@ -129,7 +129,7 @@ import glob
 import shutil
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 
-
+from utils.utils import print_end_signal
 def load_text_encoders(class_one, class_two):
     text_encoder_one = class_one.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="text_encoder"
@@ -1941,6 +1941,7 @@ def main(args):
     print("Saved to ")
     print(args.output_dir)
 
+    print_end_signal()
 
 if __name__ == "__main__":
     args = parse_args()

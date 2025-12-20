@@ -1,5 +1,6 @@
 import random
 from typing import List, Dict, Any
+import os
 def get_training_set(training_set: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     从 training_set 中选出(或随机选出)一个训练配置。
@@ -41,3 +42,20 @@ def get_training_set(training_set: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     chosen = random.choices(training_set, weights=weights, k=1)[0]
     return chosen
+
+# 包装函数以符合新的命名要求
+def get_batch_config(batch_configs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    return get_training_set(batch_configs)
+
+def get_dataset_batch_config(dataset_name, dataset_configs: List[Dict[str, Any]]) -> Dict[str, Any]:
+    
+    batch_configs = []
+    
+    for dataset_config in dataset_configs:
+        # get basename from dataset_config["train_data_dir"]
+        basename = os.path.basename(dataset_config["train_data_dir"])
+        if basename == dataset_name:
+            batch_configs = dataset_config['batch_configs']
+            break
+    
+    return get_training_set(batch_configs)
