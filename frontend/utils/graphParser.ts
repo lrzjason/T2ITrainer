@@ -109,9 +109,7 @@ export const parseGraph = (nodes: Node[], edges: Edge[]): { config: TrainingConf
                           'mode_scale',
                           'guidance_scale',
                           'mask_dropout',
-                          'nln_method',
-                          'nln_samples',
-                          'nln_scale',
+
                           'freeze_transformer_layers',
                           'freeze_single_transformer_layers'
                       ];
@@ -211,9 +209,7 @@ export const parseGraph = (nodes: Node[], edges: Edge[]): { config: TrainingConf
                       'mode_scale',
                       'guidance_scale',
                       'mask_dropout',
-                      'nln_method',
-                      'nln_samples',
-                      'nln_scale',
+
                       'freeze_transformer_layers',
                       'freeze_single_transformer_layers'
                   ];
@@ -317,6 +313,7 @@ export const parseGraph = (nodes: Node[], edges: Edge[]): { config: TrainingConf
                 repeats: dsNode.data.repeats || 1,
             };
             console.log('Dataset node data:', dsNode.data);
+            if(dsNode.data.recreate_cache_label) d.recreate_cache_label = true;
             if(dsNode.data.recreate_cache_target) d.recreate_cache_target = true;
             if(dsNode.data.recreate_cache_reference) d.recreate_cache_reference = true;
             if(dsNode.data.recreate_cache_caption) d.recreate_cache_caption = true;

@@ -15,6 +15,8 @@ import ReactFlow, {
   useReactFlow,
   OnConnectStartParams
 } from 'reactflow';
+import { LoadWorkflowPanel } from './LoadWorkflowPanel';
+import { AboutPanel } from './AboutPanel';
 import {
     LayoutGrid,
     Terminal,
@@ -130,252 +132,7 @@ const defaultEdgeOptions = {
     interactionWidth: 15,
 };
 
-// --- About & Docs Modal ---
-const AboutModal = ({ onClose }: { onClose: () => void }) => {
-    const [activeTab, setActiveTab] = useState<'about' | 'docs'>('about');
 
-    const DocSection = ({ title, icon: Icon, children }: any) => (
-        <div className="mb-6">
-            <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-3 flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-1">
-                <Icon size={18} className="text-blue-500"/> {title}
-            </h4>
-            <div className="space-y-4">
-                {children}
-            </div>
-        </div>
-    );
-
-    const NodeDoc = ({ title, inputs, fields, desc }: any) => (
-        <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
-            <h5 className="font-bold text-zinc-800 dark:text-zinc-200 text-sm mb-1">{title}</h5>
-            {desc && <p className="text-xs text-zinc-500 mb-2 italic">{desc}</p>}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                {inputs && inputs.length > 0 && (
-                     <div>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">Inputs:</span> 
-                        <span className="text-zinc-600 dark:text-zinc-400 ml-1">{inputs.join(', ')}</span>
-                     </div>
-                )}
-                {fields && fields.length > 0 && (
-                     <div>
-                        <span className="font-semibold text-blue-600 dark:text-blue-400">Fields:</span>
-                        <span className="text-zinc-600 dark:text-zinc-400 ml-1">{fields.join(', ')}</span>
-                     </div>
-                )}
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
-                {/* Header */}
-                <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 backdrop-blur-md">
-                    <button 
-                        onClick={() => setActiveTab('about')}
-                        className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'about' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-blue-600 dark:text-blue-400 border-b-2 border-blue-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
-                    >
-                        About & Contact
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('docs')}
-                        className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-all ${activeTab === 'docs' ? 'bg-zinc-50 dark:bg-zinc-900/50 text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-500' : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50'}`}
-                    >
-                        Node Documentation
-                    </button>
-                    <button onClick={onClose} className="px-6 text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors border-l border-zinc-200 dark:border-zinc-800">
-                        <X size={20}/>
-                    </button>
-                </div>
-
-                {/* Content Area */}
-                <div className="overflow-y-auto p-6 scrollbar-thin bg-white dark:bg-zinc-950">
-                    {activeTab === 'about' ? (
-                        <div className="space-y-10 text-zinc-700 dark:text-zinc-300 max-w-3xl mx-auto">
-                            {/* Repo Info */}
-                            <section className="text-center">
-                                <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-2 flex items-center justify-center gap-2">
-                                    <Github size={24}/> T2ITrainer Repository
-                                </h3>
-                                <a href="https://github.com/lrzjason/T2ITrainer" target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 hover:underline font-mono text-sm bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">
-                                    https://github.com/lrzjason/T2ITrainer
-                                </a>
-                            </section>
-
-                            <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800"></div>
-
-                            {/* Contact Info */}
-                            <section>
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-6 flex items-center gap-2">
-                                    📬 Contact Information
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">Twitter</span>
-                                        <a href="https://twitter.com/Lrzjason" target="_blank" rel="noreferrer" className="text-blue-500 font-medium hover:underline">@Lrzjason</a>
-                                    </div>
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">Email</span>
-                                        <a href="mailto:lrzjason@gmail.com" className="text-blue-500 font-medium hover:underline">lrzjason@gmail.com</a>
-                                    </div>
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">QQ Group</span>
-                                        <span className="font-mono">866612947</span>
-                                    </div>
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">WeChat ID</span>
-                                        <span className="font-mono">fkdeai</span>
-                                    </div>
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">CivitAI</span>
-                                        <a href="https://civitai.com/user/xiaozhijason" target="_blank" rel="noreferrer" className="text-blue-500 font-medium hover:underline">xiaozhijason</a>
-                                    </div>
-                                    <div className="bg-zinc-50 dark:bg-zinc-900 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 flex items-center gap-3">
-                                        <span className="font-bold text-zinc-500 text-xs uppercase w-20">Bilibili</span>
-                                        <a href="https://space.bilibili.com/443010" target="_blank" rel="noreferrer" className="text-blue-500 font-medium hover:underline">小志Jason</a>
-                                    </div>
-                                </div>
-                            </section>
-
-                            <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800"></div>
-
-                            {/* Sponsor Info */}
-                            <section>
-                                <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-6 text-center">
-                                    ❤️ Sponsor me for more open source projects
-                                </h3>
-                                <div className="flex flex-col md:flex-row gap-8 justify-center items-center bg-zinc-50 dark:bg-zinc-900/30 p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                                    <div className="text-center group">
-                                        <div className="bg-white p-2 rounded-xl shadow-sm mb-3 group-hover:shadow-md transition-shadow">
-                                            <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/bmc_qr.png?raw=true" alt="Buy Me a Coffee QR" className="w-40 h-40 object-contain mix-blend-multiply dark:mix-blend-normal" />
-                                        </div>
-                                        <p className="font-bold text-xs uppercase tracking-wide text-zinc-500">Buy me a coffee</p>
-                                    </div>
-                                    <div className="w-px h-32 bg-zinc-200 dark:bg-zinc-700 hidden md:block"></div>
-                                    <div className="text-center group">
-                                        <div className="bg-white p-2 rounded-xl shadow-sm mb-3 group-hover:shadow-md transition-shadow">
-                                            <img src="https://github.com/lrzjason/Comfyui-In-Context-Lora-Utils/blob/main/image/wechat.jpg?raw=true" alt="WeChat QR" className="w-40 h-40 object-contain mix-blend-multiply dark:mix-blend-normal" />
-                                        </div>
-                                        <p className="font-bold text-xs uppercase tracking-wide text-zinc-500">WeChat</p>
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-                    ) : (
-                        <div className="max-w-4xl mx-auto pb-10">
-                            <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400 bg-blue-50 dark:bg-blue-900/20 p-3 rounded border border-blue-100 dark:border-blue-900/50">
-                                <Info size={16} className="inline mr-2 text-blue-500 mb-0.5"/>
-                                The following documentation details the inputs and configuration fields for every node type in the editor.
-                            </p>
-                            
-                            <DocSection title="Core Nodes" icon={Terminal}>
-                                <NodeDoc 
-                                    title="Script Loader"
-                                    desc="The main entry point for generating the training command and configuration file."
-                                    fields={['Python Script', 'Config Path (Output)']}
-                                    inputs={['Connect to: Directory Setup, LoRA Config, Misc Settings, Dataset List, Old Schema Root']}
-                                />
-                                <NodeDoc 
-                                    title="Directory Setup"
-                                    desc="Defines global paths for models and output data."
-                                    inputs={['From Script']}
-                                    fields={['Pretrained Model Path', 'Output Dir', 'Logging Dir', 'Save Name', 'Global Data Dir', 'Model Path', 'VAE Path']}
-                                />
-                                <NodeDoc 
-                                    title="LoRA Config"
-                                    desc="Network configuration for LoRA training."
-                                    inputs={['From Script']}
-                                    fields={['Rank', 'Alpha', 'Use LoKR', 'LoKR Factor', 'LoRA Layers']}
-                                />
-                                <NodeDoc 
-                                    title="Misc Settings"
-                                    desc="General hyperparameters and advanced training settings."
-                                    inputs={['From Script']}
-                                    fields={['Resolution', 'Batch Size', 'Epochs', 'Learning Rate', 'Optimizer', 'Precision', 'Scheduler', 'Seed', 'Caption Dropout', 'Save Every N Epochs', 'Blocks to Swap', 'Gradient Checkpointing', 'Recreate Cache', 'Validation Epochs', 'Validation Ratio', 'Weighting Scheme', 'NLN Config']}
-                                />
-                            </DocSection>
-
-                            <DocSection title="Structure Nodes (New Schema)" icon={Layers}>
-                                <NodeDoc 
-                                    title="Dataset List"
-                                    desc="Aggregates multiple dataset configurations."
-                                    inputs={['From Script']}
-                                    fields={['Add/Remove Dataset Slots']}
-                                />
-                                <NodeDoc 
-                                    title="Dataset Configuration"
-                                    desc="Configuration for a specific dataset block. Acts as a hub for component lists."
-                                    inputs={['From Dataset List']}
-                                    fields={['Data Directory', 'Repeats', 'Resolution', 'Recreate Cache (Target/Ref/Cap)']}
-                                />
-                            </DocSection>
-
-                            <DocSection title="Component Nodes" icon={Component}>
-                                <NodeDoc 
-                                    title="Lists (Image, Target, Caption, Batch, Reference)"
-                                    desc="Intermediate nodes that manage lists of specific items. Connects Dataset Config to individual Items."
-                                    inputs={['From Dataset Config']}
-                                    fields={['Add/Remove Slots']}
-                                />
-                                <NodeDoc 
-                                    title="Image Item"
-                                    desc="Defines image processing rules."
-                                    inputs={['From Image List']}
-                                    fields={['Image Name (Key)', 'Suffix']}
-                                />
-                                <NodeDoc 
-                                    title="Target Item"
-                                    desc="Defines target image pairs for training."
-                                    inputs={['From Target List']}
-                                    fields={['Target Name (Key)', 'Image', 'From Image']}
-                                />
-                                <NodeDoc 
-                                    title="Reference Group"
-                                    desc="Aggregates multiple reference sources under a single key."
-                                    inputs={['From Reference List']}
-                                    fields={['Reference Name (Key)']}
-                                />
-                                <NodeDoc 
-                                    title="Reference Source"
-                                    desc="A specific source of reference images."
-                                    inputs={['From Reference Group']}
-                                    fields={['Sample Type (same_name/subdir)', 'Image Name', 'Suffix', 'Resize', 'Count']}
-                                />
-                                <NodeDoc 
-                                    title="Caption Item"
-                                    desc="Defines captioning rules and optional reference lists."
-                                    inputs={['From Caption List']}
-                                    fields={['Caption Name (Key)', 'Extension', 'Image', 'Include Reference List (Ref Name, Dropout, Resize, Min Length)']}
-                                />
-                                <NodeDoc 
-                                    title="Batch Item"
-                                    desc="Links Target, Caption, and Reference configs for batching."
-                                    inputs={['From Batch List']}
-                                    fields={['Target Config', 'Caption Config', 'Reference Config', 'Caption Dropout']}
-                                />
-                            </DocSection>
-                            
-                            <DocSection title="Old Schema Nodes" icon={Box}>
-                                <NodeDoc 
-                                    title="Old Schema Root"
-                                    desc="Root node for the legacy configuration schema."
-                                    inputs={['From Script']}
-                                    fields={['Connects to: Old Image List, Old Caption List, Old Training Set List']}
-                                />
-                                <NodeDoc 
-                                    title="Old Image/Caption/Ref Items"
-                                    desc="Legacy configuration items."
-                                    inputs={['From respective Lists']}
-                                    fields={['Key', 'Suffix', 'Extension', 'Instruction', 'Target', 'Dropout', 'Resize']}
-                                />
-                            </DocSection>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-};
 
 export const FlowEditor = () => {
   const [nodes, setNodes] = useState<Node[]>(initialNodes);
@@ -385,11 +142,12 @@ export const FlowEditor = () => {
   const [clipboard, setClipboard] = useState<Node[]>([]);
   
   // UI State
-  const [showPalette, setShowPalette] = useState(true);
-  const [showOutput, setShowOutput] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [showOutput, setShowOutput] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
   const [showTrainingOutput, setShowTrainingOutput] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showLoadWorkflow, setShowLoadWorkflow] = useState(false);
   const [lang, setLang] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('dark');
   const [isSpacePressed, setIsSpacePressed] = useState(false);
@@ -581,9 +339,7 @@ export const FlowEditor = () => {
               logit_std: DEFAULT_GLOBAL_CONFIG.logit_std,
               mode_scale: DEFAULT_GLOBAL_CONFIG.mode_scale,
               guidance_scale: DEFAULT_GLOBAL_CONFIG.guidance_scale,
-              nln_samples: DEFAULT_GLOBAL_CONFIG.nln_samples,
-              nln_scale: DEFAULT_GLOBAL_CONFIG.nln_scale,
-              nln_method: DEFAULT_GLOBAL_CONFIG.nln_method,
+
               mask_dropout: DEFAULT_GLOBAL_CONFIG.mask_dropout,
               freeze_transformer_layers: DEFAULT_GLOBAL_CONFIG.freeze_transformer_layers,
               freeze_single_transformer_layers: DEFAULT_GLOBAL_CONFIG.freeze_single_transformer_layers
@@ -659,6 +415,67 @@ export const FlowEditor = () => {
       URL.revokeObjectURL(url);
   };
 
+  const saveWorkflowAsTemplate = async (name: string, workflow: { nodes: any[]; edges: any[] }) => {
+      try {
+        // Save to backend as custom template
+        const data = { ...workflow, timestamp: Date.now(), version: "1.0" };
+        
+        const response = await fetch('/api/templates/custom', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: name,
+            workflow: data
+          })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save template');
+        }
+        
+        const result = await response.json();
+        console.log('Template saved:', result);
+        
+        // Refresh templates in LoadWorkflowPanel
+        window.dispatchEvent(new CustomEvent('refreshTemplates'));
+        
+        return Promise.resolve();
+      } catch (error) {
+        console.error('Error saving template:', error);
+        return Promise.reject(error);
+      }
+  };
+
+  const deleteTemplate = async (path: string) => {
+      try {
+        // Extract template name from path
+        const templateName = path.split('/').pop();
+        
+        if (!templateName) {
+          throw new Error('Invalid template path');
+        }
+        
+        // Delete template via backend API
+        const response = await fetch(`/api/templates/custom/${templateName}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to delete template');
+        }
+        
+        const result = await response.json();
+        console.log('Template deleted:', result);
+        
+        return Promise.resolve();
+      } catch (error) {
+        console.error('Error deleting template:', error);
+        return Promise.reject(error);
+      }
+  };
+
   const loadWorkflowFile = (file: File) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -692,6 +509,15 @@ export const FlowEditor = () => {
       if (!scriptName) {
           alert("No script selected! Please ensure a Script Loader node exists.");
           return;
+      }
+
+      // Auto-save the current workflow before training
+      try {
+          await saveWorkflowAsTemplate('autosave_temp.json', { nodes, edges });
+          console.log('Workflow auto-saved before training');
+      } catch (saveError) {
+          console.error('Failed to auto-save workflow:', saveError);
+          // Continue with training even if auto-save fails
       }
 
       // Parse the configuration from the output JSON generated by the graph parser
@@ -982,27 +808,20 @@ export const FlowEditor = () => {
             
             {/* Minimalist Left Sidebar */}
             <div className="absolute top-4 left-4 z-50 flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl shadow-lg border border-zinc-300 dark:border-zinc-800 bg-white/30 dark:bg-black/20 backdrop-blur-md w-12 transition-all">
-                <IconButton onClick={() => { setShowPalette(!showPalette); setShowOutput(false); setShowAbout(false); }} active={showPalette} title={t('palette')} icon={LayoutGrid} color="blue" />
-                <IconButton onClick={() => { setShowOutput(!showOutput); setShowPalette(false); setShowAbout(false); }} active={showOutput} title={t('output')} icon={Terminal} color="orange" />
+                <IconButton onClick={() => { setShowOutput(!showOutput); setShowPalette(false); setShowAbout(false); setShowLoadWorkflow(false); }} active={showOutput} title={t('output')} icon={Terminal} color="orange" />
+                <IconButton onClick={() => { setShowPalette(!showPalette); setShowOutput(false); setShowAbout(false); setShowLoadWorkflow(false); }} active={showPalette} title={t('palette')} icon={LayoutGrid} color="blue" />
                 
                 <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
                 
-                <IconButton onClick={saveWorkflow} title={t('save')} icon={Save} />
-                <IconButton onClick={() => fileInputRef.current?.click()} title={t('load')} icon={FolderOpen} />
-                <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleFileSelect} />
+                <IconButton onClick={() => { setShowLoadWorkflow(!showLoadWorkflow); setShowOutput(false); setShowPalette(false); setShowAbout(false); }} active={showLoadWorkflow} title={t('load')} icon={FolderOpen} />
 
                 <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
 
-                {/* RUN Button */}
-                <IconButton onClick={runTraining} title="Run Training" icon={Play} color="emerald" />
+                <IconButton onClick={() => { setShowAbout(!showAbout); setShowPalette(false); setShowOutput(false); setShowLoadWorkflow(false); }} active={showAbout} title={t('about')} icon={Info} color="purple" />
 
-                <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
-
-                <IconButton onClick={() => { setShowAbout(true); setShowPalette(false); setShowOutput(false); }} active={showAbout} title="About" icon={Info} color="purple" />
-
-                <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
+                {/* <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
                 
-                <IconButton onClick={() => { setShowChat(!showChat); setShowPalette(false); setShowOutput(false); setShowAbout(false); }} active={showChat} title="Chat Test" icon={Terminal} color="cyan" />
+                <IconButton onClick={() => { setShowChat(!showChat); setShowPalette(false); setShowOutput(false); setShowAbout(false); }} active={showChat} title="Chat Test" icon={Terminal} color="cyan" /> */}
 
                 <div className="w-6 h-px bg-zinc-300 dark:bg-zinc-700 my-1"></div>
                 
@@ -1016,7 +835,6 @@ export const FlowEditor = () => {
                 </button>
             </div>
 
-            {/* Context Menu for Node Creation */}
             {contextMenu && (
                 <div style={{ top: contextMenu.y, left: contextMenu.x }} className="absolute z-[60] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl p-1 min-w-[150px] flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-100 origin-top-left">
                     <div className="px-2 py-1 text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500 border-b border-zinc-100 dark:border-zinc-700/50 mb-1">Create Node</div>
@@ -1061,8 +879,14 @@ export const FlowEditor = () => {
                 <Background color={theme === 'dark' ? "#27272a" : "#d4d4d8"} gap={20} />
             </ReactFlow>
 
-            {/* About & Docs Modal Overlay */}
-            {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+            {/* About Panel */}
+            {showAbout && (
+                <AboutPanel
+                    isOpen={showAbout}
+                    onClose={() => setShowAbout(false)}
+                    lang={lang}
+                />
+            )}
 
             {/* Training Output Modal */}
             {showTrainingOutput && (
@@ -1080,6 +904,8 @@ export const FlowEditor = () => {
                 configPath={nodes.find(n => n.type === 'scriptNode')?.data.configPath || 'config.json'}
               />
             )}
+
+
 
             {/* Chat Panel */}
             {showChat && <ChatPanel onClose={() => setShowChat(false)} />}
@@ -1170,9 +996,9 @@ export const FlowEditor = () => {
                     <div className="flex-1 overflow-hidden p-5 flex flex-col gap-6">
                         <div className="flex-shrink-0">
                             <div className="flex justify-between items-center mb-2">
-                                <label className="text-[10px] uppercase text-blue-500 font-bold tracking-wider">{t('cmd')} (Refresh #{refreshCount})</label>
+                                <label className="text-[10px] uppercase text-blue-500 font-bold tracking-wider">{t('cmd')}</label>
                                 <div className="flex gap-1">
-                                    <button onClick={refreshOutput} className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">Refresh</button>
+                                    <button onClick={runTraining} className="text-[10px] bg-emerald-500 dark:bg-emerald-600 px-2 py-1 rounded text-white hover:bg-emerald-600 dark:hover:bg-emerald-700 transition-colors">Run Training</button>
                                     <button onClick={() => navigator.clipboard.writeText(output.cmd)} className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">{t('copy')}</button>
                                 </div>
                             </div>
@@ -1183,9 +1009,8 @@ export const FlowEditor = () => {
 
                         <div className="flex-1 flex flex-col min-h-0">
                             <div className="flex justify-between items-center mb-2 flex-shrink-0">
-                                <label className="text-[10px] uppercase text-orange-500 font-bold tracking-wider">{t('json')} (Refresh #{refreshCount})</label>
+                                <label className="text-[10px] uppercase text-orange-500 font-bold tracking-wider">{t('json')}</label>
                                 <div className="flex gap-1">
-                                    <button onClick={refreshOutput} className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">Refresh</button>
                                     <button onClick={() => navigator.clipboard.writeText(output.json)} className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">{t('copy')}</button>
                                 </div>
                             </div>
@@ -1195,6 +1020,25 @@ export const FlowEditor = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Load Workflow Panel */}
+            {showLoadWorkflow && (
+                <LoadWorkflowPanel
+                    isOpen={showLoadWorkflow}
+                    onClose={() => setShowLoadWorkflow(false)}
+                    onLoadWorkflow={(workflow) => {
+                        snapshot();
+                        setNodes(workflow.nodes);
+                        setEdges(workflow.edges);
+                    }}
+                    onSaveWorkflow={saveWorkflowAsTemplate}
+                    onDeleteTemplate={deleteTemplate}
+                    currentWorkflow={{ nodes, edges }}
+                    setNodes={setNodes}
+                    setEdges={setEdges}
+                    lang={lang}
+                />
             )}
         </div>
     </FlowContext.Provider>

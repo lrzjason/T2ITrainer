@@ -94,6 +94,7 @@ export const DatasetConfigNode = memo(({ id, data, selected }: NodeProps) => {
                 </div>
 
                 <div className="space-y-1 pt-1">
+                    <div className="text-[9px] text-zinc-500 font-semibold mb-1">{lang === 'en' ? 'Recreate' : '重新创建'}</div>
                      <div className="flex items-center gap-2">
                         <input type="checkbox" className={checkboxClass} checked={data.recreate_cache_target || false} onChange={e => update('recreate_cache_target', e.target.checked)} />
                         <label className="text-[9px] text-zinc-700 dark:text-zinc-300">{t.recreate_cache_target}</label>

@@ -9,7 +9,7 @@
       },
       "data": {
         "scriptName": "train_longcat.py",
-        "configPath": "config_new.json"
+        "configPath": "config_new_pairs.json"
       },
       "width": 265,
       "height": 380
@@ -24,22 +24,15 @@
       "data": {
         "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
         "output_dir": "F:/ImageSet/longcat_test_edit_output",
-        "save_name": "test_edit",
-        "logging_dir": "logs",
-        "train_data_dir": "",
+        "save_name": "test_edit_pairs",
+        "logging_dir": "/home/waas/kontext_output/logs",
+        "train_data_dir": "F:/ImageSet/longcat",
         "model_path": "",
         "vae_path": "",
         "pinned": true
       },
       "width": 514,
-      "height": 341,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 448.6026832460733,
-        "y": -12.879253926701546
-      },
-      "dragging": false,
-      "draggable": false
+      "height": 341
     },
     {
       "id": "lora",
@@ -52,19 +45,12 @@
         "rank": 16,
         "rank_alpha": 16,
         "use_lokr": false,
-        "lokr_factor": 4,
-        "lora_layers": "",
+        "lokr_factor": 8,
+        "lora_layers": "all",
         "pinned": true
       },
       "width": 429,
-      "height": 249,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 451.3973167539267,
-        "y": 350
-      },
-      "dragging": false,
-      "draggable": false
+      "height": 249
     },
     {
       "id": "misc",
@@ -77,38 +63,29 @@
         "resolution": "1024",
         "train_batch_size": 1,
         "num_train_epochs": 10,
-        "learning_rate": 0.0001,
+        "learning_rate": 1e-4,
         "optimizer": "adamw",
         "mixed_precision": "bf16",
-        "lr_scheduler": "cosine",
         "seed": 4321,
+        "gradient_checkpointing": true,
         "caption_dropout": 0.1,
         "save_model_epochs": 1,
         "blocks_to_swap": 10,
-        "gradient_checkpointing": true,
         "recreate_cache": false,
         "validation_epochs": 1,
         "validation_ratio": 0.1,
         "weighting_scheme": "logit_normal",
-        "logit_mean": 0,
-        "logit_std": 1,
+        "logit_mean": 0.0,
+        "logit_std": 1.0,
         "mode_scale": 1.29,
-        "guidance_scale": 1,
-        "mask_dropout": 0.01,
-
+        "guidance_scale": 1.0,
+        "mask_dropout": 0.0,
         "freeze_transformer_layers": "",
         "freeze_single_transformer_layers": "",
         "pinned": true
       },
       "width": 786,
-      "height": 869,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 973.9886430145234,
-        "y": -97.09904702172521
-      },
-      "dragging": false,
-      "draggable": false
+      "height": 869
     },
     {
       "id": "ds_list",
@@ -129,20 +106,14 @@
       "id": "dataset",
       "type": "datasetConfigNode",
       "position": {
-        "x": 772.70527276219,
+        "x": 762.2724476439791,
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:\\ImageSet\\aigate_demo\\longcat_single\\dataset"
+        "train_data_dir": "F:/ImageSet/longcat"
       },
       "width": 348,
-      "height": 502,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 772.70527276219,
-        "y": 983.2321989528796
-      },
-      "dragging": false
+      "height": 502
     },
     {
       "id": "img_list",
@@ -175,6 +146,21 @@
       "height": 183
     },
     {
+      "id": "ref_list",
+      "type": "referenceListNode",
+      "position": {
+        "x": 1200,
+        "y": 1200
+      },
+      "data": {
+        "slots": [
+          "ref_0"
+        ]
+      },
+      "width": 250,
+      "height": 183
+    },
+    {
       "id": "cap_list",
       "type": "captionListNode",
       "position": {
@@ -187,13 +173,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1206.08217443617,
-        "y": 1300.504678493624
-      },
-      "dragging": false
+      "height": 183
     },
     {
       "id": "batch_list",
@@ -208,13 +188,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1203.649304661702,
-        "y": 1567.6609365383058
-      },
-      "dragging": false
+      "height": 183
     },
     {
       "id": "img_1",
@@ -225,12 +199,10 @@
       },
       "data": {
         "key": "train",
-        "suffix": ""
+        "suffix": "_T"
       },
       "width": 348,
-      "height": 136,
-      "selected": false,
-      "dragging": false
+      "height": 136
     },
     {
       "id": "tgt_1",
@@ -248,11 +220,41 @@
       "height": 191
     },
     {
+      "id": "ref_group_1",
+      "type": "referenceConfigNode",
+      "position": {
+        "x": 1600,
+        "y": 1200
+      },
+      "data": {
+        "key": "train_ref",
+        "slots": [
+          "entry_0"
+        ]
+      },
+      "width": 348,
+      "height": 136
+    },
+    {
+      "id": "ref_entry_1",
+      "type": "referenceEntryNode",
+      "position": {
+        "x": 1950,
+        "y": 1200
+      },
+      "data": {
+        "sample_type": "from_same_name",
+        "image": "train"
+      },
+      "width": 348,
+      "height": 136
+    },
+    {
       "id": "cap_1",
       "type": "captionConfigNode",
       "position": {
         "x": 1570.805562706384,
-        "y": 1299.2882436063899
+        "y": 1350.2882436063899
       },
       "data": {
         "key": "train",
@@ -260,13 +262,7 @@
         "image": "train"
       },
       "width": 506,
-      "height": 185,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1570.805562706384,
-        "y": 1299.2882436063899
-      },
-      "dragging": false
+      "height": 185
     },
     {
       "id": "batch_1",
@@ -278,16 +274,11 @@
       "data": {
         "target_config": "train",
         "caption_config": "train",
+        "reference_config": "train_ref",
         "caption_dropout": 0.1
       },
       "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1565.939823157448,
-        "y": 1561.578762102136
-      },
-      "dragging": false
+      "height": 191
     }
   ],
   "edges": [
@@ -341,6 +332,13 @@
       "targetHandle": "in"
     },
     {
+      "id": "e8",
+      "source": "dataset",
+      "sourceHandle": "reference_config",
+      "target": "ref_list",
+      "targetHandle": "in"
+    },
+    {
       "id": "e9",
       "source": "dataset",
       "sourceHandle": "caption_config",
@@ -369,6 +367,20 @@
       "targetHandle": "in"
     },
     {
+      "id": "e13",
+      "source": "ref_list",
+      "sourceHandle": "ref_0",
+      "target": "ref_group_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e13b",
+      "source": "ref_group_1",
+      "sourceHandle": "entry_0",
+      "target": "ref_entry_1",
+      "targetHandle": "in"
+    },
+    {
       "id": "e14",
       "source": "cap_list",
       "sourceHandle": "cap_0",
@@ -383,6 +395,6 @@
       "targetHandle": "in"
     }
   ],
-  "timestamp": 1766123066060,
+  "timestamp": 1766056860887,
   "version": "1.0"
 }

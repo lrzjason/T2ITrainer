@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { BaseNode, inputHandleStyle } from './BaseNode';
-import { OPTIMIZERS, PRECISIONS, SCHEDULERS, WEIGHTING_SCHEMES, NLN_METHODS, TRANSLATIONS } from '../../constants';
+import { OPTIMIZERS, PRECISIONS, SCHEDULERS, WEIGHTING_SCHEMES, TRANSLATIONS } from '../../constants';
 import { useFlowContext } from '../FlowContext';
 
 const inputClass = "w-full bg-white dark:bg-zinc-900 rounded border border-zinc-300 dark:border-zinc-700 px-1 text-xs text-zinc-900 dark:text-zinc-200 focus:outline-none focus:border-blue-500 transition-colors";
@@ -279,28 +279,7 @@ export const MiscNode = memo(({ id, data, selected }: NodeProps) => {
                     </div>
                  </div>
                  
-                 <div className="p-2 rounded bg-zinc-50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-700/50">
-                    <label className={labelClass}>{t.nln_config}</label>
-                    <div className="grid grid-cols-3 gap-2 mt-1">
-                        <div>
-                            <span className="text-[9px] text-zinc-400 block mb-1">Method</span>
-                            <select className={inputClass}
-                                value={data.nln_method || 'default'} onChange={(e) => update('nln_method', e.target.value)}>
-                                 {NLN_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                             <span className="text-[9px] text-zinc-400 block mb-1">Samples</span>
-                             <input type="number" className={inputClass}
-                                placeholder="samples" value={data.nln_samples ?? 10} onChange={(e) => update('nln_samples', parseInt(e.target.value))} />
-                        </div>
-                        <div>
-                             <span className="text-[9px] text-zinc-400 block mb-1">Scale</span>
-                             <input type="number" step="0.01" className={inputClass}
-                                placeholder="scale" value={data.nln_scale ?? 0.02} onChange={(e) => update('nln_scale', parseFloat(e.target.value))} />
-                        </div>
-                    </div>
-                 </div>
+
                  
                  <div>
                      <label className={labelClass}>{t.freeze_transformers}</label>

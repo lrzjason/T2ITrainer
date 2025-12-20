@@ -881,6 +881,88 @@ async def run_training(config: TrainingConfig):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def get_custom_templates_dir():
+    """Get custom templates directory path"""
+    custom_templates_dir = "./frontend/public/custom_templates"
+    os.makedirs(custom_templates_dir, exist_ok=True)
+    return custom_templates_dir
+
+
+def list_custom_templates():
+    """List available custom templates"""
+    custom_templates_dir = get_custom_templates_dir()
+    templates = []
+    if os.path.exists(custom_templates_dir):
+        templates = [os.path.basename(f) for f in glob.glob(os.path.join(custom_templates_dir, "*.json"))]
+        templates.sort()
+    return templates
+
+
+class TemplateData(BaseModel):
+    name: str
+    workflow: Dict[str, Any]
+
+
+@app.post("/api/templates/custom")
+async def save_custom_template(template_data: TemplateData):
+    """Save a custom template to the custom_templates directory"""
+    try:
+        custom_templates_dir = get_custom_templates_dir()
+        
+        # Ensure the filename ends with .json
+        filename = template_data.name
+        if not filename.endswith('.json'):
+            filename = f"{filename}.json"
+        
+        # Create the full path
+        template_path = os.path.join(custom_templates_dir, filename)
+        
+        # Add metadata to the workflow data
+        workflow_data = {
+            **template_data.workflow,
+            "timestamp": time.time(),
+            "version": "1.0"
+        }
+        
+        # Write the template to file
+        with open(template_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f, indent=2, ensure_ascii=False)
+        
+        return {"status": "success", "message": f"Template '{filename}' saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/templates/custom")
+async def get_custom_templates_list():
+    """Get list of custom templates"""
+    try:
+        templates = list_custom_templates()
+        return {"templates": templates}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/templates/custom/{template_name}")
+async def delete_custom_template(template_name: str):
+    """Delete a custom template"""
+    try:
+        custom_templates_dir = get_custom_templates_dir()
+        template_path = os.path.join(custom_templates_dir, template_name)
+        
+        # Ensure the path is within the custom_templates directory for security
+        if os.path.commonpath([custom_templates_dir]) != os.path.commonpath([custom_templates_dir, template_path]):
+            raise HTTPException(status_code=400, detail="Invalid template name")
+        
+        if os.path.exists(template_path):
+            os.remove(template_path)
+            return {"status": "success", "message": f"Template '{template_name}' deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Template not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/stop_training")
 async def stop_training():
     """Stop the currently running training process"""

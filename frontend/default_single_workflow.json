@@ -94,9 +94,7 @@
         "mode_scale": 1.29,
         "guidance_scale": 1.0,
         "mask_dropout": 0.0,
-        "nln_method": "default",
-        "nln_samples": 10,
-        "nln_scale": 0.02,
+
         "freeze_transformer_layers": "",
         "freeze_single_transformer_layers": "",
         "pinned": true

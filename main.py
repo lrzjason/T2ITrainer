@@ -4,7 +4,50 @@ import sys
 import os
 import signal
 import time
+import shutil
 from threading import Thread
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import socketserver
+from pathlib import Path
+
+
+def build_frontend():
+    """Build the frontend if dist directory doesn't exist or is empty"""
+    frontend_dir = Path("frontend")
+    dist_dir = frontend_dir / "dist"
+    
+    # Check if dist directory exists and has content
+    if not dist_dir.exists() or not any(dist_dir.iterdir()):
+        print("Building frontend...")
+        try:
+            # Change to frontend directory and run npm build
+            result = subprocess.run(["npm", "run", "build"], cwd=frontend_dir, check=True, capture_output=True, text=True)
+            print("Frontend built successfully!")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Frontend build failed with error: {e}")
+            print(f"Error output: {e.stderr}")
+            return False
+    else:
+        print("Frontend build already exists.")
+        return True
+
+
+def serve_frontend(port=7860):
+    """Serve the built frontend on specified port"""
+    frontend_dist = Path("frontend/dist")
+    os.chdir(frontend_dist)
+    
+    handler = SimpleHTTPRequestHandler
+    httpd = socketserver.TCPServer(("0.0.0.0", port), handler)
+    
+    print(f"Frontend served on http://localhost:{port}")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("Frontend server stopped")
+        httpd.server_close()
+
 
 def run_backend():
     """Run the backend server"""
@@ -15,50 +58,43 @@ def run_backend():
     except KeyboardInterrupt:
         print("Backend server stopped")
 
-def run_frontend():
-    """Run the frontend development server"""
+
+def run_backend_async():
+    """Run the backend server asynchronously"""
     try:
-        # Change to frontend directory and run npm
-        os.chdir("frontend")
-        subprocess.run(["npm", "run", "dev"], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Frontend server failed with error: {e}")
-    except KeyboardInterrupt:
-        print("Frontend server stopped")
-    finally:
-        os.chdir("..")
+        backend_process = subprocess.Popen([sys.executable, "backend_api.py"])
+        return backend_process
+    except Exception as e:
+        print(f"Failed to start backend server: {e}")
+        return None
+
 
 if __name__ == "__main__":
-    print("Starting both servers...")
-    print("Backend API will run on its default port")
-    print("Frontend will run on its development port (usually 3000)")
+    print("Starting T2I Trainer application...")
+    
+    # Step 1: Build frontend if needed
+    if not build_frontend():
+        print("Exiting due to frontend build failure")
+        sys.exit(1)
+    
+    # Step 2: Start backend server
+    backend_process = run_backend_async()
+    if backend_process is None:
+        print("Failed to start backend server")
+        sys.exit(1)
+    
+    # Give backend a moment to start
+    time.sleep(3)
+    
+    # Step 3: Serve frontend
+    print("Backend API running on http://localhost:8000")
     print("Press Ctrl+C to stop both servers")
     
-    # Store process references for cleanup
-    processes = []
-    
     try:
-        # Start backend
-        backend_process = subprocess.Popen([sys.executable, "backend_api.py"])
-        processes.append(backend_process)
-        
-        # Wait a moment for backend to initialize
-        time.sleep(2)
-        
-        # Start frontend
-        frontend_process = subprocess.Popen(
-            ["npm", "run", "dev"],
-            cwd="frontend",
-            shell=True  # Use shell for Windows compatibility
-        )
-        processes.append(frontend_process)
-        
-        # Wait for both processes
-        for process in processes:
-            process.wait()
-            
+        serve_frontend(7860)
     except KeyboardInterrupt:
-        print("\nStopping both servers...")
-        for process in processes:
-            process.terminate()
+        print("\nShutting down servers...")
+        if backend_process:
+            backend_process.terminate()
+            backend_process.wait()
         print("Servers stopped")

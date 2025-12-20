@@ -12,8 +12,6 @@ export const OPTIMIZERS = ["adamw", "prodigy", "adamw8bit"];
 export const SCHEDULERS = ["linear", "cosine", "constant", "constant_with_warmup"];
 export const PRECISIONS = ["no", "fp16", "bf16"];
 export const WEIGHTING_SCHEMES = ["sigma_sqrt", "logit_normal", "mode", "cosmap", "logit_snr"];
-export const NLN_METHODS = ["default", "nln", "nln_directional"];
-
 export const DEFAULT_GLOBAL_CONFIG = {
   pretrained_model_name_or_path: "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
   output_dir: "F:/ImageSet/longcat_test_edit_output",
@@ -45,9 +43,6 @@ export const DEFAULT_GLOBAL_CONFIG = {
   logit_mean: 0.0,
   logit_std: 1.0,
   mode_scale: 1.29,
-  nln_samples: 10,
-  nln_scale: 0.02,
-  nln_method: "default",
   blocks_to_swap: 10,
   mask_dropout: 0.0,
   freeze_transformer_layers: "",
@@ -56,10 +51,10 @@ export const DEFAULT_GLOBAL_CONFIG = {
 
 export const TRANSLATIONS = {
   en: {
-    palette: "Node Palette",
-    output: "Output Preview",
+    palette: "Nodes",
+    output: "Preview",
     save: "Save Workflow",
-    load: "Load Workflow",
+    load: "Workflow",
     undo: "Undo",
     redo: "Redo",
     core: "Core Nodes",
@@ -69,6 +64,7 @@ export const TRANSLATIONS = {
     cmd: "Command",
     json: "JSON Config",
     copy: "Copy",
+    about: "About",
     // Nodes
     script: "Script Loader",
     template: "Config Template",
@@ -138,9 +134,7 @@ export const TRANSLATIONS = {
     logit_std: "Logit Standard Deviation",
     mode_scale: "Mode Scale",
     guidance_scale: "Guidance Scale",
-    mask_dropout: "Mask Dropout",
-    nln_config: "NLN Config",
-    freeze_transformers: "Freeze Transformers (CSV)",
+
     key: "Key",
     suffix: "Suffix",
     image_key: "Image Key",
@@ -200,12 +194,27 @@ export const TRANSLATIONS = {
     from_image: "From Image",
     reference_name: "Reference Name",
     caption_name: "Caption Name",
+    
+    // Workflow Panel
+    workflow_panel: "Workflow Panel",
+    current_workflow: "Current Workflow",
+    save_current: "Save",
+    save_as_template: "Save As Template",
+    available_templates: "Available Templates",
+    search_templates: "Search templates...",
+    loading_templates: "Loading templates...",
+    no_templates_found: "No templates found",
+    load: "Load",
+    delete_template: "Delete template",
+    enter_template_name: "Enter template name:",
+    confirm_clear_nodes: "Are you sure you want to clear all nodes?",
+    confirm_delete_template: "Are you sure you want to delete \"{templateName}\"?",
   },
   cn: {
-    palette: "节点面板",
-    output: "输出预览",
+    palette: "节点",
+    output: "预览",
     save: "保存工作流",
-    load: "加载工作流",
+    load: "工作流",
     undo: "撤销",
     redo: "重做",
     core: "核心节点",
@@ -215,6 +224,7 @@ export const TRANSLATIONS = {
     cmd: "运行命令",
     json: "JSON 配置",
     copy: "复制",
+    about: "关于",
     // Nodes
     script: "脚本加载器",
     template: "配置模板",
@@ -284,9 +294,7 @@ export const TRANSLATIONS = {
     logit_std: "Logit 标准差",
     mode_scale: "Mode 缩放",
     guidance_scale: "引导缩放",
-    mask_dropout: "掩码 Dropout",
-    nln_config: "NLN 配置",
-    freeze_transformers: "冻结 Transformer (csv)",
+
     key: "键 (Key)",
     suffix: "后缀",
     image_key: "图片键",
@@ -346,5 +354,20 @@ export const TRANSLATIONS = {
     from_image: "来自图片",
     reference_name: "参考名称",
     caption_name: "标注名称",
+    
+    // Workflow Panel
+    workflow_panel: "工作流面板",
+    current_workflow: "当前工作流",
+    save_current: "保存",
+    save_as_template: "另存为模板",
+    available_templates: "可用模板",
+    search_templates: "搜索模板...",
+    loading_templates: "正在加载模板...",
+    no_templates_found: "未找到模板",
+    load: "加载",
+    delete_template: "删除模板",
+    enter_template_name: "输入模板名称:",
+    confirm_clear_nodes: "确定要清除所有节点吗？",
+    confirm_delete_template: "确定要删除 \"{templateName}\" 吗？",
   }
 };
