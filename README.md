@@ -13,9 +13,7 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 ## 📅 Major Updates
 - **2025-12-20:**  Node Based Frontend UI for configuration. Flexible dataset configuration. (Still under development)
 - **2025-12-20:**  Support LongCat Image and LongCat Edit, 6B MMDIT flux vae models, Lora Training
-- Thanks to 猫不爱吃香菜 sponsor for adding lokr support.
-- Thanks to AIGate(https://waas.aigate.cc/) providing compute power for the development.
-  
+
 ## 🛡️ Prerequisites
 - **PyTorch**: `torch>=2.3.0+cu121` (CUDA 12.1 supported) [![PyPI](https://img.shields.io/badge/PyTorch-2.3.0+-red)](https://pytorch.org/)
 
@@ -313,6 +311,9 @@ tensorboard --logdir=.\logs
     </tr>
   </table>
 </div>
+- Thanks to 猫不爱吃香菜 sponsor for adding lokr support.
+- Thanks to AIGate(https://waas.aigate.cc/) providing compute power for the development.
+  
 
 
 ## Acknowledgements:
