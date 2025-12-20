@@ -42,7 +42,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [status, setStatus] = useState<'idle' | 'connecting' | 'running' | 'completed' | 'error'>('idle');
   const [wsReady, setWsReady] = useState<boolean>(false);
-  const [debugMode, setDebugMode] = useState<boolean>(true); // Enable debug mode by default for development
+  const [debugMode, setDebugMode] = useState<boolean>(false); // Disable debug mode by default
   const [connectionStatus, setConnectionStatus] = useState<string>('Not connected');
   const [isTestMode, setIsTestMode] = useState<boolean>(false); // Track if we're in test mode
   const outputRef = useRef<HTMLDivElement>(null);
@@ -327,32 +327,33 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDebugMode(!debugMode)}
-              className={`p-2 transition-colors border rounded-lg ${
+              className={`w-12 h-8 flex items-center justify-center transition-colors border rounded-lg ${
                 debugMode
                   ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 border-blue-300 dark:border-blue-700'
                   : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 hover:dark:text-white border-zinc-200 dark:border-zinc-700'
               }`}
               title={debugMode ? "Disable debug mode" : "Enable debug mode"}
             >
-              <span className="text-xs font-bold">DBG</span>
+              <span className="text-xs font-bold">Debug</span>
             </button>
             <button
               onClick={copyOutput}
-              className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 hover:dark:text-white transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg"
+              className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 hover:dark:text-white transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg"
               title="Copy output"
             >
               <Copy size={16} />
             </button>
             <button
               onClick={clearOutput}
-              className="p-2 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 hover:dark:text-white transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg"
+              className="w-10 h-8 flex items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 hover:dark:text-white transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg text-xs font-medium"
               title="Clear output"
             >
               Clear
             </button>
             <button
               onClick={handleClose}
-              className="p-2 text-zinc-500 hover:text-red-500 dark:text-zinc-400 hover:dark:text-red-400 transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg"
+              className="w-8 h-8 flex items-center justify-center text-zinc-500 hover:text-red-500 dark:text-zinc-400 hover:dark:text-red-400 transition-colors border border-zinc-200 dark:border-zinc-700 rounded-lg"
+              title="Close"
             >
               <X size={16} />
             </button>
