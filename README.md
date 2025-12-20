@@ -25,7 +25,6 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 |------------------|----------------------------|--------------|
 | LongCat Image/Edit | 24GB GPU | ✅ Supported  |
 | Qwen Edit | 48GB GPU (bf16)| ✅ Supported  |
-| Qwen Edit | 48GB GPU (bf16)| ✅ Supported  |
 | Qwen Image | 24GB GPU (nf4) 48GB GPU (bf16)| ✅ Supported  |
 | Flux Fill, Kontext| 24GB GPU                   | ✅ Supported  |
 
@@ -121,6 +120,8 @@ You could find the download scripts in download_xxx.txt
 | Qwen Image    | `python train_qwen_image.py` | 24GB VRAM Recommended for nf4, 48GB VRAM Recommended for original model|
 | Flux kontext    | `python ui_flux_fill.py` | 24GB VRAM Recommended |
 | Flux Fill       | `python ui_flux_fill.py` | 24GB VRAM Recommended |
+| LongCat Image   | `python train_longcat.py` | 24GB VRAM Recommended |
+| LongCat Image Edit | `python train_longcat_edit.py` | 24GB VRAM Recommended |
 
 ### Node-Based Frontend UI (Recommended)
 For the new Node-Based Frontend UI with visualization capabilities:
@@ -286,6 +287,30 @@ Dev Model Installation
 | 24GB GPU          | 512 resolution, Batch Size 1  |
 | VRAM Optimization | Use nf4 based training        | 
 | Precision         | bf16     |
+
+## 🌌 LongCat Model Management
+
+| Config | Usage |
+|--------|-------|
+| `config_longcat_dev.json` | Train LongCat Image with a single image; leave the suffix empty to use all images without a suffix. |
+| `config_longcat_edit.json` | Train LongCat Image Edit with paired images using various suffixes like `_T`, `_R`, etc. |
+
+- Usage (LongCat Image): `python train_longcat.py --config_path config_longcat_dev.json`
+- Usage (LongCat Image Edit): `python train_longcat_edit.py --config_path config_longcat_edit.json`
+
+### LongCat Model Installation
+LongCat Model Setup
+```bash
+  hf download "Meituan/LongCat-Image" --local-dir longcat_models/LongCat-Image/
+  hf download "Meituan/LongCat-Image-Edit" --local-dir longcat_models/LongCat-Image-Edit/
+```
+
+## ⚙️ LongCat Training Recommended Parameters
+| Category          | Settings                      |
+|-------------------|-------------------------------|
+| Base Configuration| Rank 32~64, AdamW, Learn Rate 1e-4       |
+| 24GB GPU          | 1024 resolution, Batch Size 1  |
+| Precision         | bf16      |
 
 ## 💻 VRAM Usage nf4
 <div align="center">
