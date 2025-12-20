@@ -285,7 +285,7 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
                       onClick={() => handleLoadTemplate(template.path)}
                       className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
                     >
-                      {t('load')}
+                      {t('load_template')}
                     </button>
                     <button
                       onClick={() => handleDeleteTemplate(template.path, template.name)}
