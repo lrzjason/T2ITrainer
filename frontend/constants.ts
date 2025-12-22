@@ -66,6 +66,7 @@ export const TRANSLATIONS = {
     json: "JSON Config",
     copy: "Copy",
     about: "About",
+    open_training_panel: "Open Training Panel",
     // Nodes
     script: "Script Loader",
     template: "Config Template",
@@ -251,6 +252,7 @@ export const TRANSLATIONS = {
     json: "JSON 配置",
     copy: "复制",
     about: "关于",
+    open_training_panel: "打开训练面板",
     // Nodes
     script: "脚本加载器",
     template: "配置模板",

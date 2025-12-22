@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import threading
 import time
 import queue
+from datetime import datetime
+import logging
 
 app = FastAPI(title="T2I Trainer Backend API", version="1.0.0")
 
@@ -552,11 +554,85 @@ manager = ConnectionManager()
 running_process = None
 training_thread = None
 
+# Log directory
+LOG_DIR = "./logs"
+TRAINING_STATUS_FILE = "./logs/training_status.json"
+
+# Ensure log directory exists
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def get_current_log_filename():
+    """Generate log filename based on current date"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    return f"{LOG_DIR}/training_log_{today}.json"
+
+
+def init_log_file(log_file):
+    """Initialize log file with empty array if it doesn't exist"""
+    if not os.path.exists(log_file):
+        with open(log_file, 'w') as f:
+            json.dump([], f)
+
+
+def append_to_log(log_file, entry):
+    """Append an entry to the log file"""
+    # Read existing entries
+    if os.path.exists(log_file):
+        with open(log_file, 'r') as f:
+            try:
+                entries = json.load(f)
+            except json.JSONDecodeError:
+                entries = []
+    else:
+        entries = []
+    
+    # Append new entry
+    entries.append(entry)
+    
+    # Write back to file
+    with open(log_file, 'w') as f:
+        json.dump(entries, f, indent=2)
+
+
+def update_training_status(status):
+    """Update the training status file"""
+    status_data = {
+        "current_status": status,
+        "last_updated": datetime.now().isoformat()
+    }
+    
+    with open(TRAINING_STATUS_FILE, 'w') as f:
+        json.dump(status_data, f, indent=2)
+
+
+def get_training_status():
+    """Get the current training status"""
+    if os.path.exists(TRAINING_STATUS_FILE):
+        with open(TRAINING_STATUS_FILE, 'r') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {"current_status": "unknown", "last_updated": datetime.now().isoformat()}
+    else:
+        return {"current_status": "not_started", "last_updated": datetime.now().isoformat()}
+
+
 async def run_training_script_realtime(script_path: str, config_path: str, websocket: WebSocket):
     
     """Run a training script with the provided configuration file and stream output in real-time"""
     global running_process
     print(f"Starting run_training_script_realtime with script: {script_path}, config: {config_path}")  # Debug print
+    
+    # Initialize logging for this training session
+    log_file = get_current_log_filename()
+    init_log_file(log_file)
+    
+    # Update training status
+    update_training_status("running")
 
     # Validate that the training script exists
     script_path_obj = Path(script_path)
@@ -637,6 +713,14 @@ async def run_training_script_realtime(script_path: str, config_path: str, webso
                                 "data": line_str.rstrip('\n\r').replace("\r", "\n")
                             }
                         
+                        # Log the output
+                        log_entry = {
+                            "timestamp": datetime.now().isoformat(),
+                            "type": "output",
+                            "data": line_str.rstrip('\n\r').replace("\r", "\n")
+                        }
+                        append_to_log(log_file, log_entry)
+                        
                         try:
                             message_json = json.dumps(message)
                             print(f"Sending JSON message: {message_json}")  # Debug print
@@ -671,6 +755,17 @@ async def run_training_script_realtime(script_path: str, config_path: str, webso
                 await websocket.send_text(json.dumps(result))
                 print("Completion message sent successfully")  # Debug print
                 
+                # Log completion and update status
+                log_entry = {
+                    "timestamp": datetime.now().isoformat(),
+                    "type": "completion",
+                    "status": "success" if return_code == 0 else "error",
+                    "return_code": return_code,
+                    "message": "Training completed successfully" if return_code == 0 else f"Training failed with return code {return_code}"
+                }
+                append_to_log(log_file, log_entry)
+                update_training_status("completed" if return_code == 0 else "failed")
+                
             except Exception as e:
                 print(f"Error in output reading task: {e}")  # Debug print
                 import traceback
@@ -687,6 +782,16 @@ async def run_training_script_realtime(script_path: str, config_path: str, webso
                 except Exception as send_error:
                     print(f"Error sending error message: {send_error}")  # Debug print
                     pass
+                
+                # Log error
+                log_entry = {
+                    "timestamp": datetime.now().isoformat(),
+                    "type": "error",
+                    "message": str(e),
+                    "traceback": traceback.format_exc()
+                }
+                append_to_log(log_file, log_entry)
+                update_training_status("error")
             finally:
                 print("Output reading task ending")  # Debug print
 
@@ -971,9 +1076,55 @@ async def stop_training():
         running_process.terminate()
         running_process.wait()  # Wait for process to actually terminate
         running_process = None
+        update_training_status("stopped")
         return {"status": "success", "message": "Training process stopped successfully"}
     else:
         return {"status": "error", "message": "No training process is currently running"}
+
+
+@app.post("/api/reset_training_status")
+async def reset_training_status():
+    """Reset the training status to idle"""
+    update_training_status("idle")
+    return {"status": "success", "message": "Training status reset to idle"}
+
+
+@app.get("/api/get_log")
+async def get_log(date: str = None):
+    """Retrieve training log for a specific date or today's log if no date provided"""
+    try:
+        if date:
+            # Validate date format
+            try:
+                datetime.strptime(date, "%Y-%m-%d")
+                log_file = f"{LOG_DIR}/training_log_{date}.json"
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        else:
+            # Get today's log
+            log_file = get_current_log_filename()
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                try:
+                    logs = json.load(f)
+                    return {"status": "success", "logs": logs, "log_file": log_file}
+                except json.JSONDecodeError:
+                    return {"status": "success", "logs": [], "log_file": log_file, "message": "Log file is empty or corrupted"}
+        else:
+            return {"status": "success", "logs": [], "log_file": log_file, "message": "Log file does not exist"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/get_training_status")
+async def get_training_status_endpoint():
+    """Get the current training status"""
+    try:
+        status = get_training_status()
+        return {"status": "success", "training_status": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

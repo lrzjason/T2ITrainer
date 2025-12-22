@@ -1,0 +1,5 @@
+{
+  "backend_port": 8000,
+  "frontend_dev_port": 5173,
+  "frontend_preview_port": 7860
+}

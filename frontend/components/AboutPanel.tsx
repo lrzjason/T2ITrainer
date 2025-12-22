@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Github, Info, Terminal, Layers, Component, Box } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
+import packageJson from '../package.json';
 
 interface AboutPanelProps {
   isOpen: boolean;
@@ -81,17 +82,16 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
       <div className="flex-1 overflow-hidden overflow-y-auto scrollbar-thin py-3 px-4 flex flex-col gap-4">
         {activeTab === 'about' ? (
           <div className="space-y-6 text-zinc-700 dark:text-zinc-300">
-            {/* Repo Info */}
+            {/* Repo Info and Version */}
             <section className="text-center pt-1">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2 flex items-center justify-center gap-2">
+              <a href="https://github.com/lrzjason/T2ITrainer" target="_blank" rel="noreferrer" className="text-lg font-bold text-zinc-900 dark:text-white flex items-center justify-center gap-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 <Github size={20}/> {t('t2itrainer_repository')}
-              </h3>
-              <a href="https://github.com/lrzjason/T2ITrainer" target="_blank" rel="noreferrer" className="text-blue-500 hover:text-blue-600 hover:underline text-xs bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-full">
-                https://github.com/lrzjason/T2ITrainer
               </a>
+              <div className="inline-flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                <span>Frontend Version</span>
+                <span className="bg-blue-500 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">V{packageJson.version}</span>
+              </div>
             </section>
-
-            <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800"></div>
 
             {/* Contact Info */}
             <section>
@@ -126,14 +126,12 @@ export const AboutPanel: React.FC<AboutPanelProps> = ({
               </div>
             </section>
 
-            <div className="w-full h-px bg-zinc-200 dark:bg-zinc-800"></div>
-
             {/* Sponsor Info */}
             <section>
               <h3 className="text-base font-bold text-zinc-900 dark:text-white mb-3 text-center">
                 ❤️ {t('sponsor_message')}
               </h3>
-              <div className="flex justify-center bg-zinc-50 dark:bg-zinc-900/30 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800">
+              <div className="flex justify-center bg-zinc-50 dark:bg-zinc-900/30 p-3 rounded-xl ">
                 <div className="text-center group px-1">
                   <div className="bg-white p-1.5 rounded-lg shadow-sm mb-1.5 group-hover:shadow-md transition-shadow">
                     <img src="/images/bmc_qr.png" alt="Buy Me a Coffee QR" className="w-40 h-40 object-contain mix-blend-multiply dark:mix-blend-normal" />

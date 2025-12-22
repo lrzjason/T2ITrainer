@@ -424,3 +424,18 @@ export const stopTraining = async () => {
     method: 'POST',
   });
 };
+
+export const getLog = async (date?: string) => {
+  const url = date ? `/api/get_log?date=${encodeURIComponent(date)}` : '/api/get_log';
+  return apiCall(url);
+};
+
+export const getTrainingStatus = async () => {
+  return apiCall('/api/get_training_status');
+};
+
+export const resetTrainingStatus = async () => {
+  return apiCall('/api/reset_training_status', {
+    method: 'POST',
+  });
+};

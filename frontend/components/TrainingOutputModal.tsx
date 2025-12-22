@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Play, Square, Copy } from 'lucide-react';
-import { connectTrainingWebSocket, sendTrainingConfig, disconnectTrainingWebSocket, stopTraining, enableTrainingWebSocketDebug, disableTrainingWebSocketDebug, getWebSocketStatus, connectTestWebSocket, sendTestMessage, disconnectTestWebSocket } from '../utils/api';
+import { connectTrainingWebSocket, sendTrainingConfig, disconnectTrainingWebSocket, stopTraining, enableTrainingWebSocketDebug, disableTrainingWebSocketDebug, getWebSocketStatus, connectTestWebSocket, sendTestMessage, disconnectTestWebSocket, getLog, getTrainingStatus, resetTrainingStatus } from '../utils/api';
 
 interface TrainingOutputModalProps {
   isOpen: boolean;
@@ -72,6 +72,70 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     };
   }, [isOpen, debugMode]); // Only re-run when modal opens/closes or debug mode changes
 
+  // Effect to load previous logs when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // Load previous logs and training status
+      const loadPreviousLogs = async () => {
+        try {
+          // Get training status
+          const statusResponse = await getTrainingStatus();
+          console.log('[Training Modal Debug] Training status:', statusResponse);
+          
+          // If training is still running, we should connect to WebSocket
+          if (statusResponse.training_status?.current_status === 'running') {
+            setStatus('running');
+            setIsRunning(true);
+          } else if (statusResponse.training_status?.current_status === 'error' || 
+                     statusResponse.training_status?.current_status === 'failed') {
+            // If training has failed, set appropriate status but not running
+            setStatus('error');
+            setIsRunning(false);
+            // Reset the backend training status so a new training can start
+            try {
+              await resetTrainingStatus();
+            } catch (resetError) {
+              console.error('[Training Modal Debug] Error resetting training status:', resetError);
+            }
+          } else if (statusResponse.training_status?.current_status === 'completed') {
+            // If training has completed, set appropriate status but not running
+            setStatus('completed');
+            setIsRunning(false);
+            // Reset the backend training status so a new training can start
+            try {
+              await resetTrainingStatus();
+            } catch (resetError) {
+              console.error('[Training Modal Debug] Error resetting training status:', resetError);
+            }
+          } else if (statusResponse.training_status?.current_status === 'idle' || statusResponse.training_status?.current_status === 'stopped') {
+            // If training is idle or stopped, set appropriate status
+            setStatus('idle');
+            setIsRunning(false);
+          }
+          
+          // Get today's logs
+          const logResponse = await getLog();
+          console.log('[Training Modal Debug] Log response:', logResponse);
+          
+          if (logResponse.logs && logResponse.logs.length > 0) {
+            // Process logs and add to output
+            const logLines = logResponse.logs
+              .filter((entry: any) => entry.type === 'output')
+              .map((entry: any) => entry.data);
+            
+            if (logLines.length > 0) {
+              setOutput(logLines);
+            }
+          }
+        } catch (error) {
+          console.error('[Training Modal Debug] Error loading previous logs:', error);
+        }
+      };
+      
+      loadPreviousLogs();
+    }
+  }, [isOpen]);
+
   // Effect to handle debug mode changes
   useEffect(() => {
     if (debugMode) {
@@ -92,7 +156,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
 
   // Effect to monitor WebSocket status
   useEffect(() => {
-    if (!isOpen || isRunning) {
+    if (!isOpen) {
       return;
     }
 
@@ -114,7 +178,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     return () => {
       clearInterval(statusInterval);
     };
-  }, [isOpen, wsReady, isRunning, debugMode]); // Added debugMode back to dependency array
+  }, [isOpen, wsReady, debugMode]); // Added debugMode back to dependency array
 
   const sendConfigToTraining = (trainingConfig: any) => {
     try {

@@ -998,7 +998,7 @@ export const FlowEditor = () => {
                             <div className="flex justify-between items-center mb-2">
                                 <label className="text-[10px] uppercase text-blue-500 font-bold tracking-wider">{t('cmd')}</label>
                                 <div className="flex gap-1">
-                                    <button onClick={runTraining} className="text-[10px] bg-emerald-500 dark:bg-emerald-600 px-2 py-1 rounded text-white hover:bg-emerald-600 dark:hover:bg-emerald-700 transition-colors">Run Training</button>
+                                    <button onClick={runTraining} className="text-[10px] bg-emerald-500 dark:bg-emerald-600 px-2 py-1 rounded text-white hover:bg-emerald-600 dark:hover:bg-emerald-700 transition-colors">{t('open_training_panel')}</button>
                                     <button onClick={() => navigator.clipboard.writeText(output.cmd)} className="text-[10px] bg-zinc-200 dark:bg-zinc-800 px-2 py-1 rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors">{t('copy')}</button>
                                 </div>
                             </div>
