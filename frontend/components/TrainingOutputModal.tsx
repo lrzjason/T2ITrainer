@@ -8,6 +8,8 @@ interface TrainingOutputModalProps {
   config: any;
   scriptName: string;
   configPath: string;
+  onSaveWorkflow?: (name: string, workflow: { nodes: any[]; edges: any[] }) => Promise<void>;
+  onTrainingStart?: () => void;
 }
 
 interface OutputMessage {
@@ -35,6 +37,10 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     setIsRunning(false);
     setStatus('idle');
     setOutput([]);
+    // Reset the backend training status when closing modal to ensure clean state
+    resetTrainingStatus().catch((resetError) => {
+      console.error('[Training Modal Debug] Error resetting training status on close:', resetError);
+    });
     // Call the original onClose
     onClose();
   }, [onClose]);
@@ -45,6 +51,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   const [debugMode, setDebugMode] = useState<boolean>(false); // Disable debug mode by default
   const [connectionStatus, setConnectionStatus] = useState<string>('Not connected');
   const [isTestMode, setIsTestMode] = useState<boolean>(false); // Track if we're in test mode
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Track loading state
   const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,6 +82,8 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   // Effect to load previous logs when modal opens
   useEffect(() => {
     if (isOpen) {
+      setIsLoading(true); // Set loading state when modal opens
+      
       // Load previous logs and training status
       const loadPreviousLogs = async () => {
         try {
@@ -129,10 +138,15 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
           }
         } catch (error) {
           console.error('[Training Modal Debug] Error loading previous logs:', error);
+        } finally {
+          setIsLoading(false); // Reset loading state after data is loaded
         }
       };
       
       loadPreviousLogs();
+    } else {
+      // Reset loading state when modal closes
+      setIsLoading(false);
     }
   }, [isOpen]);
 
@@ -295,6 +309,11 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     }
 
     try {
+      // Call the training start callback if provided
+      if (onTrainingStart) {
+        onTrainingStart();
+      }
+
       console.log('[Training Modal Debug] Starting training mode');
       setStatus('connecting');
       setOutput(['Starting training connection...']);
@@ -438,7 +457,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
               </button>
             ) : (
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (isTestMode) {
                     // For test mode, just disconnect and reset
                     disconnectTestWebSocket();
@@ -446,9 +465,15 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
                     setIsRunning(false);
                     setStatus('idle');
                   } else if (status === 'completed' || status === 'error') {
-                    // Training has already ended, just reset the state
+                    // Training has already ended, reset the state and backend status
                     setIsRunning(false);
                     setStatus('idle');
+                    // Reset the backend training status so a new training can start
+                    try {
+                      await resetTrainingStatus();
+                    } catch (resetError) {
+                      console.error('[Training Modal Debug] Error resetting training status:', resetError);
+                    }
                   } else {
                     // Training is still running, stop it
                     stopCurrentTraining();
@@ -478,7 +503,14 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
             ref={outputRef}
             className="h-full overflow-y-auto font-mono whitespace-pre-wrap scrollbar-thin scrollbar-thumb-zinc-600 scrollbar-track-zinc-800"
           >
-            {output.length === 0 ? (
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center text-zinc-500 dark:text-zinc-600">
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mb-2"></div>
+                  <span>Loading training data...</span>
+                </div>
+              </div>
+            ) : output.length === 0 ? (
               <div className="h-full flex items-center justify-center text-zinc-500 dark:text-zinc-600">
                 {status === 'idle'
                   ? 'Click "Start Training" to begin...'
