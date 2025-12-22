@@ -25,7 +25,9 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   onClose,
   config,
   scriptName,
-  configPath
+  configPath,
+  onTrainingStart,
+  onSaveWorkflow
 }) => {
   // Wrapper for onClose to ensure proper cleanup
   const handleClose = useCallback(() => {
