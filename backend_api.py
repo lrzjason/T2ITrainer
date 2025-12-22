@@ -1074,7 +1074,17 @@ async def stop_training():
     global running_process
     if running_process:
         running_process.terminate()
-        running_process.wait()  # Wait for process to actually terminate
+        try:
+            # Wait for process to terminate with a timeout to prevent hanging
+            running_process.wait(timeout=5)  # Wait up to 5 seconds for graceful termination
+        except subprocess.TimeoutExpired:
+            # If the process doesn't terminate gracefully, force kill it
+            running_process.kill()
+            try:
+                running_process.wait(timeout=2)  # Wait up to 2 more seconds for force kill to complete
+            except subprocess.TimeoutExpired:
+                # If it still doesn't terminate, just continue
+                pass
         running_process = None
         update_training_status("stopped")
         return {"status": "success", "message": "Training process stopped successfully"}
