@@ -236,7 +236,7 @@ export const TRANSLATIONS = {
     about_tab: "About",
     docs_tab: "Docs",
   },
-  cn: {
+  zh: {
     palette: "节点",
     output: "预览",
     save: "保存工作流",

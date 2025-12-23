@@ -6,7 +6,7 @@ const getApiBaseUrl = (): string => {
   // In development, vite will handle proxying if configured
   // For static serving via the proxy, use relative paths
   // If running from a different origin, use the configured backend URL
-  const viteApiUrl = import.meta.env.VITE_API_URL;
+  const viteApiUrl = process.env.VITE_API_URL;
   if (viteApiUrl) {
     return viteApiUrl;
   }
@@ -48,14 +48,17 @@ export const apiCall = async (endpoint: string, options: RequestInit = {}) => {
 
 // Training WebSocket connection for real-time output
 // Get WebSocket URL from environment or use default
-const getWebSocketUrl = (): string => {
+const getWebSocketUrl = (jobId?: string): string => {
+  if (jobId) {
+    return getWebSocketUrlForEndpoint(jobId);  // Direct job ID for streamer service
+  }
   return getWebSocketUrlForEndpoint('training');
 };
 
 // Get WebSocket URL for a specific endpoint
 const getWebSocketUrlForEndpoint = (endpoint: string): string => {
   // Check for environment variable first
-  const wsUrl = import.meta.env.VITE_WS_URL;
+  const wsUrl = process.env.VITE_WS_URL;
   console.log('[WebSocket Debug] VITE_WS_URL from environment:', wsUrl);
   if (wsUrl) {
     // Modify the URL to point to the correct endpoint
@@ -72,47 +75,66 @@ const getWebSocketUrlForEndpoint = (endpoint: string): string => {
     }
   }
 
-  // Default WebSocket URL
+  // Default WebSocket URL - Use streamer service port (8001) instead of API port (8000)
+  // The WebSocket streaming should go through the streamer service, not the API service
   const apiBaseUrl = getApiBaseUrl();
   console.log('[WebSocket Debug] API base URL:', apiBaseUrl);
   
-  // Even if API base URL is empty (proxy scenario), we should still connect to the backend WebSocket
   // Check if we're running on the proxy server (port 3000) and use default backend URL
   const currentPort = window.location.port;
   if ((!apiBaseUrl || apiBaseUrl === '') && currentPort === '3000') {
     console.log('[WebSocket Debug] Using default backend WebSocket URL for proxy scenario');
-    return `ws://127.0.0.1:8000/ws/${endpoint}`;
+    // Use streamer service port 8001 instead of API service port 8000
+    return `ws://127.0.0.1:8001/ws/${endpoint}`;
   }
   
   if (!apiBaseUrl || apiBaseUrl === '') {
     // If API base URL is empty, likely using proxy - use relative path which will be handled by proxy
     // In this case, we need to construct the WebSocket URL based on the current page's protocol and host
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host || '127.0.0.1:3000'; // default to localhost if host is not available
+    // Use streamer service port 8001 instead of API service port
+    const host = window.location.host || '127.0.0.1:8001'; // default to streamer service port if host is not available
     const fallbackUrl = `${protocol}//${host}/ws/${endpoint}`;
     console.log('[WebSocket Debug] Using fallback URL:', fallbackUrl);
     return fallbackUrl;
   } else if (apiBaseUrl.startsWith('http://')) {
-    // Convert HTTP to WS
+    // Convert HTTP to WS but use streamer service port instead of API service port
     try {
       const urlObj = new URL(apiBaseUrl);
-      return `ws://${urlObj.host}/ws/${endpoint}`;
+      // Replace API port with streamer port for WebSocket connections
+      const apiPort = urlObj.port || '80';
+      const wsPort = apiPort === '8000' ? '8001' : apiPort; // Use streamer port for API port
+      const wsHost = `${urlObj.hostname}:${wsPort}`;
+      return `ws://${wsHost}/ws/${endpoint}`;
     } catch (e) {
       // If URL parsing fails, fallback to replace method
-      return apiBaseUrl.replace('http://', 'ws://') + `/ws/${endpoint}`;
+      // But change port 8000 to 8001 for WebSocket connections
+      let wsUrl = apiBaseUrl.replace('http://', 'ws://') + `/ws/${endpoint}`;
+      wsUrl = wsUrl.replace(':8000/', ':8001/');
+      return wsUrl;
     }
   } else if (apiBaseUrl.startsWith('https://')) {
-    // Convert HTTPS to WSS
+    // Convert HTTPS to WSS but use streamer service port instead of API service port
     try {
       const urlObj = new URL(apiBaseUrl);
-      return `wss://${urlObj.host}/ws/${endpoint}`;
+      // Replace API port with streamer port for WebSocket connections
+      const apiPort = urlObj.port || '443';
+      const wssPort = apiPort === '8000' ? '8001' : apiPort; // Use streamer port for API port
+      const wssHost = `${urlObj.hostname}:${wssPort}`;
+      return `wss://${wssHost}/ws/${endpoint}`;
     } catch (e) {
       // If URL parsing fails, fallback to replace method
-      return apiBaseUrl.replace('https://', 'wss://') + `/ws/${endpoint}`;
+      // But change port 8000 to 8001 for WebSocket connections
+      let wssUrl = apiBaseUrl.replace('https://', 'wss://') + `/ws/${endpoint}`;
+      wssUrl = wssUrl.replace(':8000/', ':8001/');
+      return wssUrl;
     }
   } else {
     // If it's already just a host:port format
-    return `ws://${apiBaseUrl}/ws/${endpoint}`;
+    // Replace API port with streamer port if it's the API port
+    let wsUrl = `ws://${apiBaseUrl}/ws/${endpoint}`;
+    wsUrl = wsUrl.replace(':8000/', ':8001/');
+    return wsUrl;
   }
 };
 
@@ -125,11 +147,13 @@ class TrainingWebSocketManager {
   private reconnectInterval = 3000; // 3 seconds
   private shouldReconnect = false; // Flag to control if reconnection should happen
   private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected'; // Track connection state
+  private currentJobId: string | null = null; // Track current job ID for proper connection management
 
-  connect = (onOutput: (data: any) => void, wsUrl?: string) => {
+  connect = (onOutput: (data: any) => void, wsUrl?: string, jobId?: string) => {
     // Use provided URL or get from environment/config
-    const finalWsUrl = wsUrl || getWebSocketUrl();
+    const finalWsUrl = wsUrl || getWebSocketUrl(jobId);
     console.log('[WebSocket Debug] Final WebSocket URL:', finalWsUrl);
+    this.currentJobId = jobId || null; // Store job ID for this connection;
 
     // Close existing connection if any
     if (this.ws) {
@@ -314,8 +338,8 @@ let testWsManager: TrainingWebSocketManager | null = null;
 
 const wsManager = new TrainingWebSocketManager();
 
-export const connectTrainingWebSocket = (onOutput: (data: any) => void) => {
-  return wsManager.connect(onOutput);
+export const connectTrainingWebSocket = (onOutput: (data: any) => void, jobId?: string) => {
+  return wsManager.connect(onOutput, undefined, jobId);
 };
 
 export const sendTrainingConfig = (config: any) => {
@@ -365,6 +389,37 @@ export const disableTrainingWebSocketDebug = () => {
 };
 
 // Specific API functions
+export const startTraining = async (config: any) => {
+  // Start a new training job via the API service
+  return apiCall('/api/start_training', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+};
+
+export const stopTraining = async (jobId?: string) => {
+  const url = jobId ? `/api/stop_training?job_id=${encodeURIComponent(jobId)}` : '/api/stop_training';
+  return apiCall(url, {
+    method: 'POST',
+  });
+};
+
+// Legacy function kept for compatibility
+export const stopTrainingLegacy = async () => {
+  return apiCall('/api/stop_training', {
+    method: 'POST',
+  });
+};
+
+export const getJobStatus = async (jobId: string) => {
+  return apiCall(`/api/job_status/${jobId}`);
+};
+
+export const getActiveJobs = async () => {
+  return apiCall('/api/active_jobs');
+};
+
+// Legacy function kept for compatibility
 export const runTraining = async (config: any) => {
   // Save the config first
   await saveConfig(config);
@@ -419,11 +474,7 @@ export const healthCheck = async () => {
   return apiCall('/api/health');
 };
 
-export const stopTraining = async () => {
-  return apiCall('/api/stop_training', {
-    method: 'POST',
-  });
-};
+// This function is now defined above in the updated API functions section
 
 export const getLog = async (date?: string) => {
   const url = date ? `/api/get_log?date=${encodeURIComponent(date)}` : '/api/get_log';

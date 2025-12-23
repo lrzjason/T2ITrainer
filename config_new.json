@@ -25,7 +25,7 @@
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
+    "pretrained_model_name_or_path": "F:\\HF_Models\\LongCat\\LongCat-Image-Edit",
     "model_path": "",
     "resume_from_checkpoint": null,
     "recreate_cache": false,
@@ -69,5 +69,11 @@
     ],
     "image_configs": {},
     "caption_configs": {},
-    "training_set": null
+    "training_set": null,
+    "mask_dropout": 0.01,
+    "reg_ratio": 0.0,
+    "reg_timestep": 0,
+    "use_two_captions": false,
+    "slider_positive_scale": 1.0,
+    "slider_negative_scale": -1.0
 }

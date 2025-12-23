@@ -1,8 +1,0 @@
-Multiple Subdir configs
-	image could use random reference from the same subdir
-	different sub dir could have individual config
-Noise Adjustment (Immiscible-Diffusion Varient)
-LayerSync (weak layer sync strong layer, cos sim)
-
-embedding needs to create mutiple refs in same subdir and this refs order needs to be stored
-use the same order to arrange the ref latent list.

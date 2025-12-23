@@ -1,12 +1,15 @@
 import React from 'react';
 import { ReactFlowProvider } from 'reactflow';
 import { FlowEditor } from './components/FlowEditor';
+import { ToastProvider } from './components/ToastContext';
 
 function App() {
   return (
-    <ReactFlowProvider>
-      <FlowEditor />
-    </ReactFlowProvider>
+    <ToastProvider>
+      <ReactFlowProvider>
+        <FlowEditor />
+      </ReactFlowProvider>
+    </ToastProvider>
   );
 }
 

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { X, Github, Info, Terminal, Layers, Component, Box } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
+import { Language } from './FlowContext';
 import packageJson from '../package.json';
 
 interface AboutPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  lang: 'en' | 'zh';
+  lang: 'en' | 'cn';
 }
 
 export const AboutPanel: React.FC<AboutPanelProps> = ({

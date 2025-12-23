@@ -11,6 +11,7 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 
 
 ## 📅 Major Updates
+- **2025-12-24:**  New Backend Architecture with SQLite-based job queue system. Replaced Redis with SQLite for better reliability and simplified deployment. Added API Service, Worker Service, and Streamer Service for improved training job management and real-time output streaming.
 - **2025-12-23:**  Enhanced Training Log System with persistent logging, status tracking, and retrieval capabilities. Training logs are now stored separately by date with JSON format, allowing retrieval even when the web page is closed. Training status is persisted to maintain state across browser sessions.
 - **2025-12-20:**  Node Based Frontend UI for configuration with visualization capabilities. Flexible dataset configuration. (Still under development)
 - **2025-12-20:**  Support LongCat Image and LongCat Edit, 6B MMDIT flux vae models, Lora Training
@@ -131,13 +132,23 @@ You could find the download scripts in download_xxx.txt
 | LongCat Image   | `python train_longcat.py` | 24GB VRAM Recommended |
 | LongCat Image Edit | `python train_longcat_edit.py` | 24GB VRAM Recommended |
 
+### New Architecture Backend Services
+The new architecture uses a distributed service approach:
+
+| Service | Command | Port | Purpose |
+|---------|---------|------|---------|
+| API Service | `python -m services.api_service.main` | 8000 | Handles HTTP requests and job queuing |
+| Worker Service | `python -m services.worker_service.main` | N/A | Executes training jobs |
+| Streamer Service | `python -m services.streamer_service.main` | 8001 | Streams real-time output to WebSocket clients |
+| Combined Services | `python main_services.py` | 8000, 8001 | Runs all services together |
+
 ### Node-Based Frontend UI (Recommended)
 For the new Node-Based Frontend UI with visualization capabilities:
 
 **Development Mode (Fastest for development):**
 ```bash
-# Terminal 1: Start backend
-python backend_api.py
+# Terminal 1: Start new architecture backend services
+python main_services.py
 
 # Terminal 2: Start frontend (auto-reloads on changes)
 cd frontend
@@ -154,8 +165,8 @@ Access at: http://localhost:7860
 
 **Preview Mode (Pre-built optimized version):**
 ```bash
-# Terminal 1: Start backend
-python backend_api.py
+# Terminal 1: Start new architecture backend services
+python main_services.py
 
 # Terminal 2: Serve pre-built frontend (faster than main.py)
 cd frontend

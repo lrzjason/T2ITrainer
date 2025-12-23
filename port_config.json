@@ -1,5 +1,8 @@
 {
   "backend_port": 8000,
+  "api_service_port": 8000,
+  "streamer_service_port": 8001,
+  "worker_service_port": 8002,
   "frontend_dev_port": 5173,
   "frontend_preview_port": 7860
 }

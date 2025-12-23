@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 
 import { connectTrainingWebSocket, sendTrainingConfig, disconnectTrainingWebSocket, stopTraining, getWebSocketStatus, enableTrainingWebSocketDebug, disableTrainingWebSocketDebug } from '../utils/api';
+import { useToast } from './ToastContext';
 import { ScriptNode } from './nodes/ScriptNode';
 import { ChatPanel } from './ChatPanel';
 import { DirectoryNode, LoRANode, MiscNode, ConfigTemplateNode } from './nodes/GlobalSectionNodes';
@@ -151,6 +152,8 @@ export const FlowEditor = () => {
   const [lang, setLang] = useState<Language>('en');
   const [theme, setTheme] = useState<Theme>('dark');
   const [isSpacePressed, setIsSpacePressed] = useState(false);
+  
+  const { addToast } = useToast();
   
   // History
   const [history, setHistory] = useState<{nodes: Node[], edges: Edge[]}[]>([]);
@@ -415,6 +418,40 @@ export const FlowEditor = () => {
       URL.revokeObjectURL(url);
   };
 
+  const saveCurrentWorkflow = async (workflow: { nodes: any[]; edges: any[] }) => {
+      try {
+        // Save to backend as current workflow to specific path
+        const data = { ...workflow, timestamp: Date.now(), version: "1.0" };
+        
+        const response = await fetch('/api/workflow/current', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save current workflow');
+        }
+        
+        const result = await response.json();
+        console.log('Current workflow saved:', result);
+        
+        // Show success toast
+        addToast('Workflow saved successfully!', 'success');
+        
+        // Refresh templates in LoadWorkflowPanel
+        window.dispatchEvent(new CustomEvent('refreshTemplates'));
+        
+        return Promise.resolve();
+      } catch (error) {
+        console.error('Error saving current workflow:', error);
+        addToast('Failed to save workflow', 'error');
+        return Promise.reject(error);
+      }
+  };
+
   const saveWorkflowAsTemplate = async (name: string, workflow: { nodes: any[]; edges: any[] }) => {
       try {
         // Save to backend as custom template
@@ -438,12 +475,43 @@ export const FlowEditor = () => {
         const result = await response.json();
         console.log('Template saved:', result);
         
+        // Show success toast
+        addToast('Template saved successfully!', 'success');
+        
         // Refresh templates in LoadWorkflowPanel
         window.dispatchEvent(new CustomEvent('refreshTemplates'));
         
         return Promise.resolve();
       } catch (error) {
         console.error('Error saving template:', error);
+        addToast('Failed to save template', 'error');
+        return Promise.reject(error);
+      }
+  };
+
+  const loadCurrentWorkflow = async () => {
+      try {
+        const response = await fetch('/api/workflow/current');
+        
+        if (!response.ok) {
+          throw new Error('Failed to load current workflow');
+        }
+        
+        const result = await response.json();
+        
+        if (result.workflow && result.workflow.nodes && result.workflow.edges) {
+          snapshot();
+          setNodes(result.workflow.nodes);
+          setEdges(result.workflow.edges);
+          console.log('Current workflow loaded successfully');
+          addToast('Workflow loaded successfully!', 'success');
+          return Promise.resolve();
+        } else {
+          throw new Error('Invalid workflow format');
+        }
+      } catch (error) {
+        console.error('Error loading current workflow:', error);
+        addToast('Failed to load workflow', 'error');
         return Promise.reject(error);
       }
   };
@@ -469,9 +537,13 @@ export const FlowEditor = () => {
         const result = await response.json();
         console.log('Template deleted:', result);
         
+        // Show success toast
+        addToast('Template deleted successfully!', 'success');
+        
         return Promise.resolve();
       } catch (error) {
         console.error('Error deleting template:', error);
+        addToast('Failed to delete template', 'error');
         return Promise.reject(error);
       }
   };
@@ -889,7 +961,7 @@ export const FlowEditor = () => {
                 onSaveWorkflow={saveWorkflowAsTemplate}
                 onTrainingStart={() => {
                   // Auto-save the current workflow before starting training, but don't block
-                  saveWorkflowAsTemplate('autosave_temp.json', { nodes, edges })
+                  saveCurrentWorkflow({ nodes, edges })
                     .then(() => console.log('Workflow auto-saved before training'))
                     .catch(saveError => console.error('Failed to auto-save workflow:', saveError));
                 }}
@@ -1024,6 +1096,8 @@ export const FlowEditor = () => {
                         setEdges(workflow.edges);
                     }}
                     onSaveWorkflow={saveWorkflowAsTemplate}
+                    onSaveCurrentWorkflow={saveCurrentWorkflow}
+                    onLoadCurrentWorkflow={loadCurrentWorkflow}
                     onDeleteTemplate={deleteTemplate}
                     currentWorkflow={{ nodes, edges }}
                     setNodes={setNodes}

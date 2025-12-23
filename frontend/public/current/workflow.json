@@ -22,7 +22,7 @@
         "y": -12.879253926701546
       },
       "data": {
-        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
+        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit2",
         "output_dir": "F:/ImageSet/longcat_test_edit_output",
         "save_name": "test_edit",
         "logging_dir": "logs",
@@ -33,7 +33,7 @@
       },
       "width": 514,
       "height": 341,
-      "selected": false,
+      "selected": true,
       "positionAbsolute": {
         "x": 448.6026832460733,
         "y": -12.879253926701546
@@ -382,6 +382,6 @@
       "targetHandle": "in"
     }
   ],
-  "timestamp": 1766432590.2526944,
+  "timestamp": 1766515511.797808,
   "version": "1.0"
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, FilePlus, Trash2 } from 'lucide-react';
 import { TRANSLATIONS } from '../constants';
+import { Language } from './FlowContext';
 
 interface WorkflowTemplate {
   id: string;
@@ -13,11 +14,13 @@ interface LoadWorkflowPanelProps {
   onClose: () => void;
   onLoadWorkflow: (workflow: any) => void;
   onSaveWorkflow: (name: string, workflow: any) => Promise<void>;
+  onSaveCurrentWorkflow?: (workflow: any) => Promise<void>;
+  onLoadCurrentWorkflow?: () => Promise<void>;
   onDeleteTemplate: (path: string) => Promise<void>;
   currentWorkflow: { nodes: any[]; edges: any[] };
   setNodes: (nodes: any[]) => void;
   setEdges: (edges: any[]) => void;
-  lang: 'en' | 'zh';
+  lang: 'en' | 'cn';
 }
 
 export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
@@ -25,6 +28,8 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
   onClose,
   onLoadWorkflow,
   onSaveWorkflow,
+  onSaveCurrentWorkflow,
+  onLoadCurrentWorkflow,
   onDeleteTemplate,
   currentWorkflow,
   setNodes,
@@ -183,9 +188,15 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
             </h3>
             <button
               onClick={() => {
-                const name = prompt(t('enter_template_name'));
-                if (name) {
-                  onSaveWorkflow(name.endsWith('.json') ? name : `${name}.json`, currentWorkflow);
+                if (onSaveCurrentWorkflow) {
+                  // Use the current workflow save function if available
+                  onSaveCurrentWorkflow(currentWorkflow);
+                } else {
+                  // Fallback to regular save as template
+                  const name = prompt(t('enter_template_name'));
+                  if (name) {
+                    onSaveWorkflow(name.endsWith('.json') ? name : `${name}.json`, currentWorkflow);
+                  }
                 }
               }}
               className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors"
@@ -203,6 +214,21 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={async () => {
+                  if (onLoadCurrentWorkflow) {
+                    try {
+                      await onLoadCurrentWorkflow();
+                    } catch (error) {
+                      console.error('Error loading current workflow:', error);
+                    }
+                  }
+                }}
+                className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                title="Load current workflow"
+              >
+                {t('load_template')}
+              </button>
               <button
                 onClick={() => {
                   if (window.confirm(t('confirm_clear_nodes'))) {

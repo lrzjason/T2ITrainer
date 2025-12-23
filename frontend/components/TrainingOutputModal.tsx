@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Play, Square, Copy } from 'lucide-react';
-import { connectTrainingWebSocket, sendTrainingConfig, disconnectTrainingWebSocket, stopTraining, enableTrainingWebSocketDebug, disableTrainingWebSocketDebug, getWebSocketStatus, connectTestWebSocket, sendTestMessage, disconnectTestWebSocket, getLog, getTrainingStatus, resetTrainingStatus } from '../utils/api';
+import { connectTrainingWebSocket, sendTrainingConfig, disconnectTrainingWebSocket, stopTraining, enableTrainingWebSocketDebug, disableTrainingWebSocketDebug, getWebSocketStatus, connectTestWebSocket, sendTestMessage, disconnectTestWebSocket, getLog, getTrainingStatus, resetTrainingStatus, startTraining as startTrainingJob, API_BASE_URL } from '../utils/api';
+import { useToast } from '../components/ToastContext';
 
 interface TrainingOutputModalProps {
   isOpen: boolean;
@@ -20,6 +21,16 @@ interface OutputMessage {
   message?: string;
 }
 
+interface WebSocketOutputMessage {
+  job_id?: string;
+  timestamp?: number;
+  type: string;
+  data?: string;
+  status?: string;
+  return_code?: number;
+  message?: string;
+}
+
 export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   isOpen,
   onClose,
@@ -29,6 +40,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
   onTrainingStart,
   onSaveWorkflow
 }) => {
+  const { addToast } = useToast();
   // Wrapper for onClose to ensure proper cleanup
   const handleClose = useCallback(() => {
     console.log('[Training Modal Debug] Closing modal, cleaning up connections');
@@ -46,14 +58,15 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     // Call the original onClose
     onClose();
   }, [onClose]);
-  const [output, setOutput] = useState<string[]>([]);
+  const [output, setOutput] = useState<(string | WebSocketOutputMessage)[]>([]);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'running' | 'completed' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'connecting' | 'running' | 'completed' | 'error' | 'failed'>('idle');
   const [wsReady, setWsReady] = useState<boolean>(false);
   const [debugMode, setDebugMode] = useState<boolean>(false); // Disable debug mode by default
   const [connectionStatus, setConnectionStatus] = useState<string>('Not connected');
   const [isTestMode, setIsTestMode] = useState<boolean>(false); // Track if we're in test mode
   const [isLoading, setIsLoading] = useState<boolean>(false); // Track loading state
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null); // Track current job ID for stopping
   const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,7 +113,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
           } else if (statusResponse.training_status?.current_status === 'error' || 
                      statusResponse.training_status?.current_status === 'failed') {
             // If training has failed, set appropriate status but not running
-            setStatus('error');
+            setStatus('failed');
             setIsRunning(false);
             // Reset the backend training status so a new training can start
             try {
@@ -212,72 +225,128 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     }
   };
 
-  const handleOutput = useCallback((data: OutputMessage) => {
+  const handleOutput = useCallback((data: any) => { // Accept any type since the streamer service may send additional fields
     if (debugMode) {
       console.log('[TrainingOutputModal] Received data:', data);
     }
     
+    // Extract the actual message data from the received object
+    // The streamer service may send additional fields like job_id and timestamp
+    const messageData = {
+      type: data.type,
+      data: data.data,
+      status: data.status,
+      return_code: data.return_code,
+      message: data.message
+    };
+    
     // Handle raw data (in case of parsing errors)
-    if (data.type === 'raw' && data.data) {
+    if (messageData.type === 'raw' && messageData.data) {
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing raw message:', data.data);
+        console.log('[TrainingOutputModal] Processing raw message:', messageData.data);
       }
-      setOutput(prev => [...prev, `[RAW] ${data.data}`]);
+      setOutput(prev => [...prev, `[RAW] ${messageData.data}`]);
       setStatus('running');
       return;
     }
     
-    if (data.type === 'output' && data.data) {
+    if (messageData.type === 'output' && messageData.data) {
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing output message:', data.data);
+        console.log('[TrainingOutputModal] Processing output message:', messageData.data);
       }
-      setOutput(prev => [...prev, data.data]);
+      setOutput(prev => [...prev, messageData.data]);
       setStatus('running');
       // If we're in test mode, we can stop after receiving the response
       if (isTestMode) {
         setIsRunning(false);
       }
-    } else if (data.type === 'complete') {
+    } else if (messageData.type === 'complete') {
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing complete message:', data);
+        console.log('[TrainingOutputModal] Processing complete message:', messageData);
       }
-      setOutput(prev => [...prev, `Training ${data.status === 'success' ? 'completed' : 'failed'} with return code: ${data.return_code}`]);
-      setStatus(data.status === 'success' ? 'completed' : 'error');
+      
+      // Handle different completion statuses
+      let statusMessage;
+      if (messageData.status === 'stopped') {
+        statusMessage = messageData.message || 'Training stopped by user';
+        setStatus('failed'); // Use 'failed' to indicate stopped training
+      } else if (messageData.status === 'success') {
+        statusMessage = `Training completed successfully with return code: ${messageData.return_code}`;
+        setStatus('completed');
+      } else {
+        statusMessage = messageData.return_code !== undefined && messageData.return_code !== null
+          ? `Training failed with return code: ${messageData.return_code}`
+          : messageData.message || 'Training failed';
+        setStatus('failed');
+      }
+      
+      setOutput(prev => [...prev, statusMessage]);
       setIsRunning(false);
-    } else if (data.type === 'error') {
+      
+      // Disconnect the WebSocket when training completes
+      disconnectTrainingWebSocket();
+    } else if (messageData.type === 'error') {
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing error message:', data.message);
+        console.log('[TrainingOutputModal] Processing error message:', messageData.message);
       }
-      setOutput(prev => [...prev, `Error: ${data.message}`]);
+      setOutput(prev => [...prev, `Error: ${messageData.message}`]);
       setStatus('error');
       setIsRunning(false);
-    } else if (data.type === 'flush') {
+    } else if (messageData.type === 'flush') {
       // Ignore flush messages, they're just for ensuring connection stays alive
       if (debugMode) {
         console.log('[TrainingOutputModal] Ignoring flush message');
       }
       return;
-    } else if (data.type === 'connection') {
+    } else if (messageData.type === 'connection') {
       // Handle connection acknowledgment
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing connection message:', data.message);
+        console.log('[TrainingOutputModal] Processing connection message:', messageData.message);
       }
-      setOutput(prev => [...prev, `Connected to training server: ${data.message}`]);
+      setOutput(prev => [...prev, `Connected to training server: ${messageData.message}`]);
       setStatus('running');
-    } else if (data.type === 'training_end') {
+    } else if (messageData.type === 'training_end') {
       // Handle training end message
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing training end message:', data.data);
+        console.log('[TrainingOutputModal] Processing training end message:', messageData.data);
       }
-      setOutput(prev => [...prev, data.data || 'Training completed']);
+      setOutput(prev => [...prev, messageData.data || 'Training completed']);
       setStatus('completed');
       setIsRunning(false);
+    } else if (messageData.type === 'heartbeat' || messageData.type === 'pong') {
+      // Ignore heartbeat/pong messages - they're for keeping connection alive
+      if (debugMode) {
+        console.log('[TrainingOutputModal] Ignoring heartbeat/pong message');
+      }
+      return;
+    } else if (messageData.type === 'status') {
+      // Handle status updates from worker
+      if (debugMode) {
+        console.log('[TrainingOutputModal] Processing status message:', messageData);
+      }
+      if (messageData.message) {
+        setOutput(prev => [...prev, messageData.message]);
+      }
+      
+      // Update status based on the received status
+      if (messageData.status) {
+        const newStatus = messageData.status;
+        setStatus(newStatus as 'idle' | 'connecting' | 'running' | 'completed' | 'error' | 'failed');
+        
+        // Update running state based on status
+        if (['completed', 'error', 'failed'].includes(newStatus)) {
+          setIsRunning(false);
+        } else if (['running', 'connecting'].includes(newStatus)) {
+          setIsRunning(true);
+        }
+      }
+      return;
     } else {      // Handle any other message types - still show the data even if type is unknown
       if (debugMode) {
-        console.log('[TrainingOutputModal] Processing unknown message type:', data);
+        console.log('[TrainingOutputModal] Processing unknown message type:', messageData);
       }
-      if (data.data) {
-        setOutput(prev => [...prev, data.data]);
+      if (messageData.data) {
+        setOutput(prev => [...prev, messageData.data]);
       } else if (typeof data === 'string') {
         // Handle case where data is a plain string
         setOutput(prev => [...prev, data]);
@@ -300,13 +369,15 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     
     if (debugMode) {
       console.log('[Training Modal Debug] Start training called');
-      console.log('[Training Modal Debug] Script name:', scriptName);
-      console.log('[Training Modal Debug] Config path:', configPath);
     }
 
-    if (!scriptName || !configPath) {
-      setOutput(prev => [...prev, 'Error: Missing script name or config path']);
+    // First check if backend services are running
+    const isHealthy = await checkBackendHealth();
+    if (!isHealthy) {
+      setOutput(prev => [...prev, 'Backend services are not accessible. Please ensure all backend services (API, Streamer, Worker) are running.']);
+      setOutput(prev => [...prev, 'Try running: python main_services.py']);
       setStatus('error');
+      setIsRunning(false);
       return;
     }
 
@@ -316,7 +387,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
         onTrainingStart();
       }
 
-      console.log('[Training Modal Debug] Starting training mode');
+      console.log('[Training Modal Debug] Starting training connection...');
       setStatus('connecting');
       setOutput(['Starting training connection...']);
       setIsRunning(true);
@@ -331,25 +402,31 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
       if (debugMode) {
         console.log('[Training Modal Debug] Prepared training config:', trainingConfig);
       }
-
+      
+      // Start the training job via API service
+      const response = await startTrainingJob(trainingConfig);
+      const job_id = response.job_id;
+      
+      if (debugMode) {
+        console.log('[Training Modal Debug] Training job started, job_id:', job_id);
+        console.log('[Training Modal Debug] WebSocket URL:', `ws://localhost:8001/ws/${job_id}`);
+      }
+      
+      // Set output to show job ID
+      setOutput(prev => [...prev, `Training job ${job_id} queued. Connecting to WebSocket...`]);
+      
+      // Set the current job ID
+      setCurrentJobId(job_id);
+      
       // Disconnect any existing connections first
       disconnectTrainingWebSocket();
       
-      // Connect to the training WebSocket
-      connectTrainingWebSocket(handleOutput);
+      // Connect to the job-specific WebSocket
+      connectTrainingWebSocket(handleOutput, job_id);
       
-      // Wait a bit for connection to establish, then send config
-      setTimeout(() => {
-        try {
-          console.log('[Training Modal Debug] Sending training config');
-          sendConfigToTraining(trainingConfig);
-        } catch (error) {
-          console.error('[Training Modal Debug] Error sending training config:', error);
-          setOutput(prev => [...prev, `Error sending training config: ${error instanceof Error ? error.message : String(error)}`]);
-          setStatus('error');
-          setIsRunning(false);
-        }
-      }, 1000);
+      // Set status to connecting to reflect that WebSocket connection is being established
+      setStatus('connecting');
+      
     } catch (error) {
       console.error('[Training Modal Debug] Error in startTraining:', error);
       setOutput(prev => [...prev, `Error starting training: ${error instanceof Error ? error.message : String(error)}`]);
@@ -358,16 +435,119 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
     }
   };
 
+  const checkBackendHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Backend health check failed with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('[Training Modal Debug] Backend health check passed:', data);
+      return true;
+    } catch (error) {
+      console.error('[Training Modal Debug] Backend health check failed:', error);
+      return false;
+    }
+  };
+
+  const startRealTrainingJob = async () => {
+    if (isTestMode) {
+      console.log('[Training Modal Debug] Cannot start training while in test mode');
+      return;
+    }
+    
+    if (debugMode) {
+      console.log('[Training Modal Debug] Start real training job called');
+    }
+
+    // First check if backend services are running
+    const isHealthy = await checkBackendHealth();
+    if (!isHealthy) {
+      setOutput(prev => [...prev, 'Backend services are not accessible. Please ensure all backend services (API, Streamer, Worker) are running.']);
+      setOutput(prev => [...prev, 'Try running: python main_services.py']);
+      setStatus('error');
+      setIsRunning(false);
+      return;
+    }
+
+    try {
+      // Call the training start callback if provided
+      if (onTrainingStart) {
+        onTrainingStart();
+      }
+
+      console.log('[Training Modal Debug] Starting real training job');
+      setStatus('connecting');
+      setOutput(['Starting real training job connection...']);
+      setIsRunning(true);
+
+      // Prepare the real training configuration
+      const realTrainingConfig = {
+        script: 'train_longcat.py',
+        config_path: 'config_new.json',
+        output_dir: './real_training_output',
+        save_name: `real-training-${Date.now()}`,
+        num_train_epochs: 1,  // Reduce epochs for test
+        train_batch_size: 1,  // Reduce batch size for test
+        learning_rate: 1e-5   // Use smaller learning rate for test
+      };
+
+      if (debugMode) {
+        console.log('[Training Modal Debug] Prepared real training config:', realTrainingConfig);
+      }
+      
+      // Start the real training job via API service
+      const response = await startTrainingJob(realTrainingConfig);
+      const job_id = response.job_id;
+      
+      if (debugMode) {
+        console.log('[Training Modal Debug] Real training job started, job_id:', job_id);
+        console.log('[Training Modal Debug] WebSocket URL:', `ws://localhost:8001/ws/${job_id}`);
+      }
+      
+      // Set output to show job ID
+      setOutput(prev => [...prev, `Real training job ${job_id} queued. Connecting to WebSocket...`]);
+      
+      // Set the current job ID
+      setCurrentJobId(job_id);
+      
+      // Disconnect any existing connections first
+      disconnectTrainingWebSocket();
+      
+      // Connect to the job-specific WebSocket
+      connectTrainingWebSocket(handleOutput, job_id);
+      
+      // Set status to connecting to reflect that WebSocket connection is being established
+      setStatus('connecting');
+      
+    } catch (error) {
+      console.error('[Training Modal Debug] Error in startRealTrainingJob:', error);
+      setOutput(prev => [...prev, `Error starting real training job: ${error instanceof Error ? error.message : String(error)}`]);
+      setStatus('error');
+      setIsRunning(false);
+    }
+  };
+
+
+
   const stopCurrentTraining = async () => {
     try {
-      await stopTraining();
-      setOutput(prev => [...prev, 'Training stopped by user']);
-      setIsRunning(false);
-      setStatus('idle');
-      // Disconnect the training WebSocket when stopping
-      disconnectTrainingWebSocket();
+      // Use the new stopTraining function with current job ID
+      await stopTraining(currentJobId);
+      setOutput(prev => [...prev, 'Stopping training... Please wait for confirmation from backend.']);
+      addToast('Training stop request sent', 'info');
+      // Don't set status to idle yet, let the backend message handle the status update
+      // setStatus will be updated when the complete message is received
     } catch (error) {
       setOutput(prev => [...prev, `Error stopping training: ${error instanceof Error ? error.message : String(error)}`]);
+      addToast('Failed to stop training', 'error');
       setStatus('error');
     }
   };
@@ -392,7 +572,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
               status === 'running' ? 'bg-green-500 animate-pulse' :
               status === 'connecting' ? 'bg-yellow-500 animate-pulse' :
               status === 'completed' ? 'bg-blue-500' :
-              status === 'error' ? 'bg-red-500' : 'bg-gray-400'
+              status === 'error' || status === 'failed' ? 'bg-red-500' : 'bg-gray-400'
             }`}></div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">
               Training Output
@@ -449,14 +629,28 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-white/30 dark:bg-zinc-900/30">
           <div className="flex items-center gap-3">
             {!isRunning ? (
-              <button
-                onClick={startTraining}
-                disabled={status === 'connecting'}
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
-              >
-                <Play size={16} />
-                {status === 'connecting' ? 'Connecting...' : 'Start Training'}
-              </button>
+              <>
+                <button
+                  onClick={startTraining}
+                  disabled={status === 'connecting'}
+                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
+                >
+                  <Play size={16} />
+                  {status === 'connecting' ? 'Connecting...' : 'Start Training'}
+                </button>
+                {/* Real Job button - for development/testing purposes only */}
+                {/*
+                <button
+                  onClick={startRealTrainingJob}
+                  disabled={status === 'connecting'}
+                  className="flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50 transition-colors"
+                  title="Start a real training job with train_longcat.py"
+                >
+                  <Play size={16} />
+                  Real Job
+                </button>
+                */}
+              </>
             ) : (
               <button
                 onClick={async () => {
@@ -466,7 +660,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
                     setIsTestMode(false);
                     setIsRunning(false);
                     setStatus('idle');
-                  } else if (status === 'completed' || status === 'error') {
+                  } else if (status === 'completed' || status === 'error' || status === 'failed') {
                     // Training has already ended, reset the state and backend status
                     setIsRunning(false);
                     setStatus('idle');
@@ -482,7 +676,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
                   }
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                  status === 'completed' || status === 'error'
+                  status === 'completed' || status === 'error' || status === 'failed'
                     ? 'bg-blue-500 hover:bg-blue-600 text-white'
                     : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
@@ -490,7 +684,7 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
                 <Square size={16} />
                 {isTestMode ? 'Stop Test' : 
                  status === 'completed' ? 'Training Completed' : 
-                 status === 'error' ? 'Training Failed' : 'Stop Training'}
+                 status === 'error' || status === 'failed' ? 'Training Failed' : 'Stop Training'}
               </button>
             )}
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -521,11 +715,40 @@ export const TrainingOutputModal: React.FC<TrainingOutputModalProps> = ({
                     : 'Waiting for output...'}
               </div>
             ) : (
-              output.map((line, index) => (
-                <div key={index} className="py-1">
-                  {line}
-                </div>
-              ))
+              output.map((line, index) => {
+                // Check if line is a WebSocketOutputMessage object
+                if (typeof line === 'object' && line !== null && 'data' in line && (line as WebSocketOutputMessage).data) {
+                  const objLine = line as WebSocketOutputMessage;
+                  // Format timestamp to yyyyMMdd HH:mm:ss
+                  const timestamp = objLine.timestamp ? new Date(objLine.timestamp * 1000).toLocaleString('en-CA', { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit',
+                    hour12: false
+                  }).replace(/\//g, '') : null;
+                  
+                  return (
+                    <div key={index} className="py-1">
+                      <div>{objLine.data}</div>
+                      {debugMode && objLine.job_id && timestamp && (
+                        <div className="text-xs text-zinc-500 dark:text-zinc-400 ml-2 inline text-[10px]">
+                          [{objLine.job_id} @ {timestamp}]
+                        </div>
+                      )}
+                    </div>
+                  );
+                } else {
+                  // Handle string or other formats
+                  return (
+                    <div key={index} className="py-1">
+                      {typeof line === 'string' ? line : JSON.stringify(line)}
+                    </div>
+                  );
+                }
+              })
             )}
           </div>
         </div>
