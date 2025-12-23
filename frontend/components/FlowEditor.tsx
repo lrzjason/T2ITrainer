@@ -180,6 +180,33 @@ export const FlowEditor = () => {
       }
   }, [theme]);
 
+  // Load current workflow on component mount
+  useEffect(() => {
+    const loadCurrentWorkflowOnMount = async () => {
+      try {
+        const response = await fetch('/api/workflow/current');
+        
+        if (response.ok) {
+          const result = await response.json();
+          
+          if (result.workflow && result.workflow.nodes && result.workflow.edges) {
+            setNodes(result.workflow.nodes);
+            setEdges(result.workflow.edges);
+            console.log('Current workflow loaded on mount');
+          }
+        } else {
+          // If the workflow doesn't exist (404), just keep the empty canvas
+          console.log('No current workflow found, starting with empty canvas');
+        }
+      } catch (error) {
+        console.error('Error loading current workflow on mount:', error);
+        // If there's an error, just continue with empty canvas
+      }
+    };
+    
+    loadCurrentWorkflowOnMount();
+  }, [setNodes, setEdges]);
+
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
   const toggleLang = () => setLang(prev => prev === 'en' ? 'cn' : 'en');
 

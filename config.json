@@ -25,7 +25,7 @@
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:\\HF_Models\\LongCat\\LongCat-Image-Edit",
+    "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
     "model_path": "",
     "resume_from_checkpoint": null,
     "recreate_cache": false,
