@@ -45,6 +45,13 @@ node --version
 npm --version
 ```
 
+```bash
+    cd frontend
+    npm install
+    npm run build
+    cd ..
+```
+
 ### 1. Automated Setup
 Recommended Method
 ```bash
