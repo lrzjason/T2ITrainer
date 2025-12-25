@@ -3,7 +3,7 @@ WebSocket Streamer Service - Always-online WebSocket server for real-time output
 
 This service:
 - Maintains persistent WebSocket connections with clients
-- Subscribes to job output channels via message queue (Redis Pub/Sub)
+- Subscribes to job output channels via message queue (SQLite-based)
 - Streams training output to connected clients in real-time
 - Handles multiple concurrent connections per job
 - Provides heartbeat/ping to keep connections alive

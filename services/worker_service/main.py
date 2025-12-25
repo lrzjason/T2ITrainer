@@ -4,7 +4,7 @@ Worker Service - Executes training subprocesses and publishes output.
 This service:
 - Listens to the job queue for new training requests
 - Executes training scripts as subprocesses
-- Captures and publishes subprocess output to message queue (Redis Pub/Sub)
+- Captures and publishes subprocess output to message queue (SQLite-based)
 - Handles job lifecycle (start, stop, status)
 - Manages multiple concurrent jobs (with limits)
 

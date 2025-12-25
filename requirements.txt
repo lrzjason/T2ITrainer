@@ -20,3 +20,8 @@ protobuf==3.20
 gradio
 tensorboard
 lycoris-lora
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+websockets>=11.0
+
+watchdog>=3.0.0

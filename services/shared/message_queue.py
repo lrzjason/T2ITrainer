@@ -1,6 +1,6 @@
 """
 Message Queue module for inter-service communication.
-Supports SQLite (primary) with Redis (production) and in-memory queue (development) as fallbacks.
+Uses SQLite as the primary and only message queue.
 """
 import json
 import time
@@ -13,13 +13,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Try to import redis, use in-memory fallback if not available
-try:
-    import redis
-    REDIS_AVAILABLE = True
-except ImportError:
-    REDIS_AVAILABLE = False
-    logger.warning("Redis not available, using SQLite message queue (primary) with in-memory fallback")
+# Only use SQLite for message queueing
+REDIS_AVAILABLE = False
 
 # Import SQLite queue
 from .sqlite_queue import get_sqlite_queue
@@ -152,41 +147,20 @@ class InMemoryPubSub:
 class MessageQueue:
     """
     Unified message queue interface.
-    Uses SQLite as primary, Redis if available, falls back to in-memory queue.
+    Uses SQLite as the only message queue.
     """
     
-    def __init__(self, host: str = 'localhost', port: int = 6379, db: int = 0):
-        self.host = host
-        self.port = port
-        self.db = db
+    def __init__(self):
         self._client = None
-        self._use_sqlite = True  # Always use SQLite as primary
-        self._use_redis = REDIS_AVAILABLE
     
     @property
     def client(self):
         """Get or create the client"""
         if self._client is None:
-            # Use SQLite as primary queue
-            try:
-                from .sqlite_queue import get_sqlite_queue
-                self._client = get_sqlite_queue()
-                logger.info("Using SQLite message queue (primary)")
-            except Exception as e:
-                logger.warning(f"Failed to initialize SQLite queue: {e}")
-                # Fallback to Redis if available
-                if self._use_redis:
-                    try:
-                        self._client = redis.Redis(host=self.host, port=self.port, db=self.db)
-                        # Test connection
-                        self._client.ping()
-                        logger.info(f"Connected to Redis at {self.host}:{self.port}")
-                    except Exception as e2:
-                        logger.warning(f"Failed to connect to Redis: {e2}. Using in-memory queue.")
-                        self._use_redis = False
-                        self._client = InMemoryMessageQueue()
-                else:
-                    self._client = InMemoryMessageQueue()
+            # Use SQLite as the only queue
+            from .sqlite_queue import get_sqlite_queue
+            self._client = get_sqlite_queue()
+            logger.info("Using SQLite message queue")
         return self._client
     
     def publish(self, channel: str, message: Any) -> int:
@@ -206,8 +180,6 @@ class MessageQueue:
     
     def pubsub(self):
         """Create a pubsub object - not used with SQLite, but kept for compatibility"""
-        if self._use_redis:
-            return self.client.pubsub()
         return InMemoryPubSub(self.client)
     
     def rpush(self, key: str, value: Any) -> int:
@@ -251,8 +223,6 @@ class MessageQueue:
     
     def set(self, key: str, value: str, ex: int = None):
         """Set a value with optional expiry"""
-        if self._use_redis:
-            return self.client.set(key, value, ex=ex)
         return self.client.set(key, value, ex)
     
     def get(self, key: str) -> Optional[str]:
@@ -271,16 +241,11 @@ class MessageQueue:
 _mq_instance = None
 
 
-def get_message_queue(host: str = None, port: int = None, db: int = None) -> MessageQueue:
+def get_message_queue() -> MessageQueue:
     """Get the global message queue instance"""
     global _mq_instance
     
     if _mq_instance is None:
-        from .config import REDIS_HOST, REDIS_PORT, REDIS_DB
-        _mq_instance = MessageQueue(
-            host=host or REDIS_HOST,
-            port=port or REDIS_PORT,
-            db=db or REDIS_DB
-        )
+        _mq_instance = MessageQueue()
     
     return _mq_instance

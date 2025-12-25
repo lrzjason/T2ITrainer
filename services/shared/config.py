@@ -45,11 +45,6 @@ BACKEND_PORT = PORT_CONFIG.get("backend_port", 8000)
 FRONTEND_DEV_PORT = PORT_CONFIG.get("frontend_dev_port", 5173)
 FRONTEND_PREVIEW_PORT = PORT_CONFIG.get("frontend_preview_port", 7860)
 
-# Redis configuration
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", 6379))
-REDIS_DB = int(os.environ.get("REDIS_DB", 0))
-
 # Job queue keys
 JOB_QUEUE_KEY = "t2i_trainer:job_queue"
 JOB_OUTPUT_PREFIX = "t2i_trainer:job_output:"

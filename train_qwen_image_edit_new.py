@@ -619,11 +619,11 @@ def parse_args(input_args=None):
     #     help=("reasoning_gamma"),
     # )
     
-    parser.add_argument(
-        "--use_new_rope",
-        action="store_true",
-        help="Use new rope style for main image + multiple reference images",
-    )
+    # parser.add_argument(
+    #     "--use_new_rope",
+    #     action="store_true",
+    #     help="Use new rope style for main image + multiple reference images",
+    # )
     
     parser.add_argument(
         "--nln_samples",

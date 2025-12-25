@@ -600,11 +600,11 @@ def parse_args(input_args=None):
         help=("reasoning_gamma"),
     )
     
-    parser.add_argument(
-        "--use_new_rope",
-        action="store_true",
-        help="Use new rope style for main image + multiple reference images",
-    )
+    # parser.add_argument(
+    #     "--use_new_rope",
+    #     action="store_true",
+    #     help="Use new rope style for main image + multiple reference images",
+    # )
     
     
     # parser.add_argument(
@@ -1246,7 +1246,7 @@ def main(args, config_args):
                     ).to(offload_device)
     
     # set rope style
-    transformer.select_rope(args.use_new_rope)
+    # transformer.select_rope(args.use_new_rope)
     flush()
 
     if "quantization_config" in transformer.config:
