@@ -11,6 +11,7 @@ pip install git+https://github.com/huggingface/diffusers.git -U
 
 
 ## 📅 Major Updates
+- **2025-12-26:** Support 2511 training
 - **2025-12-24:**  New Backend Architecture with SQLite-based job queue system. Replaced Redis with SQLite for better reliability and simplified deployment. Added API Service, Worker Service, and Streamer Service for improved training job management and real-time output streaming.
 - **2025-12-23:**  Enhanced Training Log System with persistent logging, status tracking, and retrieval capabilities. Training logs are now stored separately by date with JSON format, allowing retrieval even when the web page is closed. Training status is persisted to maintain state across browser sessions.
 - **2025-12-20:**  Node Based Frontend UI for configuration with visualization capabilities. Flexible dataset configuration. (Still under development)
