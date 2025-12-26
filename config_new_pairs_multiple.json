@@ -25,12 +25,12 @@
     "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
     "model_path": "",
     "resume_from_checkpoint": null,
-    "recreate_cache": false,
+    "recreate_cache": true,
     "resolution": "1024",
     "caption_dropout": 0.1,
     "cosine_restarts": 1,
     "max_time_steps": 0,
-    "blocks_to_swap": 1,
+    "blocks_to_swap": 0,
     "mask_dropout": 0.0,
     "reg_ratio": 0.0,
     "reg_timestep": 0,
@@ -42,12 +42,11 @@
     "lokr_factor": 8,
     "image_configs": {},
     "caption_configs": {},
-    "training_set": null,
     "dataset_configs": [
         {
             "train_data_dir": "F:\\ImageSet\\q2511_test\\dataset1",
-            "resolution": "1024",
-            "recreate_cache": false,
+            "resolution": "512",
+            "recreate_cache": true,
             "repeats": 1,
             "image_configs": {
                 "AT": {
@@ -89,8 +88,12 @@
             "reference_configs": {
                 "train_AT": [
                     {
-                        "sample_type": "from_same_name",
                         "image": "AT"
+                    }
+                ],
+                "train_GT": [
+                    {
+                        "image": "GT"
                     }
                 ],
                 "train_FT": [

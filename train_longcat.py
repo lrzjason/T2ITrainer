@@ -793,36 +793,14 @@ def main(args, config_args):
     metadata_path = os.path.join(args.output_dir, f'dataset_{training_name}.json')
     val_metadata_path = os.path.join(args.output_dir, f'val_dataset_{training_name}.json')
     
-    vae = AutoencoderKL.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="vae",
-    )
-    vae.requires_grad_(False)
-    vae.to("cpu")
-    
-    
-    # Offload models to CPU and load necessary components
-    tokenizer_one = Qwen2Tokenizer.from_pretrained(
-        args.pretrained_model_name_or_path,
-        subfolder="tokenizer",
-    )
-
-    text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder"
-    )
-    text_encoder_one.requires_grad_(False)
-    
-    # text_encoder_one.to(accelerator.device, dtype=weight_dtype)
-    text_encoder_one.to("cpu")
-    tokenizers = [tokenizer_one]
-    text_encoders = [text_encoder_one]
-    if accelerator.is_main_process:
-        create_empty_embedding(tokenizers,text_encoders)
-        
-    
     if dataset_configs is not None and len(dataset_configs) > 0:
         dataset_datarows = []
         val_dataset_datarows = []
+        
+        vae = None
+        tokenizer_one = None
+        text_encoder_one = None
+        
         for dataset_config in dataset_configs:
             train_data_dir = dataset_config["train_data_dir"] if "train_data_dir" in dataset_config else args.train_data_dir
             # get train_data_dir basename as dataset_name
@@ -1080,7 +1058,10 @@ def main(args, config_args):
                 return image_set, bucket
             
             @torch.no_grad()
-            def cache_process(dataset_name, cache_datarows, validation_datarows, image_pairs, train_data_dir, recreate_cache_target, recreate_cache_reference, recreate_cache_caption):
+            def cache_process(dataset_name, cache_datarows, validation_datarows, 
+                              image_pairs, train_data_dir, recreate_cache_target, 
+                              recreate_cache_reference, recreate_cache_caption,
+                              vae, tokenizer_one, text_encoder_one):
                 # datarows = []
                 if len(image_pairs) > 0:
                     # full_datarows = []
@@ -1102,6 +1083,36 @@ def main(args, config_args):
                     else:
                         recache = True
                     if recache:
+                        
+                        if vae is None:
+                            vae = AutoencoderKL.from_pretrained(
+                                args.pretrained_model_name_or_path,
+                                subfolder="vae",
+                            )
+                            vae.requires_grad_(False)
+                            vae.to(accelerator.device, dtype=torch.float32)
+                        
+                        
+                        if tokenizer_one is None:
+                            # Offload models to CPU and load necessary components
+                            tokenizer_one = Qwen2Tokenizer.from_pretrained(
+                                args.pretrained_model_name_or_path,
+                                subfolder="tokenizer",
+                            )
+
+                        if text_encoder_one is None:
+                            text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
+                                args.pretrained_model_name_or_path, subfolder="text_encoder"
+                            )
+                            text_encoder_one.requires_grad_(False)
+                            text_encoder_one.to(accelerator.device, dtype=weight_dtype)
+                        
+                        tokenizers = [tokenizer_one]
+                        text_encoders = [text_encoder_one]
+                        if accelerator.is_main_process:
+                            create_empty_embedding(tokenizers,text_encoders)
+                            
+                        
                         
                         embedding_objects = {
                             "dataset": dataset_name
@@ -1212,7 +1223,7 @@ def main(args, config_args):
                                         for ref_image_obj in references_list:
                                             # use original image as reference path avoid double compression
                                             original_image_path = ref_image_obj["original_image_path"]
-                                            if dropout < random.random() or len(image_list) < min_length:
+                                            if dropout < random.random() or len(image_list) <= min_length:
                                                 image = crop_image(original_image_path,resolution=resize)
                                                 image_list.append(image)
                                         
@@ -1268,9 +1279,11 @@ def main(args, config_args):
 
             cache_datarows = []
             validation_datarows = []
-            cache_process(dataset_name, cache_datarows, validation_datarows, image_pairs, train_data_dir, recreate_cache_target, recreate_cache_reference, recreate_cache_caption)
-            
-            
+            cache_process(dataset_name, cache_datarows, validation_datarows, 
+                          image_pairs, train_data_dir, recreate_cache_target, 
+                          recreate_cache_reference, recreate_cache_caption,
+                          vae, tokenizer_one, text_encoder_one)
+
             # Handle validation split
             if args.validation_ratio > 0 and not os.path.exists(val_subset_metadata_path):
                 train_ratio = 1 - args.validation_ratio

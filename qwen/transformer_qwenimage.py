@@ -930,6 +930,7 @@ class BlockSwapQwenImageTransformer2DModel(
         self.blocks_to_swap = None
 
         self.offloader_double = None
+        self.num_double_blocks = len(self.transformer_blocks)
     def enable_block_swap(self, num_blocks: int, device: torch.device):
         self.blocks_to_swap = num_blocks
         double_blocks_to_swap = num_blocks

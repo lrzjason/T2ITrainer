@@ -947,9 +947,9 @@ export const FlowEditor = () => {
                 onConnectEnd={onConnectEnd}
                 onPaneClick={onPaneClick}
                 deleteKeyCode={['Backspace', 'Delete']}
-                selectionKeyCode="Shift"
+                selectionKeyCode="Control"
                 selectionMode={SelectionMode.Partial}
-                multiSelectionKeyCode={['Control', 'Meta', 'Shift']}
+                multiSelectionKeyCode={['Control', 'Meta']}
                 nodesDraggable={!isSpacePressed}
                 panOnDrag={true}
                 defaultEdgeOptions={defaultEdgeOptions}
