@@ -46,14 +46,12 @@ from accelerate.utils import ProjectConfiguration, set_seed, tqdm
 # from tqdm.auto import tqdm
 # from transformers import AutoTokenizer, PretrainedConfig
 from diffusers import (
-    AutoencoderKL,
+    AutoencoderKLQwenImage,
     FlowMatchEulerDiscreteScheduler,
-    # QwenImageEditPipeline
+    QwenImageEditPipeline
 )
 
-from longcat.pipeline_longcat_image import LongCatImagePipeline
-
-from longcat.transformer_longcat_image import LongCatImageTransformer2DModel
+from qwen.transformer_qwenimage import BlockSwapQwenImageTransformer2DModel
 # from diffusers import (
 #     QwenImageTransformer2DModel
 # )
@@ -68,7 +66,10 @@ from diffusers.training_utils import (
     compute_snr
 )
 from diffusers.utils import (
+    # check_min_version,
+    convert_all_state_dict_to_peft,
     convert_state_dict_to_diffusers,
+    convert_state_dict_to_kohya,
     convert_unet_state_dict_to_peft,
     is_wandb_available,
 )
@@ -83,8 +84,14 @@ from sklearn.model_selection import train_test_split
 from pathlib import Path
 import json
 
-# from utils.image_utils_qwenimage import CachedJsonDataset
-from utils.bucket.bucket_batch_sampler import BucketBatchSampler
+
+# import sys
+# from utils.image_utils_kolors import BucketBatchSampler, CachedImageDataset, create_metadata_cache
+from utils.image_utils_qwenimage import CachedJsonDataset, CachedMutiImageDataset, ImagePairsDataset
+from utils.bucket.bucket_batch_sampler import BucketBatchSampler, FlatBatchSampler
+
+# from prodigyopt import Prodigy
+
 
 # https://github.com/Lightning-AI/pytorch-lightning/blob/0d52f4577310b5a1624bed4d23d49e37fb05af9e/src/lightning_fabric/utilities/seed.py
 from random import getstate as python_get_rng_state
@@ -107,20 +114,21 @@ from utils.dist_utils import flush
 
 import glob
 import shutil
-# from utils.image_utils_qwenimage import compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, crop_image,get_md5_by_path
+from utils.image_utils_qwenimage import compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, crop_image,get_md5_by_path
 
-from utils.image_utils_longcat import CachedJsonDataset, compute_text_embeddings, replace_non_utf8_characters, create_empty_embedding, crop_image,get_md5_by_path
 
 from torchvision import transforms
 
-from utils.utils import find_image_files_by_regex, find_index_from_right, ToTensorUniversal, get_image_files, sample_reference_timesteps, linear_interpolation, vae_encode_utils as vae_encode, parse_indices, print_end_signal
+from utils.utils import find_image_files_by_regex, find_index_from_right, ToTensorUniversal, get_image_files, sample_reference_timesteps, linear_interpolation, vae_encode_utils as vae_encode, print_end_signal
 
 from utils.training_set.select_training_set import get_batch_config, get_training_set, get_dataset_batch_config
 from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 from torch.nn.utils.rnn import pad_sequence
+import torch
+import torch.nn.functional as F
+import torch.fft
 
 logger = get_logger(__name__)
-from longcat.model_utils import prepare_pos_ids
 
 import torch.distributed as dist
 
@@ -143,7 +151,7 @@ def parse_args(input_args=None):
         required=False,
         help="Path to pretrained model or model identifier from huggingface.co/models.",
     )
-    # parser.add_argument("--repeats", type=int, default=1, help="How many times to repeat the training data.")
+    parser.add_argument("--repeats", type=int, default=1, help="How many times to repeat the training data.")
     parser.add_argument(
         "--validation_epochs",
         type=int,
@@ -316,14 +324,14 @@ def parse_args(input_args=None):
             " flag passed with the `accelerate.launch` command. Use this argument to override the accelerate config."
         ),
     )
-    # parser.add_argument(
-    #     "--train_data_dir",
-    #     type=str,
-    #     default="",
-    #     help=(
-    #         "train data image folder"
-    #     ),
-    # )
+    parser.add_argument(
+        "--train_data_dir",
+        type=str,
+        default="",
+        help=(
+            "train data image folder"
+        ),
+    )
     
     
     # parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
@@ -472,12 +480,6 @@ def parse_args(input_args=None):
         help="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19"
     )
     parser.add_argument(
-        "--freeze_single_transformer_layers",
-        type=str,
-        default='',
-        help="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19"
-    )
-    parser.add_argument(
         "--lora_layers",
         type=str,
         default=None,
@@ -499,7 +501,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--blocks_to_swap",
         type=int,
-        default=10,
+        default=0,
         help="Suggest to 10-20 depends on VRAM",
     )
     parser.add_argument(
@@ -524,7 +526,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_longcat_dev_local.json",
+        default="config_new_pairs_multiple.json",
         help="Path to the config file.",
     )
         # default="config_qwen_edit_pairs.json",
@@ -565,11 +567,66 @@ def parse_args(input_args=None):
         help=("The lokr factor of the Lokr matrices."),
     )
     
-    parser.add_argument(
-        "--use_new_rope",
-        action="store_true",
-        help="Use new rope style for main image + multiple reference images",
-    )
+    # enable_traj_refs
+    # traj_drop_rate = 0.15
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    # pior_weight = 0.3
+    # parser.add_argument(
+    #     "--enable_traj_refs",
+    #     action="store_true",
+    #     help="enable_traj_refs",
+    # )
+    # parser.add_argument(
+    #     "--traj_drop_rate",
+    #     type=float,
+    #     default=0.15,
+    #     help=("traj_drop_rate"),
+    # )
+    # parser.add_argument(
+    #     "--t_low",
+    #     type=float,
+    #     default=0.2,
+    #     help=("t_low"),
+    # )
+    # parser.add_argument(
+    #     "--t_high",
+    #     type=float,
+    #     default=0.85,
+    #     help=("t_high"),
+    # )
+    # parser.add_argument(
+    #     "--min_step",
+    #     type=float,
+    #     default=0.05,
+    #     help=("min_step"),
+    # )
+    # parser.add_argument(
+    #     "--traj_weight",
+    #     type=float,
+    #     default=0.4,
+    #     help=("traj_weight"),
+    # )
+    # parser.add_argument(
+    #     "--reasoning_frame",
+    #     type=int,
+    #     default=2,
+    #     help=("reasoning_frame"),
+    # )
+    # parser.add_argument(
+    #     "--reasoning_gamma",
+    #     type=float,
+    #     default=1.25,
+    #     help=("reasoning_gamma"),
+    # )
+    
+    # parser.add_argument(
+    #     "--use_new_rope",
+    #     action="store_true",
+    #     help="Use new rope style for main image + multiple reference images",
+    # )
     
     parser.add_argument(
         "--nln_samples",
@@ -588,6 +645,25 @@ def parse_args(input_args=None):
         type=str,
         default="nln_directional",
         help=("method for normalized latent noise, default, nln, nln_directional" ),
+    )
+    
+    parser.add_argument(
+        "--low_freq_weight",
+        type=float,
+        default=1.0,
+        help="Weight for low frequency loss component",
+    )
+    parser.add_argument(
+        "--high_freq_weight",
+        type=float,
+        default=1.0,
+        help="Weight for high frequency loss component",
+    )
+    
+    parser.add_argument(
+        "--use_freq_loss",
+        action="store_true",
+        help="Enable frequency loss calculation",
     )
     # parser.add_argument(
     #     "--use_torch_compile",
@@ -639,7 +715,57 @@ def parse_args(input_args=None):
     return args, config_args
 
 def main(args, config_args):
-    training_name = "longcat-image"
+    args.use_freq_loss = True
+    
+    training_name = "qwen_edit"
+    
+    recreate_cache = args.recreate_cache
+    recreate_cache_target = args.recreate_cache_target
+    recreate_cache_reference = args.recreate_cache_reference
+    recreate_cache_caption = args.recreate_cache_caption
+    
+    # override if recreate_cache
+    if recreate_cache:
+        recreate_cache_target = True
+        recreate_cache_reference = True
+        recreate_cache_caption = True
+    
+    # local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    # torch.cuda.set_device(local_rank)  # ← critical step
+
+    # dist.init_process_group(backend="nccl")
+    # start using reference timestep
+    # enable_traj_refs = True
+    # traj_drop_rate = 0.15
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    # pior_weight = 0.3
+    # enable_traj_refs = args.enable_traj_refs
+    # traj_drop_rate = args.traj_drop_rate
+    # t_low = args.t_low
+    # t_high = args.t_high
+    # min_step = args.min_step
+    # traj_weight = args.traj_weight
+    # max_references = 2
+    # reasoning_frame = args.reasoning_frame
+    # reasoning_gamma = args.reasoning_gamma
+    # pior_weight = args.pior_weight
+    
+    # baseline
+    # traj_drop_rate = 0.15
+    # t_low = 0.15
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.4
+    
+    # low traj
+    # traj_drop_rate = 0.1
+    # t_low = 0.2
+    # t_high = 0.85
+    # min_step = 0.05
+    # traj_weight = 0.3
     
     d_coef = 2.0
     # args.scale_lr = False
@@ -671,55 +797,32 @@ def main(args, config_args):
     
     transformer_subfolder = "transformer"
     
+    # enable_redux_training = False
+    # image_1 = "train"
+    # image_2 = "ref"
+    
     npz_path_key = "npz_path"
     batch_targets_key = "targets"
     batch_references_key = "references"
     batch_captions_key = "captions"
     prompt_embed_key = "prompt_embed"
-    text_id_key = "text_id"
     prompt_embeds_mask_key = "prompt_embeds_mask"
     prompt_embed_length_key = "prompt_embed_length"
-    image_path_key = "image_path"
     latent_key = "latent"
     latent_path_key = f"{latent_key}_path"
     from_latent_path_key = f'from_{latent_key}_path'
     from_latent_key = f'from_{latent_key}'
-    latent_md5 = f'{latent_path_key}_md5'
-    npsuffix = "longcat"
+    npsuffix = "qwen"
     cache_ext= f".np{npsuffix}"
     latent_ext= f".np{npsuffix}latent"
-    dataset_based_image = "train"
     dataset_configs = config_args['dataset_configs']
-    # image_configs = config_args['image_configs']
-    # image_configs_keys = list(image_configs.keys())
-    # if len(image_configs_keys) > 0:
-    #     dataset_based_image = image_configs_keys[0]
-        
-    # merge_configs = {**image_configs}
-    # exclude_base_image_keys = [key for key in merge_configs.keys() if key != dataset_based_image]
-    
-    # caption_configs = config_args['caption_configs']
-    # target_configs = config_args['target_configs']
-    # reference_configs = config_args['reference_configs']
-    # cache_image_ext = ".webp"
-    # batch_configs = config_args['batch_configs']
-    
     # from qwenimage vae config
-    # temperal_downsample = [
-    #     False,
-    #     True,
-    #     True
-    # ]
-    # vae_scale_factor = int(2 ** len(temperal_downsample))
-    latents_mean = 0.1159 
-    latents_std = 0.3611
-    vae_config_block_out_channels = [
-        128,
-        256,
-        512,
-        512
+    temperal_downsample = [
+        False,
+        True,
+        True
     ]
-    vae_scale_factor = 2 ** (len(vae_config_block_out_channels) - 1)
+    vae_scale_factor = int(2 ** len(temperal_downsample))
     
     # to avoid cache mutiple times on same embedding
     # use_same_embedding = True
@@ -733,9 +836,9 @@ def main(args, config_args):
     
     
     # create metadata.jsonl if not exist
-    # metadata_suffix = "qwen"
-    # metadata_path = os.path.join(args.train_data_dir, f'metadata_{metadata_suffix}.json')
-    # val_metadata_path =  os.path.join(args.train_data_dir, f'val_metadata_{metadata_suffix}.json')
+    metadata_suffix = "qwen"
+    metadata_path = os.path.join(args.train_data_dir, f'metadata_{metadata_suffix}.json')
+    val_metadata_path =  os.path.join(args.train_data_dir, f'val_metadata_{metadata_suffix}.json')
     
     # logging_dir = "logs"
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=args.logging_dir)
@@ -770,7 +873,6 @@ def main(args, config_args):
     if args.lora_layers is not None and args.lora_layers != "":
         target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
-        # same as flux
         target_modules = [
             "attn.to_k",
             "attn.to_q",
@@ -779,11 +881,12 @@ def main(args, config_args):
             "attn.add_k_proj",
             "attn.add_q_proj",
             "attn.add_v_proj",
-            "attn.to_add_out",
-            "ff.net.0.proj",
-            "ff.net.2",
-            "ff_context.net.0.proj",
-            "ff_context.net.2",
+            "attn.to_add_out",            
+            # refer to https://github.com/modelscope/DiffSynth-Studio/blob/main/examples/qwen_image/model_training/lora/Qwen-Image.sh
+            "img_mlp.net.2",
+            # "img_mod.1",
+            "txt_mlp.net.2",
+            # "txt_mod.1"
         ]
     
     def collate_fn(examples):
@@ -797,16 +900,16 @@ def main(args, config_args):
         dataset_datarows = []
         val_dataset_datarows = []
         
-        vae = None
         tokenizer_one = None
+        processor = None
         text_encoder_one = None
-        
+        vae = None
         for dataset_config in dataset_configs:
             train_data_dir = dataset_config["train_data_dir"] if "train_data_dir" in dataset_config else args.train_data_dir
             # get train_data_dir basename as dataset_name
             dataset_name =  os.path.basename(train_data_dir)
             resolution = int(dataset_config["resolution"]) if "resolution" in dataset_config else args.resolution
-            recreate_cache = True if ("recreate_cache" in dataset_config and dataset_config["recreate_cache"]) or args.recreate_cache else False
+            recreate_cache = dataset_config["recreate_cache"] if "recreate_cache" in dataset_config else args.recreate_cache
             repeats = dataset_config["repeats"] if "repeats" in dataset_config else args.repeats
             dataset_basename = os.path.basename(train_data_dir)
             
@@ -834,7 +937,7 @@ def main(args, config_args):
             subset_metadata_path = os.path.join(cache_dir, f'metadata_{dataset_basename}.json')
             val_subset_metadata_path = os.path.join(cache_dir, f'val_metadata_{dataset_basename}.json')
             
-            # recreate_cache = dataset_config["recreate_cache"]
+            recreate_cache = dataset_config["recreate_cache"]
             recreate_cache_target = False if "recreate_cache_target" not in dataset_config else dataset_config["recreate_cache_target"]
             recreate_cache_reference = False if "recreate_cache_reference" not in dataset_config else dataset_config["recreate_cache_reference"]
             recreate_cache_caption = False if "recreate_cache_reference" not in dataset_config else dataset_config["recreate_cache_caption"]
@@ -940,12 +1043,12 @@ def main(args, config_args):
                     #     image_pairs.append(pair)
                     image_pairs.append(pair)
             
-                train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
+            train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
                             
-            def get_cache_dir(train_data_dir, image_path):
+            def get_cache_dir(image_path):
                 dir_name = os.path.dirname(image_path)
                 # create subdir
-                if not Path(dir_name).resolve() == Path(train_data_dir).resolve():
+                if not Path(dir_name).resolve() == Path(args.train_data_dir).resolve():
                     # get subdir name
                     subdir_name = os.path.basename(dir_name)
                     # create subdir in temp dir
@@ -954,9 +1057,9 @@ def main(args, config_args):
                     dir_name = temp_subdir_name
                 return dir_name
             
-            def cache_image(vae, train_data_dir, image_path, config, recreate_cache=False):
+            def cache_image(vae, image_path, config, recreate_cache=False):
                 # get dir name
-                working_dir = get_cache_dir(train_data_dir, image_path)
+                working_dir = get_cache_dir(image_path)
                 # convert to int
                 resize = int(config["resize"]) if "resize" in config else int(resolution)
                 filename, image_ext = os.path.splitext(image_path)
@@ -973,7 +1076,8 @@ def main(args, config_args):
                     pil_image.save(resized_image_path, cache_image_ext.replace('.',''))
                     
                     image = train_transforms(image)
-                    latent_dict = vae_encode(vae, image, vae_type="flux")
+                    latent_dict = vae_encode(vae, image)
+                    # print("latent_dict['latent'].shape", latent_dict['latent'].shape)
                     torch.save(latent_dict, resized_latent_path)
                 else:
                     try:
@@ -985,7 +1089,8 @@ def main(args, config_args):
                         pil_image = Image.fromarray((image).astype('uint8'))
                         pil_image.save(resized_image_path, cache_image_ext.replace('.',''))
                         image = train_transforms(image)
-                        latent_dict = vae_encode(vae, image, vae_type="flux")
+                        latent_dict = vae_encode(vae, image)
+                        # print("latent_dict['latent'].shape", latent_dict['latent'].shape)
                         torch.save(latent_dict, resized_latent_path)
                     image_height, image_width, _ = image.shape
                 
@@ -999,7 +1104,7 @@ def main(args, config_args):
                 return result
                 
             # construct targets/references list
-            def construct_image_list(vae, train_data_dir, image_pair, subdir_caches, configs, recreate_cache):
+            def construct_image_list(vae, image_pair, subdir_caches, configs, recreate_cache):
                 bucket = None
                 image_set = {}
                 for config_key in configs.keys():
@@ -1012,14 +1117,14 @@ def main(args, config_args):
                         if sample_type == "from_same_name":
                             image_key = config["image"]
                             image_path = image_pair[image_key]
-                            image_obj = cache_image(vae, train_data_dir, image_path, config, recreate_cache)
+                            image_obj = cache_image(vae, image_path, config, recreate_cache)
                             if bucket is None:
                                 bucket = image_obj["bucket"]
                             
                             if "from_image" in config:
                                 from_image_key = config["from_image"]
                                 from_image_path = image_pair[from_image_key]
-                                from_image_obj = cache_image(vae, train_data_dir, from_image_path, config, recreate_cache)
+                                from_image_obj = cache_image(vae, from_image_path, config, recreate_cache)
                                 # merge two dict
                                 image_obj["from_image_path"] = from_image_obj["image_path"]
                                 image_obj["from_latent_path"] = from_image_obj["latent_path"]
@@ -1051,7 +1156,7 @@ def main(args, config_args):
                             for ref_file in excluded_reference_files:
                                 if len(ref_list) >= count:
                                     break
-                                image_obj = cache_image(vae, train_data_dir, ref_file, config, recreate_cache)
+                                image_obj = cache_image(vae, ref_file, config, recreate_cache)
                                 ref_list.append(image_obj)
                             image_list += ref_list
                     image_set[config_key] = image_list
@@ -1059,10 +1164,14 @@ def main(args, config_args):
             
             @torch.no_grad()
             def cache_process(dataset_name, cache_datarows, validation_datarows, 
-                              image_pairs, train_data_dir, recreate_cache_target, 
-                              recreate_cache_reference, recreate_cache_caption,
-                              vae, tokenizer_one, text_encoder_one):
-                # datarows = []
+                              image_pairs, train_data_dir, 
+                              recreate_cache_target, recreate_cache_reference, recreate_cache_caption,
+                                tokenizer_one,
+                                processor,
+                                text_encoder_one,
+                                vae
+                              ):
+                datarows = []
                 if len(image_pairs) > 0:
                     # full_datarows = []
                     recache = recreate_cache
@@ -1084,15 +1193,6 @@ def main(args, config_args):
                         recache = True
                     if recache:
                         
-                        if vae is None:
-                            vae = AutoencoderKL.from_pretrained(
-                                args.pretrained_model_name_or_path,
-                                subfolder="vae",
-                            )
-                            vae.requires_grad_(False)
-                            vae.to(accelerator.device, dtype=torch.float32)
-                        
-                        
                         if tokenizer_one is None:
                             # Offload models to CPU and load necessary components
                             tokenizer_one = Qwen2Tokenizer.from_pretrained(
@@ -1100,6 +1200,12 @@ def main(args, config_args):
                                 subfolder="tokenizer",
                             )
 
+                        if processor is None:
+                            processor = Qwen2VLProcessor.from_pretrained(
+                                args.pretrained_model_name_or_path,
+                                subfolder="processor",
+                            )
+                        
                         if text_encoder_one is None:
                             text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                                 args.pretrained_model_name_or_path, subfolder="text_encoder"
@@ -1107,18 +1213,26 @@ def main(args, config_args):
                             text_encoder_one.requires_grad_(False)
                             text_encoder_one.to(accelerator.device, dtype=weight_dtype)
                         
+                        if vae is None:
+                            vae = AutoencoderKLQwenImage.from_pretrained(
+                                args.pretrained_model_name_or_path,
+                                subfolder="vae",
+                            )
+                        
+                            vae.requires_grad_(False)
+                        
+                            vae.to(accelerator.device, dtype=torch.float32)
+                            
                         tokenizers = [tokenizer_one]
                         text_encoders = [text_encoder_one]
                         if accelerator.is_main_process:
                             create_empty_embedding(tokenizers,text_encoders)
-                            
                         
                         
                         embedding_objects = {
                             "dataset": dataset_name
                         }
                         subdir_caches = {}
-                        
                         vae.to(accelerator.device, dtype=torch.float32)
                         print(f"Start caching {len(image_pairs)} latents...")
                         # first loop to cache all images and latents
@@ -1127,14 +1241,14 @@ def main(args, config_args):
                             embedding_object[batch_targets_key] = {}
                             embedding_object[batch_references_key] = {}
                             
-                            target_set, target_bucket = construct_image_list(vae, train_data_dir, image_pair, subdir_caches, target_configs, recreate_cache_target)
+                            target_set, target_bucket = construct_image_list(vae, image_pair, subdir_caches, target_configs, recreate_cache_target)
                             embedding_object[batch_targets_key] = target_set
                             embedding_object["bucket"] = target_bucket
                             
                             if reference_configs is not None:
-                                reference_set, _ = construct_image_list(vae, train_data_dir, image_pair, subdir_caches, reference_configs, recreate_cache_reference)
+                                reference_set, _ = construct_image_list(vae, image_pair, subdir_caches, reference_configs, recreate_cache_reference)
                                 embedding_object[batch_references_key] = reference_set
-                            
+                                
                             mapping_key = image_pair["mapping_key"]
                             embedding_objects[mapping_key] = embedding_object
                             
@@ -1151,7 +1265,7 @@ def main(args, config_args):
                             embedding_object = embedding_objects[mapping_key]
                         # second loop to cache all text embeddings
                         # for mapping_key, embedding_object in tqdm(embedding_objects.items()):
-                            target_cache_dir = get_cache_dir(train_data_dir, mapping_key)
+                            target_cache_dir = get_cache_dir(mapping_key)
                             basename = os.path.basename(mapping_key)
                             json_file = os.path.join(target_cache_dir, f"{basename}.json")
                             
@@ -1176,7 +1290,7 @@ def main(args, config_args):
                                 # ref_image_dropout = 0
                                     
                                 image_path = image_pair[image_target]
-                                working_dir = get_cache_dir(train_data_dir, image_path)
+                                working_dir = get_cache_dir(image_path)
                                 filename = os.path.basename(image_path)
                                 folder_path = os.path.dirname(image_path)
                                 # get filename and ext from file
@@ -1227,13 +1341,13 @@ def main(args, config_args):
                                                 image = crop_image(original_image_path,resolution=resize)
                                                 image_list.append(image)
                                         
-                                    prompt_embeds, text_ids = compute_text_embeddings(
+                                    prompt_embeds, prompt_embeds_mask, prompt_embed_length, drop_index = compute_text_embeddings(
                                         text_encoders,
                                         tokenizers,
                                         content,
                                         device=text_encoders[0].device,
                                         image=image_list,
-                                        processor=None,
+                                        processor=processor,
                                         instruction=caption_config["instruction"] if "instruction" in caption_config else None,
                                         drop_index=outter_drop_index
                                     )
@@ -1242,15 +1356,16 @@ def main(args, config_args):
                                         outter_drop_index = drop_index
                                         
                                     prompt_embed = prompt_embeds.squeeze(0)
-                                    # text_id = text_ids.squeeze(0)
+                                    prompt_embeds_mask = prompt_embeds_mask.squeeze(0)
                                     npz_dict = {
                                         prompt_embed_key: prompt_embed.cpu(), 
-                                        text_id_key: text_ids.cpu(),
+                                        prompt_embeds_mask_key: prompt_embeds_mask.cpu(),
+                                        prompt_embed_length_key: prompt_embed_length.cpu(),
                                     }
                                     
                                     torch.save(npz_dict, npz_path)
                                     
-                                    del npz_dict, prompt_embeds,  image_list
+                                    del npz_dict, prompt_embeds, prompt_embeds_mask, prompt_embed_length, image_list
                                 embedding_object[batch_captions_key][caption_config_key] = json_obj
                                 
                             # save embedding_object as a json file
@@ -1264,7 +1379,6 @@ def main(args, config_args):
                             })
                         
                         text_encoder_one.to("cpu")
-                        # del text_encoder_one, tokenizer_one
                         # , processor, prompt_embed
                         
                         # del image_pairs_dataset, image_pairs_sampler, image_pairs_dataloader
@@ -1280,10 +1394,13 @@ def main(args, config_args):
             cache_datarows = []
             validation_datarows = []
             cache_process(dataset_name, cache_datarows, validation_datarows, 
-                          image_pairs, train_data_dir, recreate_cache_target, 
-                          recreate_cache_reference, recreate_cache_caption,
-                          vae, tokenizer_one, text_encoder_one)
-
+                        image_pairs, train_data_dir, recreate_cache_target, 
+                        recreate_cache_reference, recreate_cache_caption,
+                        tokenizer_one,
+                        processor,
+                        text_encoder_one,
+                        vae)
+            
             # Handle validation split
             if args.validation_ratio > 0 and not os.path.exists(val_subset_metadata_path):
                 train_ratio = 1 - args.validation_ratio
@@ -1315,6 +1432,7 @@ def main(args, config_args):
             # multiply dataset datarows by dataset repeats
             dataset_datarows += cache_datarows * repeats
             val_dataset_datarows += validation_datarows
+        
         # Save updated metadata
         with open(metadata_path, "w", encoding='utf-8') as outfile:
             outfile.write(json.dumps(dataset_datarows))
@@ -1322,14 +1440,35 @@ def main(args, config_args):
         with open(val_metadata_path, "w", encoding='utf-8') as outfile:
             outfile.write(json.dumps(val_dataset_datarows))
     
+        del vae, tokenizer_one, processor, text_encoder_one
+        flush()
+    
+    # del accelerator to release memory
+    # torch.cuda.synchronize() 
+    # accelerator.wait_for_everyone()
+    # del accelerator
+    # flush()
+    
+    # accelerator = Accelerator(
+    #     gradient_accumulation_steps=args.gradient_accumulation_steps,
+    #     mixed_precision=args.mixed_precision,
+    #     log_with=args.report_to,
+    #     project_config=accelerator_project_config,
+    #     kwargs_handlers=[kwargs],
+    # )
+    
+    # if datarows is None:
+    #     print("No datarows found. Please check config and dataset.")
+    #     assert datarows is None
+    
     # if accelerator.is_main_process:
     # load datarows from metadata_path
     if datarows is None:
         with open(metadata_path, "r", encoding='utf-8') as readfile:
             datarows = json.loads(readfile.read(), strict=False)
         
-    # datarows = datarows * args.repeats
-    # print(f"Total datarows for training: {len(datarows)}")
+    datarows = datarows * args.repeats
+    print(f"Total datarows for training: {len(datarows)}")
     
     # For mixed precision training we cast all non-trainable weights (vae, non-lora text_encoder and non-lora transformer) to half-precision
     # as these weights are only used for inference, keeping weights in full precision is not required.
@@ -1345,26 +1484,26 @@ def main(args, config_args):
         
     if not (args.model_path is None or args.model_path == ""):
         # config = f"{args.pretrained_model_name_or_path}/transformer/config.json"
-        transformer = LongCatImageTransformer2DModel.from_single_file(args.model_path, 
+        transformer = BlockSwapQwenImageTransformer2DModel.from_single_file(args.model_path, 
                             # config=config,  
                             torch_dtype=weight_dtype
                         ).to(offload_device)
     else:
-        # if args.pretrained_model_name_or_path == "Qwen/Qwen-Image-Edit":
-        #     transformer = LongCatImageTransformer2DModel.from_pretrained(
-        #         args.pretrained_model_name_or_path, 
-        #         subfolder=transformer_subfolder,  
-        #         torch_dtype=weight_dtype
-        #     ).to(offload_device)
-        # else:
-        # load from repo
-        transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
-        # weight_file = "diffusion_pytorch_model"
-        variant = None
-        transformer = LongCatImageTransformer2DModel.from_pretrained(
-                    transformer_folder, variant=variant,  
-                    torch_dtype=weight_dtype
-                ).to(offload_device)
+        if args.pretrained_model_name_or_path == "Qwen/Qwen-Image-Edit":
+            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
+                args.pretrained_model_name_or_path, 
+                subfolder=transformer_subfolder,  
+                torch_dtype=weight_dtype
+            ).to(offload_device)
+        else:
+            # load from repo
+            transformer_folder = os.path.join(args.pretrained_model_name_or_path, transformer_subfolder)
+            # weight_file = "diffusion_pytorch_model"
+            variant = None
+            transformer = BlockSwapQwenImageTransformer2DModel.from_pretrained(
+                        transformer_folder, variant=variant,  
+                        torch_dtype=weight_dtype
+                    ).to(offload_device)
     
     # set rope style
     # transformer.select_rope(args.use_new_rope)
@@ -1382,11 +1521,11 @@ def main(args, config_args):
     #     transformer = torch.compile(transformer, mode="max-autotune")
      
     # print("\nCompile completed.")
-    # is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
-    # if is_swapping_blocks:
-    #     # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
-    #     logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
-    #     transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
+    is_swapping_blocks = args.blocks_to_swap is not None and args.blocks_to_swap > 0
+    if is_swapping_blocks:
+        # Swap blocks between CPU and GPU to reduce memory usage, in forward and backward passes.
+        logger.info(f"enable block swap: blocks_to_swap={args.blocks_to_swap}")
+        transformer.enable_block_swap(args.blocks_to_swap, accelerator.device)
     
     if args.use_lokr:
         preset = get_lycoris_preset()
@@ -1424,32 +1563,21 @@ def main(args, config_args):
         transformer.enable_gradient_checkpointing()
 
     # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
-    # freezed_layers = [59]
-    freezed_layers = []
+    freezed_layers = [59]
     if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        freezed_layers = parse_indices(args.freeze_transformer_layers)
-    
-    freezed_single_layers = []
-    if args.freeze_single_transformer_layers is not None and args.freeze_single_transformer_layers != '':
-        freezed_single_layers = parse_indices(args.freeze_single_transformer_layers)
+        splited_layers = args.freeze_transformer_layers.split(",")
+        for layer in splited_layers:
+            # print("layer: ", layer)
+            layer_name = int(layer.strip())
+            freezed_layers.append(layer_name)
     
     # if args.use_lokr:
     #     # exclude last layer for lokr training to avoid horizontal lines
     #     freezed_layers.append(59)
     print("freezed_layers: ", freezed_layers)
-    print("freezed_single_layers: ", freezed_single_layers)
     # Freeze the layers
     for name, param in transformer.named_parameters():
-        if "single_transformer_" in name:
-            if 'model.' in name:
-                name = name.replace('model.', '')
-            if '_orig_mod.' in name:
-                name = name.replace('_orig_mod.', '')
-            name_split = name.split(".")
-            layer_order = name_split[1]
-            if int(layer_order) in freezed_single_layers:
-                param.requires_grad = False
-        elif "transformer" in name:
+        if "transformer" in name:
             if 'model.' in name:
                 name = name.replace('model.', '')
             if '_orig_mod.' in name:
@@ -1559,7 +1687,7 @@ def main(args, config_args):
                 raise ValueError("transformer_lora_layers_to_save is None")
             
             # save all
-            LongCatImagePipeline.save_lora_weights(
+            QwenImageEditPipeline.save_lora_weights(
                 output_dir,
                 transformer_lora_layers=transformer_lora_layers_to_save
             )
@@ -1704,12 +1832,52 @@ def main(args, config_args):
     # End create embedding 
     # ================================================================
     
+    c_latents_mean = [
+        -0.7571,
+        -0.7089,
+        -0.9113,
+        0.1075,
+        -0.1745,
+        0.9653,
+        -0.1517,
+        1.5508,
+        0.4134,
+        -0.0715,
+        0.5517,
+        -0.3632,
+        -0.1922,
+        -0.9497,
+        0.2503,
+        -0.2921
+    ],
+    c_latents_std = [
+        2.8184,
+        1.4541,
+        2.3275,
+        2.6558,
+        1.2196,
+        1.7708,
+        2.6052,
+        2.0743,
+        3.2687,
+        2.1526,
+        2.8652,
+        1.5579,
+        1.6382,
+        1.1253,
+        2.8251,
+        1.916
+    ],
+    c_z_dim = 16
+    latents_mean = (torch.tensor(c_latents_mean).view(1, c_z_dim, 1, 1, 1)).to(accelerator.device)
+    latents_std = 1.0 / torch.tensor(c_latents_std).view(1, c_z_dim, 1, 1, 1).to(accelerator.device)
+    
     # if accelerator.is_main_process:
     # create dataset based on input_dir
     # (latent - latents_mean) * latents_std
     train_dataset = CachedJsonDataset(datarows, 
                  latents_mean, latents_std, accelerator.device, weight_dtype,
-                 latent_path_key, latent_key, npz_path_key, prompt_embed_key, text_id_key,
+                 latent_path_key, latent_key, npz_path_key, prompt_embed_key, prompt_embeds_mask_key, prompt_embed_length_key,
                  from_latent_path_key, from_latent_key)
 
     # referenced from everyDream discord minienglish1 shared script
@@ -1811,10 +1979,10 @@ def main(args, config_args):
     logger.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
     logger.info(f"  Gradient Accumulation steps = {args.gradient_accumulation_steps}")
     logger.info(f"  Total optimization steps = {max_train_steps}")
-    if accelerator.is_main_process:
-        print(f"[Rank {accelerator.process_index}] "
-        f"len(dataset)={len(train_dataset)}, "
-        f"len(dataloader)={len(train_dataloader)}, ")
+    # if accelerator.is_main_process:
+    #     print(f"[Rank {accelerator.process_index}] "
+    #     f"len(dataset)={len(train_dataset)}, "
+    #     f"len(dataloader)={len(train_dataloader)}, ")
     global_step = 0
     first_epoch = 0
 
@@ -1887,6 +2055,47 @@ def main(args, config_args):
         desc="Steps",
     )
     
+    
+    # c_latents_mean = [
+    #     -0.7571,
+    #     -0.7089,
+    #     -0.9113,
+    #     0.1075,
+    #     -0.1745,
+    #     0.9653,
+    #     -0.1517,
+    #     1.5508,
+    #     0.4134,
+    #     -0.0715,
+    #     0.5517,
+    #     -0.3632,
+    #     -0.1922,
+    #     -0.9497,
+    #     0.2503,
+    #     -0.2921
+    # ],
+    # c_latents_std = [
+    #     2.8184,
+    #     1.4541,
+    #     2.3275,
+    #     2.6558,
+    #     1.2196,
+    #     1.7708,
+    #     2.6052,
+    #     2.0743,
+    #     3.2687,
+    #     2.1526,
+    #     2.8652,
+    #     1.5579,
+    #     1.6382,
+    #     1.1253,
+    #     2.8251,
+    #     1.916
+    # ],
+    # c_z_dim = 16
+    # latents_mean = (torch.tensor(c_latents_mean).view(1, c_z_dim, 1, 1, 1)).to(accelerator.device)
+    # latents_std = 1.0 / torch.tensor(c_latents_std).view(1, c_z_dim, 1, 1, 1).to(accelerator.device)
+    
     def sample_noise(
         target_list=None,    # 目标图像 (PIL Image或tensor)
         n_samples=10,         # NLN采样数量
@@ -1929,6 +2138,184 @@ def main(args, config_args):
         
         return semantic_noise  # shape [B, C, T=1, H, W]
     
+    class FFTFreqLoss:
+        """Flow matching frequency loss for 5D video latents [B, T, C, H, W]"""
+        
+        def __init__(self, 
+                     t_low=0.3,        # High-freq enhancement upper bound (t < 0.3)
+                     t_high=0.6,       # Low-freq alignment lower bound (t > 0.6)
+                     alpha0=0.4,       # Base high-freq enhancement strength
+                     tau_base=0.05,    # Noise threshold base value
+                     kappa=0.01,       # Significance mask smoothing factor
+                     freq_threshold_low=0.1,  # Low frequency threshold
+                     device='cuda'):
+            self.t_low = t_low
+            self.t_high = t_high
+            self.alpha0 = alpha0
+            self.tau_base = tau_base
+            self.kappa = kappa
+            self.freq_threshold_low = freq_threshold_low
+        
+        def _fft_high_freq(self, z):
+            """
+            Extract FFT high-frequency components for 5D tensor [B, C, T, H, W]
+            Returns high-frequency residual (original - low_freq)
+            """
+            B, C, T, H, W = z.shape
+            
+            # Store original dtype and convert to complex for FFT
+            z_complex = z.to(torch.complex64)
+            
+            # Apply FFT to spatial dimensions (H, W)
+            fft_z = torch.fft.fftn(z_complex, dim=(-2, -1))  # [B, C, T, H, W]
+            
+            # Create frequency grids
+            h_freq = torch.arange(H, device=z.device)
+            w_freq = torch.arange(W, device=z.device)
+            h_freq = h_freq / H  # Normalize to [0, 1]
+            w_freq = w_freq / W  # Normalize to [0, 1]
+            
+            # Create low frequency mask
+            h_idx, w_idx = torch.meshgrid(h_freq, w_freq, indexing='ij')
+            low_freq_mask = (h_idx <= self.freq_threshold_low) & (w_idx <= self.freq_threshold_low)
+            low_freq_mask = low_freq_mask.unsqueeze(0).unsqueeze(0).unsqueeze(0)  # [1, 1, 1, H, W]
+            # Expand to match the tensor dimensions [B, C, T, H, W]
+            low_freq_mask = low_freq_mask.expand(B, C, T, H, W)
+            
+            # Extract low frequency components
+            low_freq_fft = fft_z * low_freq_mask
+            
+            # Convert back to spatial domain
+            low_freq_z = torch.fft.ifftn(low_freq_fft, dim=(-2, -1)).real
+            
+            # Free memory by deleting intermediate tensors
+            del fft_z, low_freq_fft
+            
+            # High frequency = original - low frequency
+            high_freq_z = z - low_freq_z
+            
+            return high_freq_z
+        
+        def compute_low_freq_loss(self, pred, target, t):
+            """
+            High-noise phase low-frequency alignment loss (t > t_high)
+            Mathematical principle: || LowFreq(pred) - LowFreq(target) ||_2^2
+            """
+            # Get batch size from input tensor
+            B = pred.shape[0]
+            
+            # Activation mask for high-noise phase (t > 0.6)
+            mask_time = (t > self.t_high).float()  # [B]
+            if mask_time.sum() == 0:
+                return torch.tensor(0.0, device=pred.device, requires_grad=True)
+            
+            # Extract low-frequency components
+            high_pred = self._fft_high_freq(pred)
+            high_target = self._fft_high_freq(target)
+            low_pred = pred - high_pred
+            low_target = target - high_target
+            
+            # Compute masked MSE loss
+            loss = F.mse_loss(low_pred, low_target, reduction='none')  # [B, C, T, H, W]
+            loss = loss.mean(dim=[1, 2, 3, 4])  # Reduce spatial/temporal dims [B]
+            loss = (loss * mask_time).sum() / (mask_time.sum() + 1e-8)
+            
+            # Free memory
+            del high_pred, high_target, low_pred, low_target
+            
+            return loss * 0.5  # SD3-validated weight
+        
+        def _generate_high_freq_target(self, z0, t):
+            """
+            Generate high-frequency enhanced target z_h
+            z_h(t) = z0 + alpha(t) * HighFreq(z0) * M(t)
+            """
+            B, C, T, H, W = z0.shape
+            
+            # Use no_grad context to reduce memory usage during target generation
+            with torch.no_grad():
+                # 1. Extract base high-frequency components
+                high_freq_z0 = self._fft_high_freq(z0)  # [B, C, T, H, W]
+                
+                # 2. Compute significance mask (suppress noise regions)
+                # tau(t) = tau_base * sqrt(t) : dynamic noise threshold
+                tau = self.tau_base * torch.sqrt(t).view(B, 1, 1, 1, 1)  # [B,1,1,1,1]
+                energy = high_freq_z0.abs().mean(dim=[1, 2, 3, 4], keepdim=True)  # [B,1,1,1,1]
+                mask_sig = torch.sigmoid((energy - tau) / self.kappa)  # [B,1,1,1,1]
+                
+                # 3. Time-dependent enhancement strength
+                alpha_t = self.alpha0 * (1 - t / self.t_low).clamp(min=0)  # [B]
+                alpha_t = alpha_t.view(B, 1, 1, 1, 1)  # [B,1,1,1,1]
+                
+                # 4. Generate enhanced target
+                z_h = z0 + alpha_t * high_freq_z0 * mask_sig
+            
+            return z_h.detach()  # Critical: block gradients to target
+        
+        def compute_high_freq_loss(self, pred, target, t):
+            """
+            Low-noise phase high-frequency enhancement loss (0.1 <= t <= 0.3)
+            """
+            B = pred.shape[0]
+                    
+            # Activation mask - fix bounds checking
+            mask_time = ((t >= 0.1) & (t <= self.t_low)).float()  # [B]
+            if mask_time.sum() == 0:
+                return torch.tensor(0.0, device=pred.device, requires_grad=True)
+                    
+            # Generate high-frequency enhanced target
+            with torch.no_grad():
+                z_h = self._generate_high_freq_target(target, t)
+                    
+            # Extract high-frequency components
+            high_pred = self._fft_high_freq(pred)
+            high_target = self._fft_high_freq(z_h)
+                    
+            # Use L2 normalization instead of mean for better stability
+            # Compute Frobenius norm per batch element
+            norm_pred = torch.norm(high_pred.view(B, -1), dim=1, keepdim=True) + 1e-8  # [B, 1]
+            norm_target = torch.norm(high_target.view(B, -1), dim=1, keepdim=True) + 1e-8  # [B, 1]
+                    
+            # Reshape for broadcasting
+            norm_pred = norm_pred.view(B, 1, 1, 1, 1)
+            norm_target = norm_target.view(B, 1, 1, 1, 1)
+                    
+            high_pred_norm = high_pred / norm_pred
+            high_target_norm = high_target / norm_target
+                    
+            # Free memory
+            del high_pred, high_target
+                    
+            # Temporal gating (bell curve peaking at t=0.2)
+            time_gate = torch.exp(-((t - 0.2) ** 2) / (2 * 0.05 ** 2))  # [B]
+            time_gate = time_gate * mask_time  # Restrict to [0.1,0.3]
+                    
+            # Compute loss - use cosine similarity for better gradient stability
+            # Option 1: MSE on normalized features
+            diff = high_pred_norm - high_target_norm
+            loss_per_pixel = diff ** 2
+                    
+            # Free memory
+            del diff
+                    
+            # Apply weights
+            weight = mask_time.view(B, 1, 1, 1, 1) * time_gate.view(B, 1, 1, 1, 1)
+            weighted_loss = (loss_per_pixel * weight).sum() / (weight.sum() + 1e-8)
+                    
+            # Free memory
+            del loss_per_pixel, weight
+                    
+            # Alternative: Cosine similarity loss (often more stable)
+            # high_pred_flat = high_pred.view(B, -1)
+            # high_target_flat = high_target.view(B, -1)
+            # cosine_loss = 1 - F.cosine_similarity(high_pred_flat, high_target_flat, dim=1)
+            # weighted_cosine_loss = (cosine_loss * mask_time).sum() / (mask_time.sum() + 1e-8)
+                    
+            return weighted_loss * 0.5  # Reduced weight for stability
+    
+    # Initialize FFT frequency loss module
+    freq_loss_module = FFTFreqLoss(device=accelerator.device)
+    
     # handle guidance
     def get_sigmas(timesteps, n_dim=4, dtype=torch.float32, mu=0.8):
         sigmas = noise_scheduler_copy.sigmas.to(device=accelerator.device, dtype=dtype)
@@ -1940,38 +2327,51 @@ def main(args, config_args):
         step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
 
         sigma = sigmas[step_indices].flatten()
-        while len(sigma.shape) < n_dim:
-            sigma = sigma.unsqueeze(-1)
+        # while len(sigma.shape) < n_dim:
+        #     sigma = sigma.unsqueeze(-1)
         return sigma
     
     
-    # from config
-    max_tokenizer_len = 512
+    # def get_latent(latent_path):
+    #     cached_latent = torch.load(latent_path, weights_only=True)
+    #     latent = cached_latent[latent_key].to(device=accelerator.device,dtype=weight_dtype)
+    #     latent = (latent - latents_mean) * latents_std
+    #     return latent
+    
+    # def get_actual_emb(emb, prompt_embed_length):
+    #     if emb.ndim > 2:
+    #         sliced = [emb[i, :l, :] for i, l in enumerate([prompt_embed_length])]
+    #     else:
+    #         sliced = [emb[i, :l] for i, l in enumerate([prompt_embed_length])]
+    #     return pad_sequence(sliced, batch_first=True, padding_value=0)
+
+    # def get_caption_embedding(npz_path):
+    #     cached_npz = torch.load(npz_path, weights_only=True)
+    #     prompt_embed = torch.stack([cached_npz[prompt_embed_key].to(device=accelerator.device,dtype=weight_dtype)])
+    #     prompt_embeds_mask = torch.stack([cached_npz[prompt_embeds_mask_key].to(device=accelerator.device,dtype=weight_dtype)])
+    #     prompt_embed_length = torch.stack([cached_npz[prompt_embed_length_key]])
+        
+    #     prompt_embed = get_actual_emb(prompt_embed, prompt_embed_length)
+    #     prompt_embeds_mask = get_actual_emb(prompt_embeds_mask, prompt_embed_length)
+        
+    #     return prompt_embed, prompt_embeds_mask, prompt_embed_length
+    
     def train_process(
             batches,
             batch_config,
             train_type="train"
         ):
-        # accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
-        # accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
+        accelerator.unwrap_model(transformer).move_to_device_except_swap_blocks(accelerator.device)  # reduce peak memory usage
+        accelerator.unwrap_model(transformer).prepare_block_swap_before_forward()
         # handle batch size > 1
         batch_size = len(batches)
         
         learning_target = None
         noised_latents = None
         prompt_embeds = None
-        text_ids = None
+        prompt_embeds_masks = None
+        # text_ids = None
         for batch in batches:
-            # for multiple insync ref images, we only support batch size = 1
-            # batch = batches[0]
-            # if batch_size > 1:
-            #     print("\nbatch size > 1 not supported yet.")
-            
-            # print("batch.keys()", batch.keys())
-            
-            # batch_targets_key = "targets"
-            # batch_references_key = "references"
-            # batch_captions_key = "captions"
             target_config = batch_config["target_config"]
             batch_targets = batch[batch_targets_key][target_config]
             
@@ -2001,6 +2401,7 @@ def main(args, config_args):
                 latent = target[latent_key]
                 
                 target_list.append(latent)
+                # print("latent.shape", latent.shape)
                 if from_latent_path_key in target:
                     # from_latent_path = target[from_latent_path_key]
                     # from_latent = get_latent(from_latent_path)
@@ -2019,10 +2420,10 @@ def main(args, config_args):
             
             # cached_npz_path = batch_caption[npz_path_key]
             # prompt_embeds, prompt_embeds_mask = get_caption_embedding(cached_npz_path)
-            prompt_embed, text_id = batch_caption[prompt_embed_key], batch_caption[text_id_key]
+            prompt_embed, prompt_embeds_mask = batch_caption[prompt_embed_key], batch_caption[prompt_embeds_mask_key]
                 
-            target_list = torch.stack(target_list, dim=0) # (1,16,1,h,w)
-            noised_latent_list = torch.stack(noised_latent_list, dim=0)
+            target_list = torch.cat(target_list, dim=0) # (1,16,1,h,w)
+            noised_latent_list = torch.cat(noised_latent_list, dim=0)
             
             
             if prompt_embeds is None:
@@ -2034,16 +2435,15 @@ def main(args, config_args):
                     print("prompt_embeds cat error size:", prompt_embeds.shape(), prompt_embed.shape())
                     pass
         
-            if text_ids is None:
-                text_ids = text_id
+            if prompt_embeds_masks is None:
+                prompt_embeds_masks = prompt_embeds_mask
             else:
                 try:
-                    text_ids = torch.cat((text_ids,text_id), dim=0)
+                    prompt_embeds_masks = torch.cat((prompt_embeds_masks,prompt_embeds_mask), dim=0)
                 except:
-                    print("text_ids cat error size:", text_ids.shape, text_id.shape)
+                    print("prompt_embeds_masks cat error size:", prompt_embeds_masks.shape(), prompt_embeds_mask.shape())
                     pass
             
-            skip_noised_latents = False
             # cat factual_images as image guidance
             if learning_target is None:
                 learning_target = target_list
@@ -2052,11 +2452,9 @@ def main(args, config_args):
                     learning_target = torch.cat((learning_target,target_list), dim=0) # (1,16,1,h,w)
                 except:
                     print("learning_target cat error size:", learning_target.shape, target_list.shape)
-                    skip_noised_latents = True
+                    
                     pass
             
-            if skip_noised_latents:
-                continue
             if noised_latents is None:
                 noised_latents = noised_latent_list
             else:
@@ -2066,6 +2464,7 @@ def main(args, config_args):
                     print("noised_latents cat error size:", learning_target.shape, target_list.shape)
                     pass
         
+        # Clean up temporary lists
         
         # batch_size = batch["batch_size"]
         u = compute_density_for_timestep_sampling(
@@ -2091,71 +2490,54 @@ def main(args, config_args):
         # Add noise according to flow matching.
         # zt = (1 - texp) * x + texp * z1
         sigmas = get_sigmas(timesteps, n_dim=noised_latents.ndim, dtype=noised_latents.dtype)
-        # torch.cuda.synchronize()
-        # if dist.is_initialized():
-        #     # 每个 rank 都打印自己的 shape（加 rank id）
-        #     rank = dist.get_rank()
-        #     print(f"\n[rank{rank}] learning_target.shape: {learning_target.shape}")
-        #     print(f"[rank{rank}] noised_latents.shape: {noised_latents.shape}")
-        #     print(f"[rank{rank}] noise.shape: {noise.shape}")
-        #     print(f"[rank{rank}] sigmas.shape: {sigmas.shape}")
-        #     print(f"[rank{rank}] learning_target: ", batch_targets[0][latent_path_key])
-        #     print(f"[rank{rank}] noised_latent: ", batch_targets[0][from_latent_path_key])
-        #     dist.barrier()
+        
         noisy_model_input = (1.0 - sigmas) * noised_latents + sigmas * noise
         
         latents = noisy_model_input
+        # print("sigmas.shape", sigmas.shape)
+        # print("noisy_model_input.shape", noisy_model_input.shape)
         # pack noisy latents
-        # noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)
-        packed_noisy_latents = LongCatImagePipeline._pack_latents(
+        noisy_model_input = noisy_model_input.permute(0, 2, 1, 3, 4)
+        packed_noisy_latents = QwenImageEditPipeline._pack_latents(
             noisy_model_input,
             batch_size=latents.shape[0],
             num_channels_latents=latents.shape[1],
-            height=latents.shape[2],
-            width=latents.shape[3],
+            height=latents.shape[3],
+            width=latents.shape[4],
         )
+        img_shapes = [
+            (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
+        ]
         
-        
-        latent_image_ids = prepare_pos_ids(modality_id=1,
-                                            type='image',
-                                            start=(max_tokenizer_len,
-                                                    max_tokenizer_len),
-                                            height=latents.shape[2]//2,
-                                            width=latents.shape[3]//2).to(accelerator.device, dtype=torch.float32)
-        
-        
-        # img_shapes = [
-        #     (1, int(latents.shape[3] // 2), int(latents.shape[4] // 2))
-        # ]
-        
-        # # handle partial noised
+        # handle partial noised
         packed_ref_latents = None
-        # if len(reference_list) > 0:
-        #     # for ref_latent in reference_list:
-        #     # cat refs on width
-        #     # ref_latent = torch.cat(reference_list, dim=-1)
-        #     for ref_latent in reference_list:
-        #         ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
-        #         img_shapes.append(ref_img_shape)
+        if len(reference_list) > 0:
+            # for ref_latent in reference_list:
+            # cat refs on width
+            # ref_latent = torch.cat(reference_list, dim=-1)
+            for ref_latent in reference_list:
+                ref_img_shape = (1, int(ref_latent.shape[3] // 2), int(ref_latent.shape[4] // 2))
+                img_shapes.append(ref_img_shape)
                 
-        #         # ref_latent = torch.cat(reference_list, dim=0)
-        #         ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
-        #         # pack noisy latents
-        #         packed_ref_latent = LongCatImagePipeline._pack_latents(
-        #             ref_latent,
-        #             batch_size=ref_latent.shape[0],
-        #             num_channels_latents=latents.shape[1],
-        #             height=ref_latent.shape[3],
-        #             width=ref_latent.shape[4],
-        #         )
-        #         # print("packed_ref_latent.shape",packed_ref_latent.shape)
-        #         if packed_ref_latents is None:
-        #             packed_ref_latents = packed_ref_latent
-        #         else:
-        #             packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
-        # # if packed_ref_latents is not None: 
-        #     # print("packed_ref_latents.shape",packed_ref_latents.shape)
-        # img_shapes = [img_shapes] * batch_size
+                # ref_latent = torch.cat(reference_list, dim=0)
+                ref_latent = ref_latent.permute(0, 2, 1, 3, 4)
+                # pack noisy latents
+                packed_ref_latent = QwenImageEditPipeline._pack_latents(
+                    ref_latent,
+                    batch_size=ref_latent.shape[0],
+                    num_channels_latents=latents.shape[1],
+                    height=ref_latent.shape[3],
+                    width=ref_latent.shape[4],
+                )
+                # print("packed_ref_latent.shape",packed_ref_latent.shape)
+                if packed_ref_latents is None:
+                    packed_ref_latents = packed_ref_latent
+                else:
+                    packed_ref_latents = torch.cat([packed_ref_latents, packed_ref_latent], dim=1)
+                    
+        # if packed_ref_latents is not None: 
+            # print("packed_ref_latents.shape",packed_ref_latents.shape)
+        img_shapes = [img_shapes] * batch_size
             
         model_input = packed_noisy_latents
         # add ref to channel
@@ -2171,54 +2553,41 @@ def main(args, config_args):
             caption_dropout = caption_config["caption_dropout"]
         if caption_dropout > 0 and random.random() < caption_dropout:
             prompt_embeds = torch.zeros_like(prompt_embeds)
-            # prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)
+            prompt_embeds_masks = torch.zeros_like(prompt_embeds_masks)
         
-        text_ids = prepare_pos_ids(modality_id=0,
-                                   type='text',
-                                   start=(0, 0),
-                                   num_token=prompt_embeds.shape[1]).to(accelerator.device, dtype=torch.float32)
         # dropout embs for training unconditional space
         # if is_traj_training:
         #     prompt_embeds = torch.zeros_like(prompt_embeds)
         #     prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)
         
-        # txt_seq_lens = [prompt_embeds_mask.shape[1]]
+        txt_seq_lens = [prompt_embeds_masks.shape[1]]
         # txt_seq_lens = prompt_embeds_mask.sum(dim=1).tolist() if prompt_embeds_mask is not None else None
         
-        guidance = None
         with accelerator.autocast():
             # Predict the noise residual
             timesteps = timesteps.expand(latents.shape[0]).to(latents.dtype)
             # if not args.use_lokr:
             #     transformer.enable_adapters()   # 开启 LoRA
-            # model_pred = transformer(
-            #     hidden_states=model_input,
-            #     encoder_hidden_states=prompt_embeds,
-            #     encoder_hidden_states_mask=prompt_embeds_mask,
-            #     timestep=timesteps / 1000,
-            #     img_shapes=img_shapes,
-            #     txt_seq_lens=txt_seq_lens,
-            #     return_dict=False,
-            # )[0]
-            
             model_pred = transformer(
                 hidden_states=model_input,
-                timestep=timesteps / 1000,
-                guidance=guidance,
                 encoder_hidden_states=prompt_embeds,
-                txt_ids=text_ids,
-                img_ids=latent_image_ids,
+                encoder_hidden_states_mask=prompt_embeds_masks,
+                timestep=timesteps / 1000,
+                img_shapes=img_shapes,
+                txt_seq_lens=txt_seq_lens,
                 return_dict=False,
             )[0]
         
+        
         model_pred = model_pred[:, : packed_noisy_latents.size(1)]
         
-        model_pred = LongCatImagePipeline._unpack_latents(
+        model_pred = QwenImageEditPipeline._unpack_latents(
             model_pred,
-            height=int(latents.shape[2] * vae_scale_factor),
-            width=int(latents.shape[3] * vae_scale_factor),
+            height=int(latents.shape[3] * vae_scale_factor),
+            width=int(latents.shape[4] * vae_scale_factor),
             vae_scale_factor=vae_scale_factor,
         )
+        # print("model_pred.shape", model_pred.shape)
 
         # ====================Debug latent====================
         # vae = AutoencoderKL.from_single_file(
@@ -2233,29 +2602,65 @@ def main(args, config_args):
         # ====================Debug latent====================
         
         target = noise - learning_target
+        # print("learning_target.shape", learning_target.shape)
         
-        # weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
+        weighting = compute_loss_weighting_for_sd3(weighting_scheme=args.weighting_scheme, sigmas=sigmas)
         
-        # # Compute regular loss.
-        # loss = torch.mean(
-        #     (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
-        #     1,
-        # ).mean()
-        
+        # Compute regular loss.
         loss = torch.mean(
-            ((model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
+            (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
             1,
         ).mean()
         
+        # Compute low and high frequency losses with time-aware thresholds if enabled
+        # model_pred is the velocity prediction, need to convert to z0 prediction
+        # In flow matching: z0_pred = z_t - t * velocity_pred
+        # model_pred is [B, C, T, H, W] after unpacking, learning_target is [B, C, T, H, W]
+        # noisy_model_input is [B, T, C, H, W] and needs to be converted to [B, C, T, H, W]
+        
+        if args.use_freq_loss:
+            # Get the corresponding timesteps for each sample in the batch
+            # timesteps is already expanded to match the batch size: [B]
+            timesteps_expanded = timesteps / 1000.0  # Normalize to [0, 1]
+            
+            # model_pred is already in [B, C, T, H, W] format after unpacking
+            model_pred_velocity = model_pred  # [B, C, T, H, W]
+            
+            # Get noisy input and convert to [B, C, T, H, W] format
+            noisy_input_reshaped = noisy_model_input.permute(0, 2, 1, 3, 4)  # [B, T, C, H, W] -> [B, C, T, H, W]
+            
+            # Calculate z0 prediction: z0_pred = z_t - t * v_pred
+            # Expand timesteps to match tensor dimensions [B] -> [B, 1, 1, 1, 1]
+            t_expanded = timesteps_expanded.view(-1, 1, 1, 1, 1)
+            z0_pred = noisy_input_reshaped - t_expanded * model_pred_velocity
+            
+            # Use learning_target directly as z0_target
+            z0_target = learning_target  # [B, C, T, H, W]
+            
+            # Calculate low and high frequency losses using FFT-based approach on z0 predictions
+            low_freq_loss = freq_loss_module.compute_low_freq_loss(z0_pred, z0_target, timesteps_expanded)
+            high_freq_loss = freq_loss_module.compute_high_freq_loss(z0_pred, z0_target, timesteps_expanded)
+        else:
+            # If frequency loss is disabled, return zero losses
+            low_freq_loss = torch.tensor(0.0, device=model_pred.device, requires_grad=False)
+            high_freq_loss = torch.tensor(0.0, device=model_pred.device, requires_grad=False)
+        
+        # Combine losses with configurable weights
+        low_freq_weight = getattr(args, 'low_freq_weight', 1.0)  # Default to 1.0 if not specified
+        high_freq_weight = getattr(args, 'high_freq_weight', 1.0)  # Default to 1.0 if not specified
+        
+        total_loss = loss + low_freq_weight * low_freq_loss + high_freq_weight * high_freq_loss
+        
         # Clean up intermediate variables to reduce memory usage
         del model_pred, target, noise, learning_target, noised_latents
-        del noisy_model_input, packed_noisy_latents, model_input
-        del prompt_embeds, text_ids
+        del noisy_model_input, packed_noisy_latents
+        del model_input, prompt_embeds, prompt_embeds_masks
         if 'packed_ref_latents' in locals():
             del packed_ref_latents
         
-        total_loss = loss
-        return total_loss
+        # Return all loss components for potential logging in the training loop
+        # Note: The calling function is responsible for cleaning up these variables
+        return total_loss, loss, low_freq_loss, high_freq_loss
     
     print("\nStart training...")
     # accelerator.free_memory()  # Critical for HF components
@@ -2268,14 +2673,14 @@ def main(args, config_args):
             with accelerator.accumulate(transformer):
                 dataset_name = batch[0]["dataset"]
                 batch_config = get_dataset_batch_config(dataset_name, dataset_configs)
-                loss = train_process(
+                total_loss, loss, low_freq_loss, high_freq_loss = train_process(
                     batch,
                     batch_config=batch_config
                 )
                 
                 # Backpropagate
-                accelerator.backward(loss)
-                step_loss = accelerator.reduce(loss.detach(), reduction="mean").item()
+                accelerator.backward(total_loss)
+                step_loss = accelerator.reduce(total_loss.detach(), reduction="mean").item()
                 if accelerator.sync_gradients:
                     params_to_clip = transformer_lora_parameters
                     accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
@@ -2300,21 +2705,29 @@ def main(args, config_args):
                     else:
                         lr = lr_scheduler.optimizers[-1].param_groups[0]["d"] * lr_scheduler.optimizers[-1].param_groups[0]["lr"]
                     lr_name = "lr/d*lr"
-                logs = {"step_loss": step_loss, lr_name: lr}
+                
+                # Log the individual losses for monitoring
+                logs = {
+                    "step_loss": step_loss, 
+                    "train_loss": accelerator.reduce(loss.detach(), reduction="mean").item(),
+                    "low_freq_loss": accelerator.reduce(low_freq_loss.detach(), reduction="mean").item(),
+                    "high_freq_loss": accelerator.reduce(high_freq_loss.detach(), reduction="mean").item(),
+                    lr_name: lr
+                }
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
                 
                 # Explicitly delete intermediate variables to free memory
-                del loss
+                del total_loss, loss, low_freq_loss, high_freq_loss
                 
                 if global_step >= max_train_steps:
                     break
                 
+                flush()
+                
                 # Periodic memory cleanup every 10 steps to prevent accumulation
                 if global_step % 10 == 0:
                     torch.cuda.empty_cache()
-                
-                flush()
                 
                 if global_step % args.save_model_steps == 0 and args.save_model_steps > 0:
                     # accelerator.wait_for_everyone()
@@ -2344,7 +2757,7 @@ def main(args, config_args):
                         if len(validation_datarows)>0:
                             validation_dataset = CachedJsonDataset(validation_datarows, 
                                                     latents_mean, latents_std, accelerator.device, weight_dtype,
-                                                    latent_path_key, latent_key, npz_path_key, prompt_embed_key, text_id_key,
+                                                    latent_path_key, latent_key, npz_path_key, prompt_embed_key, prompt_embeds_mask_key, prompt_embed_length_key,
                                                     from_latent_path_key, from_latent_key)
                             # batch_size  = 1
                             val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
@@ -2376,16 +2789,16 @@ def main(args, config_args):
                                 for i, batch in tqdm(enumerate_val_dataloader,position=1):
                                     dataset_name = batch[0]["dataset"]
                                     batch_config = get_dataset_batch_config(dataset_name, dataset_configs)
-                                    loss = train_process(
+                                    total_loss_val, loss_val, low_freq_loss_val, high_freq_loss_val = train_process(
                                         batch,
                                         batch_config=batch_config,
                                         train_type="val"
                                     )
-                                    global_loss = accelerator.reduce(loss.detach(), reduction="mean").item()
+                                    global_loss = accelerator.reduce(total_loss_val.detach(), reduction="mean").item()
                                     total_loss+=global_loss
                                     
                                     # Clean up validation step variables to free memory
-                                    del loss
+                                    del total_loss_val, loss_val, low_freq_loss_val, high_freq_loss_val
                                     
                                 accelerator.wait_for_everyone()
                                 avg_loss = total_loss / num_batches
@@ -2453,7 +2866,7 @@ def main(args, config_args):
                 if len(validation_datarows)>0:
                     validation_dataset = CachedJsonDataset(validation_datarows, 
                                             latents_mean, latents_std, accelerator.device, weight_dtype,
-                                            latent_path_key, latent_key, npz_path_key, prompt_embed_key, text_id_key,
+                                            latent_path_key, latent_key, npz_path_key, prompt_embed_key, prompt_embeds_mask_key, prompt_embed_length_key,
                                             from_latent_path_key, from_latent_key)
                     
                     val_batch_sampler = BucketBatchSampler(validation_dataset, batch_size=args.train_batch_size)
@@ -2487,16 +2900,13 @@ def main(args, config_args):
                         for i, batch in tqdm(enumerate_val_dataloader,position=1):
                             dataset_name = batch[0]["dataset"]
                             batch_config = get_dataset_batch_config(dataset_name, dataset_configs)
-                            loss = train_process(
+                            total_loss_val, loss_val, low_freq_loss_val, high_freq_loss_val = train_process(
                                 batch,
                                 batch_config=batch_config,
                                 train_type="val"
                             )
-                            global_loss = accelerator.reduce(loss.detach(), reduction="mean").item()
+                            global_loss = accelerator.reduce(total_loss_val.detach(), reduction="mean").item()
                             total_loss+=global_loss
-                            
-                            # Clean up validation step variables to free memory
-                            del loss
                         
                         accelerator.wait_for_everyone()
                         avg_loss = total_loss / num_batches
@@ -2540,7 +2950,7 @@ def main(args, config_args):
     print("Saved to ")
     print(args.output_dir)
     print_end_signal()
-
+    
 if __name__ == "__main__": 
     args, config_args = parse_args()
     main(args, config_args)

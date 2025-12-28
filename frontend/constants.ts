@@ -6,6 +6,7 @@ export const SCRIPTS = [
   { name: "train_longcat.py", type: "new" },
   { name: "train_longcat_edit.py", type: "new" },
   { name: "train_qwen_image_edit_new.py", type: "new" },
+  { name: "train_qwen_edit_with_freq.py", type: "new" },
 ];
 
 export const OPTIMIZERS = ["adamw", "prodigy", "adamw8bit"];

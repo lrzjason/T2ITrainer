@@ -2407,6 +2407,17 @@ def main(args, config_args):
             (weighting.float() * (model_pred.float() - target.float()) ** 2).reshape(target.shape[0], -1),
             1,
         ).mean()
+        
+        # Clean up intermediate variables to reduce memory usage
+        del model_pred, target, noise, learning_target, noised_latents
+        del noisy_model_input, packed_noisy_latents, model_input
+        del prompt_embeds, prompt_embeds_masks
+        if 'packed_ref_latents' in locals():
+            del packed_ref_latents
+        # Clean up reference_list if it exists
+        if 'reference_list' in locals():
+            del reference_list
+        
         total_loss = loss
         return total_loss
     
@@ -2433,13 +2444,10 @@ def main(args, config_args):
                     params_to_clip = transformer_lora_parameters
                     accelerator.clip_grad_norm_(params_to_clip, max_grad_norm)
 
-                # del loss
-                # flush()
-                # ensure model in cuda
-                # transformer.to(accelerator.device)
+                # Clean up gradients and perform optimization
                 optimizer.step()
                 lr_scheduler.step()
-                optimizer.zero_grad()
+                optimizer.zero_grad()  # Clear gradients after optimization
                 
                 # Checks if the accelerator has performed an optimization step behind the scenes
                 #post batch check for gradient updates
@@ -2460,9 +2468,16 @@ def main(args, config_args):
                 accelerator.log(logs, step=global_step)
                 progress_bar.set_postfix(**logs)
                 
+                # Explicitly delete intermediate variables to free memory
+                del loss
+                
                 if global_step >= max_train_steps:
                     break
-                # del step_loss
+                
+                # Periodic memory cleanup every 10 steps to prevent accumulation
+                if global_step % 10 == 0:
+                    torch.cuda.empty_cache()
+                
                 flush()
                 
                 if global_step % args.save_model_steps == 0 and args.save_model_steps > 0:
@@ -2532,6 +2547,9 @@ def main(args, config_args):
                                     )
                                     global_loss = accelerator.reduce(loss.detach(), reduction="mean").item()
                                     total_loss+=global_loss
+                                    
+                                    # Clean up validation step variables to free memory
+                                    del loss
                                     
                                 accelerator.wait_for_everyone()
                                 avg_loss = total_loss / num_batches
