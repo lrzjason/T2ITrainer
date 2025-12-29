@@ -477,7 +477,7 @@ def parse_args(input_args=None):
         "--freeze_transformer_layers",
         type=str,
         default='',
-        help="Stop training the transformer layers included in the input using ',' to seperate layers. Example: 5,7,10,17,18,19"
+        help="Stop training the transformer layers included in the input using ',' to seperate ranges/layers. Example: 0-10,50-59 or 5,7,10,17,18,19 or mixed format like 0-5,10,15-20"
     )
     parser.add_argument(
         "--lora_layers",
@@ -714,6 +714,45 @@ def parse_args(input_args=None):
     print(f"Using config: {args}")
     return args, config_args
 
+def parse_freeze_layers(freeze_layers_str):
+    '''Parse freeze layers string in format like "0-10,50-59,65" and return a list of layer numbers to freeze'''
+    if not freeze_layers_str or freeze_layers_str == '':
+        return []
+    
+    freezed_layers = []
+    segments = freeze_layers_str.split(',')
+    
+    for segment in segments:
+        segment = segment.strip()
+        if '-' in segment and segment.count('-') == 1:
+            # This is a range format like 'x-y'
+            range_parts = segment.split('-')
+            if len(range_parts) != 2:
+                raise ValueError(f"Invalid range format: {segment}. Expected format: start-end")
+            
+            try:
+                start = int(range_parts[0].strip())
+                end = int(range_parts[1].strip())
+            except ValueError:
+                raise ValueError(f"Invalid range values: {segment}. Both start and end must be integers")
+            
+            if start >= end:
+                raise ValueError(f"Invalid range: {segment}. Start must be less than end")
+            
+            # Add all layers in the range [start, end]
+            for layer in range(start, end + 1):
+                freezed_layers.append(layer)
+        else:
+            # This is a single layer number
+            try:
+                layer = int(segment.strip())
+                freezed_layers.append(layer)
+            except ValueError:
+                raise ValueError(f"Invalid layer number: {segment}. Must be an integer")
+    
+    return freezed_layers
+
+
 def main(args, config_args):
     args.use_freq_loss = True
     
@@ -871,9 +910,9 @@ def main(args, config_args):
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
     if args.lora_layers is not None and args.lora_layers != "":
-        target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
+        base_target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
-        target_modules = [
+        base_target_modules = [
             "attn.to_k",
             "attn.to_q",
             "attn.to_v",
@@ -888,6 +927,18 @@ def main(args, config_args):
             "txt_mlp.net.2",
             # "txt_mod.1"
         ]
+    
+    # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
+    freezed_layers = [59]
+    if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
+        try:
+            parsed_layers = parse_freeze_layers(args.freeze_transformer_layers)
+            freezed_layers.extend(parsed_layers)
+            # distinct frozen layers
+            freezed_layers = list(set(freezed_layers))
+        except ValueError as e:
+            print(f"Error parsing freeze_transformer_layers: {e}")
+            raise
     
     def collate_fn(examples):
         return examples
@@ -1505,6 +1556,34 @@ def main(args, config_args):
                         torch_dtype=weight_dtype
                     ).to(offload_device)
     
+    # print("freezed_layers: ", freezed_layers)
+    
+    # Apply unfrozen target modules filtering if not using LoKr
+    if not args.use_lokr:
+        # Import the function to get unfrozen target modules
+        import re
+        
+        # Create transformer instance first to access its structure
+        target_modules = []
+        for name, module in transformer.named_modules():
+            # Check if it's one of our target module types
+            if any(target in name for target in base_target_modules):
+                # Extract layer number for Qwen model - looking for patterns like transformer_blocks.0.attn.to_k
+                layer_match = re.search(r'transformer_blocks\.(\d+)', name)
+                if layer_match:
+                    layer_num = int(layer_match.group(1))
+                    # Only add if this layer is NOT in frozen layers
+                    if layer_num not in freezed_layers:
+                        target_modules.append(name)
+                else:
+                    # If no layer number found (like norm layers, input/output), include it
+                    target_modules.append(name)
+        
+        print(f"Filtered target modules to exclude frozen layers. Total: {len(target_modules)} modules")
+    else:
+        # For LoKr, use the original base_target_modules
+        target_modules = base_target_modules
+    
     # set rope style
     # transformer.select_rope(args.use_new_rope)
     flush()
@@ -1557,37 +1636,17 @@ def main(args, config_args):
             target_modules=target_modules,
         )
         transformer.add_adapter(transformer_lora_config)
-        
-        
+      
     if args.gradient_checkpointing:
         transformer.enable_gradient_checkpointing()
 
-    # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
-    freezed_layers = [59]
-    if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split(",")
-        for layer in splited_layers:
-            # print("layer: ", layer)
-            layer_name = int(layer.strip())
-            freezed_layers.append(layer_name)
-    
     # if args.use_lokr:
     #     # exclude last layer for lokr training to avoid horizontal lines
     #     freezed_layers.append(59)
-    print("freezed_layers: ", freezed_layers)
-    # Freeze the layers
-    for name, param in transformer.named_parameters():
-        if "transformer" in name:
-            if 'model.' in name:
-                name = name.replace('model.', '')
-            if '_orig_mod.' in name:
-                name = name.replace('_orig_mod.', '')
-            name_split = name.split(".")
-            layer_order = name_split[1]
-            if int(layer_order) in freezed_layers:
-                param.requires_grad = False
-                
+    
+    # For LoKr, still need to handle frozen layers since we can't filter them in advance
     if args.use_lokr:
+        print("Applying freeze to LoKr parameters...")
         for name, param in lycoris_net.named_parameters():
             if "transformer" in name:
                 name_split = name.split("blocks_")
@@ -1768,6 +1827,13 @@ def main(args, config_args):
     # Optimization parameters
     transformer_lora_parameters_with_lr = {"params": transformer_lora_parameters, "lr": args.learning_rate}
     params_to_optimize = [transformer_lora_parameters_with_lr]
+    
+    # print requires_grad layers name
+    requires_grad_layers = []
+    for name, param in transformer.named_parameters():
+        if param.requires_grad:
+            requires_grad_layers.append(name)
+    print("requires_grad_layers: ", requires_grad_layers)
     
     # Optimizer creation
     if not (args.optimizer.lower() == "prodigy" or args.optimizer.lower() == "adamw"):
