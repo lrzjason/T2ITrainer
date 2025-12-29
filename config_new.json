@@ -27,7 +27,7 @@
     "validation_ratio": 0.1,
     "pretrained_model_name_or_path": "F:\\HF_Models\\LongCat\\LongCat-Image-Edit",
     "model_path": "",
-    "resume_from_checkpoint": null,
+    "resume_from_checkpoint": "",
     "recreate_cache": false,
     "resolution": "1024",
     "caption_dropout": 0.1,
@@ -66,14 +66,5 @@
                 }
             ]
         }
-    ],
-    "image_configs": {},
-    "caption_configs": {},
-    "training_set": null,
-    "mask_dropout": 0.01,
-    "reg_ratio": 0.0,
-    "reg_timestep": 0,
-    "use_two_captions": false,
-    "slider_positive_scale": 1.0,
-    "slider_negative_scale": -1.0
+    ]
 }
