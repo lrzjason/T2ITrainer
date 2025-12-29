@@ -1175,7 +1175,7 @@ def main(args, config_args):
                 if len(image_pairs) > 0:
                     # full_datarows = []
                     recache = recreate_cache
-                    if os.path.exists(subset_metadata_path) and not recreate_cache:
+                    if os.path.exists(subset_metadata_path) and (not recreate_cache and not recreate_cache_target and not recreate_cache_reference and not recreate_cache_caption):
                         try:
                             with open(subset_metadata_path, "r", encoding='utf-8') as readfile:
                                 cache_datarows += json.loads(readfile.read(), strict=False)
@@ -2618,6 +2618,10 @@ def main(args, config_args):
         # model_pred is [B, C, T, H, W] after unpacking, learning_target is [B, C, T, H, W]
         # noisy_model_input is [B, T, C, H, W] and needs to be converted to [B, C, T, H, W]
         
+        # Combine losses with configurable weights
+        low_freq_weight = getattr(args, 'low_freq_weight', 1.0)  # Default to 0.0 if not specified (disabled)
+        high_freq_weight = getattr(args, 'high_freq_weight', 1.0)  # Default to 1.0 if not specified
+        
         if args.use_freq_loss:
             # Get the corresponding timesteps for each sample in the batch
             # timesteps is already expanded to match the batch size: [B]
@@ -2637,24 +2641,27 @@ def main(args, config_args):
             # Use learning_target directly as z0_target
             z0_target = learning_target  # [B, C, T, H, W]
             
-            # Calculate low and high frequency losses using FFT-based approach on z0 predictions
-            low_freq_loss = freq_loss_module.compute_low_freq_loss(z0_pred, z0_target, timesteps_expanded)
+            # Calculate high frequency loss
             high_freq_loss = freq_loss_module.compute_high_freq_loss(z0_pred, z0_target, timesteps_expanded)
+            
+            # Only calculate low frequency loss if the weight is greater than zero
+            if low_freq_weight > 0:
+                low_freq_loss = freq_loss_module.compute_low_freq_loss(z0_pred, z0_target, timesteps_expanded)
+            else:
+                low_freq_loss = torch.tensor(0.0, device=model_pred.device, requires_grad=False)
         else:
             # If frequency loss is disabled, return zero losses
             low_freq_loss = torch.tensor(0.0, device=model_pred.device, requires_grad=False)
             high_freq_loss = torch.tensor(0.0, device=model_pred.device, requires_grad=False)
         
-        # Combine losses with configurable weights
-        low_freq_weight = getattr(args, 'low_freq_weight', 1.0)  # Default to 1.0 if not specified
-        high_freq_weight = getattr(args, 'high_freq_weight', 1.0)  # Default to 1.0 if not specified
-        
         total_loss = loss + low_freq_weight * low_freq_loss + high_freq_weight * high_freq_loss
         
+        # Clean up intermediate tensors that are no longer needed
+        del model_input, prompt_embeds, prompt_embeds_masks
         # Clean up intermediate variables to reduce memory usage
+        del target_list, noised_latent_list, reference_list
         del model_pred, target, noise, learning_target, noised_latents
         del noisy_model_input, packed_noisy_latents
-        del model_input, prompt_embeds, prompt_embeds_masks
         if 'packed_ref_latents' in locals():
             del packed_ref_latents
         

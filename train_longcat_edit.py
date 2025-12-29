@@ -1089,7 +1089,7 @@ def main(args, config_args):
                 if len(image_pairs) > 0:
                     # full_datarows = []
                     recache = recreate_cache
-                    if os.path.exists(subset_metadata_path) and not recreate_cache:
+                    if os.path.exists(subset_metadata_path) and (not recreate_cache and not recreate_cache_target and not recreate_cache_reference and not recreate_cache_caption):
                         try:
                             with open(subset_metadata_path, "r", encoding='utf-8') as readfile:
                                 cache_datarows += json.loads(readfile.read(), strict=False)
