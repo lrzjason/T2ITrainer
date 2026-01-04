@@ -9,10 +9,11 @@
       },
       "data": {
         "scriptName": "train_longcat.py",
-        "configPath": "config_new_mixed.json"
+        "configPath": "config_new_pairs.json"
       },
       "width": 265,
-      "height": 380
+      "height": 380,
+      "selected": false
     },
     {
       "id": "dir",
@@ -24,7 +25,7 @@
       "data": {
         "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
         "output_dir": "F:/ImageSet/longcat_test_edit_output",
-        "save_name": "test_edit_mixed",
+        "save_name": "test_edit_pairs",
         "logging_dir": "/home/waas/kontext_output/logs",
         "train_data_dir": "F:/ImageSet/longcat",
         "model_path": "",
@@ -32,7 +33,8 @@
         "pinned": true
       },
       "width": 514,
-      "height": 341
+      "height": 341,
+      "selected": false
     },
     {
       "id": "lora",
@@ -50,7 +52,8 @@
         "pinned": true
       },
       "width": 429,
-      "height": 249
+      "height": 249,
+      "selected": false
     },
     {
       "id": "misc",
@@ -63,7 +66,7 @@
         "resolution": "1024",
         "train_batch_size": 1,
         "num_train_epochs": 10,
-        "learning_rate": 1e-4,
+        "learning_rate": 0.0001,
         "optimizer": "adamw",
         "mixed_precision": "bf16",
         "seed": 4321,
@@ -75,17 +78,18 @@
         "validation_epochs": 1,
         "validation_ratio": 0.1,
         "weighting_scheme": "logit_normal",
-        "logit_mean": 0.0,
-        "logit_std": 1.0,
+        "logit_mean": 0,
+        "logit_std": 1,
         "mode_scale": 1.29,
-        "guidance_scale": 1.0,
-        "mask_dropout": 0.0,
+        "guidance_scale": 1,
+        "mask_dropout": 0,
         "freeze_transformer_layers": "",
         "freeze_single_transformer_layers": "",
         "pinned": true
       },
       "width": 786,
-      "height": 869
+      "height": 869,
+      "selected": false
     },
     {
       "id": "ds_list",
@@ -97,73 +101,58 @@
       "data": {
         "slots": [
           "dataset_0",
-          "dataset_1",
-          "dataset_2"
+          "dataset_cbgxv"
         ]
       },
       "width": 250,
-      "height": 155
+      "height": 188,
+      "selected": false,
+      "dragging": false
     },
     {
-      "id": "dataset1",
+      "id": "dataset",
       "type": "datasetConfigNode",
       "position": {
         "x": 762.2724476439791,
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:/ImageSet/longcat/single_images"
+        "train_data_dir": "F:/ImageSet/longcat_1"
       },
       "width": 348,
-      "height": 502
+      "height": 526,
+      "selected": false,
+      "dragging": false
     },
     {
-      "id": "dataset2",
-      "type": "datasetConfigNode",
-      "position": {
-        "x": 762.2724476439791,
-        "y": 1500
-      },
-      "data": {
-        "train_data_dir": "F:/ImageSet/longcat/pair_comparisons"
-      },
-      "width": 348,
-      "height": 502
-    },
-    {
-      "id": "dataset3",
-      "type": "datasetConfigNode",
-      "position": {
-        "x": 762.2724476439791,
-        "y": 2000
-      },
-      "data": {
-        "train_data_dir": "F:/ImageSet/longcat/multiple_references"
-      },
-      "width": 348,
-      "height": 502
-    },
-    {
-      "id": "img_list1",
+      "id": "img_list",
       "type": "imageListNode",
       "position": {
-        "x": 1200,
-        "y": 800
+        "x": 1207.1677026110815,
+        "y": 816.0181521605899
       },
       "data": {
         "slots": [
-          "img_0"
+          "img_0",
+          "img_bqemw",
+          "img_yz7iv"
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 250,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1207.1677026110815,
+        "y": 816.0181521605899
+      },
+      "dragging": false
     },
     {
-      "id": "tgt_list1",
+      "id": "tgt_list",
       "type": "targetListNode",
       "position": {
-        "x": 1200,
-        "y": 1000
+        "x": 1212.143831481339,
+        "y": 1278.3804015372637
       },
       "data": {
         "slots": [
@@ -171,74 +160,20 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1212.143831481339,
+        "y": 1278.3804015372637
+      },
+      "dragging": false
     },
     {
-      "id": "cap_list1",
-      "type": "captionListNode",
-      "position": {
-        "x": 1206.08217443617,
-        "y": 1100.504678493624
-      },
-      "data": {
-        "slots": [
-          "cap_0"
-        ]
-      },
-      "width": 250,
-      "height": 183
-    },
-    {
-      "id": "batch_list1",
-      "type": "batchListNode",
-      "position": {
-        "x": 1203.649304661702,
-        "y": 1267.6609365383058
-      },
-      "data": {
-        "slots": [
-          "batch_0"
-        ]
-      },
-      "width": 250,
-      "height": 183
-    },
-    {
-      "id": "img_list2",
-      "type": "imageListNode",
-      "position": {
-        "x": 1200,
-        "y": 1400
-      },
-      "data": {
-        "slots": [
-          "img_0"
-        ]
-      },
-      "width": 250,
-      "height": 183
-    },
-    {
-      "id": "tgt_list2",
-      "type": "targetListNode",
-      "position": {
-        "x": 1200,
-        "y": 1600
-      },
-      "data": {
-        "slots": [
-          "tgt_0"
-        ]
-      },
-      "width": 250,
-      "height": 183
-    },
-    {
-      "id": "ref_list2",
+      "id": "ref_list",
       "type": "referenceListNode",
       "position": {
-        "x": 1200,
-        "y": 1800
+        "x": 1217.0333819127382,
+        "y": 1638.223592991492
       },
       "data": {
         "slots": [
@@ -246,14 +181,20 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1217.0333819127382,
+        "y": 1638.223592991492
+      },
+      "dragging": false
     },
     {
-      "id": "cap_list2",
+      "id": "cap_list",
       "type": "captionListNode",
       "position": {
-        "x": 1206.08217443617,
-        "y": 1900.504678493624
+        "x": 1210.3293946279164,
+        "y": 1886.5750547363814
       },
       "data": {
         "slots": [
@@ -261,14 +202,20 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1210.3293946279164,
+        "y": 1886.5750547363814
+      },
+      "dragging": false
     },
     {
-      "id": "batch_list2",
+      "id": "batch_list",
       "type": "batchListNode",
       "position": {
-        "x": 1203.649304661702,
-        "y": 2067.6609365383058
+        "x": 1210.7280049812794,
+        "y": 2091.438749968781
       },
       "data": {
         "slots": [
@@ -276,29 +223,256 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1210.7280049812794,
+        "y": 2091.438749968781
+      },
+      "dragging": false
     },
     {
-      "id": "img_list3",
-      "type": "imageListNode",
+      "id": "img_1",
+      "type": "imageConfigNode",
       "position": {
-        "x": 1200,
-        "y": 2200
+        "x": 1614.1574006391552,
+        "y": 729.2129968042246
       },
       "data": {
+        "key": "train",
+        "suffix": "_T"
+      },
+      "width": 348,
+      "height": 136,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1614.1574006391552,
+        "y": 729.2129968042246
+      },
+      "dragging": false
+    },
+    {
+      "id": "tgt_1",
+      "type": "targetConfigNode",
+      "position": {
+        "x": 1619.431838093202,
+        "y": 1298.1694607228035
+      },
+      "data": {
+        "key": "train_target",
+        "image": "train",
+        "from_image": ""
+      },
+      "width": 348,
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1619.431838093202,
+        "y": 1298.1694607228035
+      },
+      "dragging": false
+    },
+    {
+      "id": "ref_group_1",
+      "type": "referenceConfigNode",
+      "position": {
+        "x": 1616.3062077182424,
+        "y": 1579.1752844147125
+      },
+      "data": {
+        "key": "ref_list",
         "slots": [
-          "img_0"
+          "entry_0",
+          "entry_czde7"
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 272,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1616.3062077182424,
+        "y": 1579.1752844147125
+      },
+      "dragging": false
     },
     {
-      "id": "tgt_list3",
+      "id": "ref_entry_1",
+      "type": "referenceEntryNode",
+      "position": {
+        "x": 2010.2390746561491,
+        "y": 1564.4795098210743
+      },
+      "data": {
+        "sample_type": "from_same_name",
+        "image": "ref"
+      },
+      "width": 348,
+      "height": 137,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 2010.2390746561491,
+        "y": 1564.4795098210743
+      },
+      "dragging": false
+    },
+    {
+      "id": "cap_1",
+      "type": "captionConfigNode",
+      "position": {
+        "x": 1628.85090532692,
+        "y": 1908.0438185708372
+      },
+      "data": {
+        "key": "train_caption",
+        "ext": ".txt",
+        "image": "train",
+        "reference_list": {
+          "reference_config": "ref_list",
+          "resize": "384",
+          "dropout": 0.1,
+          "min_length": 1
+        }
+      },
+      "width": 506,
+      "height": 284,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1628.85090532692,
+        "y": 1908.0438185708372
+      },
+      "dragging": false
+    },
+    {
+      "id": "batch_1",
+      "type": "batchConfigNode",
+      "position": {
+        "x": 1626.8166459058148,
+        "y": 2218.4361415406684
+      },
+      "data": {
+        "target_config": "train_target",
+        "caption_config": "train_caption",
+        "reference_config": "ref_list",
+        "caption_dropout": 0.1
+      },
+      "width": 348,
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1626.8166459058148,
+        "y": 2218.4361415406684
+      },
+      "dragging": false
+    },
+    {
+      "id": "imageConfigNode_obbbr3",
+      "type": "imageConfigNode",
+      "position": {
+        "x": 1615.6163674727043,
+        "y": 896.6873153757205
+      },
+      "data": {
+        "label": "Image Item",
+        "suffix": "_R",
+        "key": "ref"
+      },
+      "width": 348,
+      "height": 136,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1615.6163674727043,
+        "y": 896.6873153757205
+      }
+    },
+    {
+      "id": "imageConfigNode_m2gx8t",
+      "type": "imageConfigNode",
+      "position": {
+        "x": 1623.7265009293076,
+        "y": 1084.2688431371175
+      },
+      "data": {
+        "label": "Image Item",
+        "key": "grey",
+        "suffix": "_G"
+      },
+      "width": 348,
+      "height": 136,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1623.7265009293076,
+        "y": 1084.2688431371175
+      }
+    },
+    {
+      "id": "referenceEntryNode_maymzi",
+      "type": "referenceEntryNode",
+      "position": {
+        "x": 2016.3041239543886,
+        "y": 1736.3379000554949
+      },
+      "data": {
+        "label": "Ref Source",
+        "image": "grey"
+      },
+      "width": 348,
+      "height": 137,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 2016.3041239543886,
+        "y": 1736.3379000554949
+      },
+      "dragging": false
+    },
+    {
+      "id": "datasetConfigNode_w3tu6e",
+      "type": "datasetConfigNode",
+      "position": {
+        "x": 766.9687655986828,
+        "y": 2725.5971565278924
+      },
+      "data": {
+        "train_data_dir": "F:/ImageSet/longcat_2"
+      },
+      "width": 348,
+      "height": 526,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 766.9687655986828,
+        "y": 2725.5971565278924
+      },
+      "dragging": false
+    },
+    {
+      "id": "imageListNode_abhwuy",
+      "type": "imageListNode",
+      "position": {
+        "x": 1211.8640205657853,
+        "y": 2558.3831097356024
+      },
+      "data": {
+        "slots": [
+          "img_0",
+          "img_bqemw"
+        ]
+      },
+      "width": 250,
+      "height": 216,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1211.8640205657853,
+        "y": 2558.3831097356024
+      },
+      "dragging": false
+    },
+    {
+      "id": "targetListNode_0n02jz",
       "type": "targetListNode",
       "position": {
-        "x": 1200,
-        "y": 2400
+        "x": 1216.8401494360428,
+        "y": 3020.745359112276
       },
       "data": {
         "slots": [
@@ -306,30 +480,41 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1216.8401494360428,
+        "y": 3020.745359112276
+      },
+      "dragging": false
     },
     {
-      "id": "ref_list3",
+      "id": "referenceListNode_mi3ibt",
       "type": "referenceListNode",
       "position": {
-        "x": 1200,
-        "y": 2600
+        "x": 1221.729699867442,
+        "y": 3380.5885505665046
       },
       "data": {
         "slots": [
-          "ref_0",
-          "ref_1"
+          "ref_0"
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1221.729699867442,
+        "y": 3380.5885505665046
+      },
+      "dragging": false
     },
     {
-      "id": "cap_list3",
+      "id": "captionListNode_fj4tgk",
       "type": "captionListNode",
       "position": {
-        "x": 1206.08217443617,
-        "y": 2700.504678493624
+        "x": 1215.0257125826201,
+        "y": 3628.9400123113937
       },
       "data": {
         "slots": [
@@ -337,14 +522,20 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1215.0257125826201,
+        "y": 3628.9400123113937
+      },
+      "dragging": false
     },
     {
-      "id": "batch_list3",
+      "id": "batchListNode_kpny16",
       "type": "batchListNode",
       "position": {
-        "x": 1203.649304661702,
-        "y": 2867.6609365383058
+        "x": 1215.4243229359831,
+        "y": 3833.8037075437933
       },
       "data": {
         "slots": [
@@ -352,276 +543,166 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1215.4243229359831,
+        "y": 3833.8037075437933
+      },
+      "dragging": false
     },
     {
-      "id": "img_1_1",
+      "id": "imageConfigNode_1nv2wa",
       "type": "imageConfigNode",
       "position": {
-        "x": 1600,
-        "y": 800
+        "x": 1618.853718593859,
+        "y": 2471.5779543792373
       },
       "data": {
         "key": "train",
-        "suffix": "_T"
+        "suffix": "_A"
       },
       "width": 348,
-      "height": 136
+      "height": 136,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1618.853718593859,
+        "y": 2471.5779543792373
+      },
+      "dragging": false
     },
     {
-      "id": "tgt_1_1",
+      "id": "targetConfigNode_f208nn",
       "type": "targetConfigNode",
       "position": {
-        "x": 1600,
-        "y": 1000
+        "x": 1624.1281560479056,
+        "y": 3040.534418297816
       },
       "data": {
-        "key": "train",
+        "key": "train_target2",
         "image": "train",
         "from_image": ""
       },
       "width": 348,
-      "height": 191
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1624.1281560479056,
+        "y": 3040.534418297816
+      },
+      "dragging": false
     },
     {
-      "id": "cap_1_1",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 1570.805562706384,
-        "y": 1150.2882436063899
-      },
-      "data": {
-        "key": "train",
-        "ext": ".txt",
-        "image": "train"
-      },
-      "width": 506,
-      "height": 185
-    },
-    {
-      "id": "batch_1_1",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 1565.939823157448,
-        "y": 1261.578762102136
-      },
-      "data": {
-        "target_config": "train",
-        "caption_config": "train",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191
-    },
-    {
-      "id": "img_2_1",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1600,
-        "y": 1400
-      },
-      "data": {
-        "key": "train",
-        "suffix": "_T"
-      },
-      "width": 348,
-      "height": 136
-    },
-    {
-      "id": "tgt_2_1",
-      "type": "targetConfigNode",
-      "position": {
-        "x": 1600,
-        "y": 1600
-      },
-      "data": {
-        "key": "train",
-        "image": "train",
-        "from_image": ""
-      },
-      "width": 348,
-      "height": 191
-    },
-    {
-      "id": "ref_group_2_1",
+      "id": "referenceConfigNode_3dhhvf",
       "type": "referenceConfigNode",
       "position": {
-        "x": 1600,
-        "y": 1800
+        "x": 1621.002525672946,
+        "y": 3321.540241989725
       },
       "data": {
-        "key": "train_ref",
+        "key": "ref_list2",
         "slots": [
           "entry_0"
         ]
       },
-      "width": 348,
-      "height": 136
+      "width": 250,
+      "height": 238,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1621.002525672946,
+        "y": 3321.540241989725
+      },
+      "dragging": false
     },
     {
-      "id": "ref_entry_2_1",
+      "id": "referenceEntryNode_7zsfq2",
       "type": "referenceEntryNode",
       "position": {
-        "x": 1950,
-        "y": 1800
+        "x": 2002.6106595096276,
+        "y": 3416.5345919969923
       },
       "data": {
         "sample_type": "from_same_name",
-        "image": "train"
+        "image": "ref"
       },
       "width": 348,
-      "height": 136
+      "height": 137,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 2002.6106595096276,
+        "y": 3416.5345919969923
+      },
+      "dragging": false
     },
     {
-      "id": "cap_2_1",
+      "id": "captionConfigNode_y6g2r0",
       "type": "captionConfigNode",
       "position": {
-        "x": 1570.805562706384,
-        "y": 1950.2882436063899
+        "x": 1633.5472232816237,
+        "y": 3650.4087761458495
       },
       "data": {
-        "key": "train",
+        "key": "train_caption2",
         "ext": ".txt",
-        "image": "train"
+        "image": "train",
+        "reference_list": {
+          "reference_config": "ref_list",
+          "resize": "384",
+          "dropout": 0.1,
+          "min_length": 1
+        }
       },
       "width": 506,
-      "height": 185
+      "height": 284,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1633.5472232816237,
+        "y": 3650.4087761458495
+      },
+      "dragging": false
     },
     {
-      "id": "batch_2_1",
+      "id": "batchConfigNode_8luchy",
       "type": "batchConfigNode",
       "position": {
-        "x": 1565.939823157448,
-        "y": 2061.578762102136
+        "x": 1631.5129638605185,
+        "y": 3960.8010991156807
       },
       "data": {
-        "target_config": "train",
-        "caption_config": "train",
-        "reference_config": "train_ref",
+        "target_config": "train_target2",
+        "caption_config": "train_caption2",
+        "reference_config": "ref_list2",
         "caption_dropout": 0.1
       },
       "width": 348,
-      "height": 191
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1631.5129638605185,
+        "y": 3960.8010991156807
+      },
+      "dragging": false
     },
     {
-      "id": "img_3_1",
+      "id": "imageConfigNode_q9h7bm",
       "type": "imageConfigNode",
       "position": {
-        "x": 1600,
-        "y": 2200
+        "x": 1620.3126854274078,
+        "y": 2639.052272950733
       },
       "data": {
-        "key": "train",
-        "suffix": "_T"
+        "label": "Image Item",
+        "suffix": "_B",
+        "key": "ref"
       },
       "width": 348,
-      "height": 136
-    },
-    {
-      "id": "tgt_3_1",
-      "type": "targetConfigNode",
-      "position": {
-        "x": 1600,
-        "y": 2400
-      },
-      "data": {
-        "key": "train",
-        "image": "train",
-        "from_image": ""
-      },
-      "width": 348,
-      "height": 191
-    },
-    {
-      "id": "ref_group_3_1",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1600,
-        "y": 2600
-      },
-      "data": {
-        "key": "train_ref1",
-        "slots": [
-          "entry_0"
-        ]
-      },
-      "width": 348,
-      "height": 136
-    },
-    {
-      "id": "ref_entry_3_1",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1950,
-        "y": 2600
-      },
-      "data": {
-        "sample_type": "from_same_name",
-        "image": "train"
-      },
-      "width": 348,
-      "height": 136
-    },
-    {
-      "id": "ref_group_3_2",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1600,
-        "y": 2700
-      },
-      "data": {
-        "key": "train_ref2",
-        "slots": [
-          "entry_0"
-        ]
-      },
-      "width": 348,
-      "height": 136
-    },
-    {
-      "id": "ref_entry_3_2",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1950,
-        "y": 2700
-      },
-      "data": {
-        "sample_type": "from_subdir",
-        "image": "reference"
-      },
-      "width": 348,
-      "height": 136
-    },
-    {
-      "id": "cap_3_1",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 1570.805562706384,
-        "y": 2850.2882436063899
-      },
-      "data": {
-        "key": "train",
-        "ext": ".txt",
-        "image": "train"
-      },
-      "width": 506,
-      "height": 185
-    },
-    {
-      "id": "batch_3_1",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 1565.939823157448,
-        "y": 2961.578762102136
-      },
-      "data": {
-        "target_config": "train",
-        "caption_config": "train",
-        "reference_config": "train_ref1,train_ref2",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191
+      "height": 136,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1620.3126854274078,
+        "y": 2639.052272950733
+      }
     }
   ],
   "edges": [
@@ -644,7 +725,8 @@
       "source": "script",
       "sourceHandle": "misc_out",
       "target": "misc",
-      "targetHandle": "in"
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e4",
@@ -657,248 +739,247 @@
       "id": "e5",
       "source": "ds_list",
       "sourceHandle": "dataset_0",
-      "target": "dataset1",
-      "targetHandle": "in"
+      "target": "dataset",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e6",
-      "source": "ds_list",
-      "sourceHandle": "dataset_1",
-      "target": "dataset2",
-      "targetHandle": "in"
+      "source": "dataset",
+      "sourceHandle": "image_config",
+      "target": "img_list",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e7",
-      "source": "ds_list",
-      "sourceHandle": "dataset_2",
-      "target": "dataset3",
-      "targetHandle": "in"
+      "source": "dataset",
+      "sourceHandle": "target_config",
+      "target": "tgt_list",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e8",
-      "source": "dataset1",
-      "sourceHandle": "image_config",
-      "target": "img_list1",
-      "targetHandle": "in"
+      "source": "dataset",
+      "sourceHandle": "reference_config",
+      "target": "ref_list",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e9",
-      "source": "dataset1",
-      "sourceHandle": "target_config",
-      "target": "tgt_list1",
-      "targetHandle": "in"
+      "source": "dataset",
+      "sourceHandle": "caption_config",
+      "target": "cap_list",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e10",
-      "source": "dataset1",
-      "sourceHandle": "caption_config",
-      "target": "cap_list1",
-      "targetHandle": "in"
+      "source": "dataset",
+      "sourceHandle": "batch_config",
+      "target": "batch_list",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e11",
-      "source": "dataset1",
-      "sourceHandle": "batch_config",
-      "target": "batch_list1",
-      "targetHandle": "in"
+      "source": "img_list",
+      "sourceHandle": "img_0",
+      "target": "img_1",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e12",
-      "source": "dataset2",
-      "sourceHandle": "image_config",
-      "target": "img_list2",
-      "targetHandle": "in"
+      "source": "tgt_list",
+      "sourceHandle": "tgt_0",
+      "target": "tgt_1",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e13",
-      "source": "dataset2",
-      "sourceHandle": "target_config",
-      "target": "tgt_list2",
-      "targetHandle": "in"
+      "source": "ref_list",
+      "sourceHandle": "ref_0",
+      "target": "ref_group_1",
+      "targetHandle": "in",
+      "selected": false
+    },
+    {
+      "id": "e13b",
+      "source": "ref_group_1",
+      "sourceHandle": "entry_0",
+      "target": "ref_entry_1",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e14",
-      "source": "dataset2",
-      "sourceHandle": "reference_config",
-      "target": "ref_list2",
-      "targetHandle": "in"
+      "source": "cap_list",
+      "sourceHandle": "cap_0",
+      "target": "cap_1",
+      "targetHandle": "in",
+      "selected": false
     },
     {
       "id": "e15",
-      "source": "dataset2",
-      "sourceHandle": "caption_config",
-      "target": "cap_list2",
-      "targetHandle": "in"
+      "source": "batch_list",
+      "sourceHandle": "batch_0",
+      "target": "batch_1",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e16",
-      "source": "dataset2",
-      "sourceHandle": "batch_config",
-      "target": "batch_list2",
-      "targetHandle": "in"
+      "type": "default",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2,
+        "stroke": "#a1a1aa"
+      },
+      "interactionWidth": 15,
+      "source": "img_list",
+      "sourceHandle": "img_bqemw",
+      "target": "imageConfigNode_obbbr3",
+      "targetHandle": "in",
+      "id": "reactflow__edge-img_listimg_bqemw-imageConfigNode_obbbr3in",
+      "selected": false
     },
     {
-      "id": "e17",
-      "source": "dataset3",
+      "source": "img_list",
+      "sourceHandle": "img_yz7iv",
+      "target": "imageConfigNode_m2gx8t",
+      "targetHandle": "in",
+      "id": "reactflow__edge-img_listimg_yz7iv-imageConfigNode_m2gx8tin",
+      "selected": false
+    },
+    {
+      "source": "ref_group_1",
+      "sourceHandle": "entry_czde7",
+      "target": "referenceEntryNode_maymzi",
+      "targetHandle": "in",
+      "id": "reactflow__edge-ref_group_1entry_czde7-referenceEntryNode_maymziin",
+      "selected": false
+    },
+    {
+      "id": "efdgi7y",
+      "source": "datasetConfigNode_w3tu6e",
       "sourceHandle": "image_config",
-      "target": "img_list3",
-      "targetHandle": "in"
+      "target": "imageListNode_abhwuy",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e18",
-      "source": "dataset3",
+      "id": "eolvlek",
+      "source": "datasetConfigNode_w3tu6e",
       "sourceHandle": "target_config",
-      "target": "tgt_list3",
-      "targetHandle": "in"
+      "target": "targetListNode_0n02jz",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e19",
-      "source": "dataset3",
+      "id": "ekg0xc1",
+      "source": "datasetConfigNode_w3tu6e",
       "sourceHandle": "reference_config",
-      "target": "ref_list3",
-      "targetHandle": "in"
+      "target": "referenceListNode_mi3ibt",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e20",
-      "source": "dataset3",
+      "id": "elyd1f7",
+      "source": "datasetConfigNode_w3tu6e",
       "sourceHandle": "caption_config",
-      "target": "cap_list3",
-      "targetHandle": "in"
+      "target": "captionListNode_fj4tgk",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e21",
-      "source": "dataset3",
+      "id": "e7slplz",
+      "source": "datasetConfigNode_w3tu6e",
       "sourceHandle": "batch_config",
-      "target": "batch_list3",
-      "targetHandle": "in"
+      "target": "batchListNode_kpny16",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e22",
-      "source": "img_list1",
+      "id": "eucf2il",
+      "source": "imageListNode_abhwuy",
       "sourceHandle": "img_0",
-      "target": "img_1_1",
-      "targetHandle": "in"
+      "target": "imageConfigNode_1nv2wa",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e23",
-      "source": "tgt_list1",
+      "id": "ehfrbxo",
+      "source": "targetListNode_0n02jz",
       "sourceHandle": "tgt_0",
-      "target": "tgt_1_1",
-      "targetHandle": "in"
+      "target": "targetConfigNode_f208nn",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e24",
-      "source": "cap_list1",
-      "sourceHandle": "cap_0",
-      "target": "cap_1_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e25",
-      "source": "batch_list1",
-      "sourceHandle": "batch_0",
-      "target": "batch_1_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e26",
-      "source": "img_list2",
-      "sourceHandle": "img_0",
-      "target": "img_2_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e27",
-      "source": "tgt_list2",
-      "sourceHandle": "tgt_0",
-      "target": "tgt_2_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e28",
-      "source": "ref_list2",
+      "id": "ee14hb7",
+      "source": "referenceListNode_mi3ibt",
       "sourceHandle": "ref_0",
-      "target": "ref_group_2_1",
-      "targetHandle": "in"
+      "target": "referenceConfigNode_3dhhvf",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e29",
-      "source": "ref_group_2_1",
+      "id": "ekh6o2q",
+      "source": "referenceConfigNode_3dhhvf",
       "sourceHandle": "entry_0",
-      "target": "ref_entry_2_1",
-      "targetHandle": "in"
+      "target": "referenceEntryNode_7zsfq2",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e30",
-      "source": "cap_list2",
+      "id": "evtjqoy",
+      "source": "captionListNode_fj4tgk",
       "sourceHandle": "cap_0",
-      "target": "cap_2_1",
-      "targetHandle": "in"
+      "target": "captionConfigNode_y6g2r0",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e31",
-      "source": "batch_list2",
+      "id": "efzrm0l",
+      "source": "batchListNode_kpny16",
       "sourceHandle": "batch_0",
-      "target": "batch_2_1",
-      "targetHandle": "in"
+      "target": "batchConfigNode_8luchy",
+      "targetHandle": "in",
+      "selected": false
     },
     {
-      "id": "e32",
-      "source": "img_list3",
-      "sourceHandle": "img_0",
-      "target": "img_3_1",
-      "targetHandle": "in"
+      "type": "default",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2,
+        "stroke": "#a1a1aa"
+      },
+      "interactionWidth": 15,
+      "source": "imageListNode_abhwuy",
+      "sourceHandle": "img_bqemw",
+      "target": "imageConfigNode_q9h7bm",
+      "targetHandle": "in",
+      "id": "ea6b4td",
+      "selected": false
     },
     {
-      "id": "e33",
-      "source": "tgt_list3",
-      "sourceHandle": "tgt_0",
-      "target": "tgt_3_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e34",
-      "source": "ref_list3",
-      "sourceHandle": "ref_0",
-      "target": "ref_group_3_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e35",
-      "source": "ref_list3",
-      "sourceHandle": "ref_1",
-      "target": "ref_group_3_2",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e36",
-      "source": "ref_group_3_1",
-      "sourceHandle": "entry_0",
-      "target": "ref_entry_3_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e37",
-      "source": "ref_group_3_2",
-      "sourceHandle": "entry_0",
-      "target": "ref_entry_3_2",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e38",
-      "source": "cap_list3",
-      "sourceHandle": "cap_0",
-      "target": "cap_3_1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e39",
-      "source": "batch_list3",
-      "sourceHandle": "batch_0",
-      "target": "batch_3_1",
-      "targetHandle": "in"
+      "type": "default",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2,
+        "stroke": "#a1a1aa"
+      },
+      "interactionWidth": 15,
+      "source": "ds_list",
+      "sourceHandle": "dataset_cbgxv",
+      "target": "datasetConfigNode_w3tu6e",
+      "targetHandle": "in",
+      "id": "reactflow__edge-ds_listdataset_cbgxv-datasetConfigNode_w3tu6ein"
     }
   ],
-  "timestamp": 1766056860887,
+  "timestamp": 1767523365.639064,
   "version": "1.0"
 }

@@ -16,8 +16,18 @@ const GenericListNode = ({ data, selected, id, titleKey, color, prefix }: any) =
     const [slots, setSlots] = useState<string[]>(data.slots || [`${prefix}_0`]);
 
     useEffect(() => {
-        if (!data.slots) updateNodeData(id, 'slots', slots);
+        // Update node data if slots are not initialized in data
+        if (!data.slots) {
+            updateNodeData(id, 'slots', slots);
+        }
     }, []);
+    
+    // Synchronize local state with node data when data.slots changes
+    useEffect(() => {
+        if (data.slots && JSON.stringify(data.slots) !== JSON.stringify(slots)) {
+            setSlots(data.slots);
+        }
+    }, [data.slots, slots]);
 
     const updateSlots = (newSlots: string[]) => {
         setSlots(newSlots);
@@ -298,8 +308,18 @@ export const ReferenceConfigNode = memo(({ id, data, selected }: NodeProps) => {
     const [slots, setSlots] = useState<string[]>(data.slots || ['entry_0']);
 
     useEffect(() => {
-        if (!data.slots) updateNodeData(id, 'slots', slots);
+        // Update node data if slots are not initialized in data
+        if (!data.slots) {
+            updateNodeData(id, 'slots', slots);
+        }
     }, []);
+    
+    // Synchronize local state with node data when data.slots changes
+    useEffect(() => {
+        if (data.slots && JSON.stringify(data.slots) !== JSON.stringify(slots)) {
+            setSlots(data.slots);
+        }
+    }, [data.slots, slots]);
 
     const updateSlots = (newSlots: string[]) => {
         setSlots(newSlots);

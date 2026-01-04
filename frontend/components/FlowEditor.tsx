@@ -140,7 +140,17 @@ export const FlowEditor = () => {
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [output, setOutput] = useState<{json: string, cmd: string}>({ json: '', cmd: '' });
   const [refreshCount, setRefreshCount] = useState(0);
-  const [clipboard, setClipboard] = useState<Node[]>([]);
+  type ClipboardData = {
+    nodes: Node[];
+    edges: Edge[];
+  };
+  
+  const [clipboard, setClipboard] = useState<ClipboardData>({ nodes: [], edges: [] });
+  
+  // Helper function to set clipboard with nodes and their internal connections
+  const setClipboardWithConnections = useCallback((nodesToCopy: Node[], internalEdges: Edge[]) => {
+    setClipboard({ nodes: nodesToCopy, edges: internalEdges });
+  }, [setClipboard]);
   
   // UI State
   const [showPalette, setShowPalette] = useState(false);
@@ -640,20 +650,46 @@ export const FlowEditor = () => {
 
         if (isCtrl && e.key.toLowerCase() === 'c' && !isInput) {
             const selected = nodes.filter(n => n.selected);
-            if (selected.length > 0) setClipboard(selected);
+            if (selected.length > 0) {
+                // Find edges between selected nodes to preserve connections
+                const selectedIds = selected.map(n => n.id);
+                const internalEdges = edges.filter(e => 
+                    selectedIds.includes(e.source) && selectedIds.includes(e.target)
+                );
+                
+                // Store both nodes and their internal connections
+                setClipboardWithConnections(selected, internalEdges);
+            }
         }
 
-        if (isCtrl && e.key.toLowerCase() === 'v' && !isInput && clipboard.length > 0) {
+        if (isCtrl && e.key.toLowerCase() === 'v' && !isInput && clipboard.nodes.length > 0) {
             snapshot();
-            setNodes(nds => nds.map(n => ({...n, selected: false})));
-            const newNodes = clipboard.map(node => ({
-                ...node,
-                id: `${node.type}_${Math.random().toString(36).substr(2, 6)}`,
-                position: { x: node.position.x + 50, y: node.position.y + 50 },
-                selected: true,
-                data: { ...node.data }
+            setNodes(nds => nds.map(n => ({...n, selected: false}))); 
+            
+            // Create a mapping from old IDs to new IDs for connections
+            const idMap: Record<string, string> = {};
+            const newNodes = clipboard.nodes.map(node => {
+                const newId = `${node.type}_${Math.random().toString(36).substr(2, 6)}`;
+                idMap[node.id] = newId;
+                return {
+                    ...node,
+                    id: newId,
+                    position: { x: node.position.x + 50, y: node.position.y + 50 },
+                    selected: true,
+                    data: { ...node.data }
+                };
+            });
+            
+            // Create new edges based on the copied edges with updated IDs
+            const newEdges = clipboard.edges.map(edge => ({
+                ...edge,
+                id: `e${Math.random().toString(36).substr(2, 6)}`, // Generate new edge ID
+                source: idMap[edge.source],
+                target: idMap[edge.target]
             }));
+            
             setNodes(nds => [...nds, ...newNodes]);
+            setEdges(eds => [...eds, ...newEdges]);
         }
 
         if (isCtrl && e.key.toLowerCase() === 'z' && !isInput) {
@@ -694,14 +730,41 @@ export const FlowEditor = () => {
       snapshot();
       const node = nodes.find(n => n.id === id);
       if(!node) return;
+      
+      // Find connections to and from this node
+      const connectedEdges = edges.filter(e => e.source === id || e.target === id);
+      
       const newNode = {
           ...node,
           id: `${node.type}_${Math.random().toString(36).substr(2,6)}`,
           position: { x: node.position.x + 50, y: node.position.y + 50 },
           selected: true
       };
+      
+      // Create new edges for the copied node
+      const newEdges = connectedEdges.map(edge => {
+          let newSource = edge.source;
+          let newTarget = edge.target;
+          
+          // If the edge was connected to the node being copied, update it to the new node ID
+          if (edge.source === id) {
+              newSource = newNode.id;
+          }
+          if (edge.target === id) {
+              newTarget = newNode.id;
+          }
+          
+          return {
+              ...edge,
+              id: `e${Math.random().toString(36).substr(2, 6)}`, // Generate new edge ID
+              source: newSource,
+              target: newTarget
+          };
+      });
+      
       setNodes(nds => [...nds.map(n => ({...n, selected: false})), newNode]);
-  }, [nodes, snapshot, setNodes]);
+      setEdges(eds => [...eds, ...newEdges]);
+  }, [nodes, edges, snapshot, setNodes, setEdges]);
 
   const onConnect = useCallback((params: Connection) => {
       console.log('Connection made:', params);
@@ -1130,6 +1193,7 @@ export const FlowEditor = () => {
                     setNodes={setNodes}
                     setEdges={setEdges}
                     lang={lang}
+                    addToast={addToast}
                 />
             )}
         </div>

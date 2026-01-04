@@ -1,0 +1,95 @@
+{
+    "script": "train_qwen_image_edit_new.py",
+    "config_path": "/root/T2ITrainer/config_new_pairs_multiple.json",
+    "seed": 4321,
+    "mixed_precision": "bf16",
+    "report_to": "all",
+    "lr_warmup_steps": 0,
+    "output_dir": "/media/user_datadisk/output_mixed",
+    "save_name": "any2real_mixed",
+    "train_data_dir": "/media/user_datadisk/dataset",
+    "optimizer": "adamw",
+    "lr_scheduler": "cosine",
+    "learning_rate": 0.0001,
+    "train_batch_size": 1,
+    "repeats": 1,
+    "gradient_accumulation_steps": 1,
+    "num_train_epochs": 10,
+    "save_model_epochs": 1,
+    "validation_epochs": 1,
+    "rank": 32,
+    "skip_epoch": 0,
+    "skip_step": 0,
+    "gradient_checkpointing": true,
+    "validation_ratio": 0.1,
+    "pretrained_model_name_or_path": "/root/T2ITrainer/qwen_models/qwen_image_edit_2511",
+    "model_path": "",
+    "resume_from_checkpoint": "",
+    "recreate_cache": false,
+    "resolution": "512",
+    "caption_dropout": 0.3,
+    "cosine_restarts": 1,
+    "max_time_steps": 0,
+    "blocks_to_swap": 0,
+    "use_lokr": false,
+    "rank_alpha": 16.0,
+    "lokr_factor": 8,
+    "use_freq_loss": false,
+    "freeze_transformer_layers": "", 
+    "dataset_configs": [
+        {
+            "train_data_dir": "/media/user_datadisk/dataset/old_dataset",
+            "resolution": "768",
+            "recreate_cache": false,
+            "repeats": 10,
+            "image_configs": {
+                "train": {
+                    "suffix": "_T"
+                },
+                "reference": {
+                    "suffix": "_R"
+                },
+                "details": {
+                    "suffix": "_D"
+                }
+            },
+            "target_configs": {
+                "target_train": [
+                    {
+                        "image": "train"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "reference_train": [
+                    {
+                        "image": "reference"
+                    },
+                    {
+                        "image": "details"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "train_caption": {
+                    "image": "train",
+                    "ext": ".txt",
+                    "reference_list": {
+                        "reference_config": "reference_train",
+                        "resize": "384",
+                        "dropout": 0,
+                        "min_length": 1
+                    }
+                }
+            },
+            "batch_configs": [
+                {
+                    "target_config": "target_train",
+                    "caption_config": "train_caption",
+                    "caption_dropout": 0.1,
+                    "reference_config": "target_train"
+                }
+            ]
+        }
+    ]
+}

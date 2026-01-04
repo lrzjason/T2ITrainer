@@ -135,6 +135,44 @@ def memory_stats():
     print(torch.cuda.memory_allocated()/1024**2)
     # print(torch.cuda.memory_cached()/1024**2)
 
+def parse_freeze_layers(freeze_layers_str):
+    '''Parse freeze layers string in format like "0-10,50-59,65" and return a list of layer numbers to freeze'''
+    if not freeze_layers_str or freeze_layers_str == '':
+        return []
+    
+    freezed_layers = []
+    segments = freeze_layers_str.split(',')
+    
+    for segment in segments:
+        segment = segment.strip()
+        if '-' in segment and segment.count('-') == 1:
+            # This is a range format like 'x-y'
+            range_parts = segment.split('-')
+            if len(range_parts) != 2:
+                raise ValueError(f"Invalid range format: {segment}. Expected format: start-end")
+            
+            try:
+                start = int(range_parts[0].strip())
+                end = int(range_parts[1].strip())
+            except ValueError:
+                raise ValueError(f"Invalid range values: {segment}. Both start and end must be integers")
+            
+            if start >= end:
+                raise ValueError(f"Invalid range: {segment}. Start must be less than end")
+            
+            # Add all layers in the range [start, end]
+            for layer in range(start, end + 1):
+                freezed_layers.append(layer)
+        else:
+            # This is a single layer number
+            try:
+                layer = int(segment.strip())
+                freezed_layers.append(layer)
+            except ValueError:
+                raise ValueError(f"Invalid layer number: {segment}. Must be an integer")
+    
+    return freezed_layers
+
 def parse_args(input_args=None):
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
@@ -1301,12 +1339,12 @@ def main(args, config_args):
 
     # default to skip 59 layer, 59 layer mainly control texture and it is very easy to destroy while training.
     freezed_layers = [59]
-    if args.freeze_transformer_layers is not None and args.freeze_transformer_layers != '':
-        splited_layers = args.freeze_transformer_layers.split(",")
-        for layer in splited_layers:
-            # print("layer: ", layer)
-            layer_name = int(layer.strip())
-            freezed_layers.append(layer_name)
+    try:
+        parsed_freeze_layers = parse_freeze_layers(args.freeze_transformer_layers)
+        freezed_layers.extend(parsed_freeze_layers)
+    except ValueError as e:
+        print(f"Error parsing freeze layers: {e}")
+        raise
     
     # if args.use_lokr:
     #     # exclude last layer for lokr training to avoid horizontal lines

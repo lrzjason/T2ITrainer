@@ -31,7 +31,7 @@ from services.shared.config import (
     PROJECT_ROOT, API_SERVICE_PORT, STREAMER_SERVICE_PORT,
     DEFAULT_CONFIG, LOG_DIR, CUSTOM_TEMPLATES_DIR
 )
-from services.shared.models import TrainingConfig, TemplateData, JobAction
+from services.shared.models import TrainingConfig, TemplateData, JobAction, BaseModel
 from services.shared.message_queue import get_message_queue
 from services.shared.sqlite_queue import get_sqlite_queue
 from services.shared.utils import (
@@ -428,6 +428,48 @@ async def delete_custom_template(template_name: str):
             return {"status": "success", "message": f"Template '{template_name}' deleted successfully"}
         else:
             raise HTTPException(status_code=404, detail="Template not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+# New endpoint to save template to any path
+class TemplateSaveData(BaseModel):
+    path: str
+    workflow: Dict[str, Any]
+
+@app.post("/api/templates/save_to_path")
+async def save_template_to_path(template_save_data: TemplateSaveData):
+    """Save a template to any specified path"""
+    try:
+        # Validate that the path is within allowed directories to prevent security issues
+        template_path = Path(template_save_data.path)
+        
+        # Join the relative path with the project root to get the full path
+        abs_path = (PROJECT_ROOT / template_path).resolve()
+        
+        # Ensure the path is within allowed directories (PROJECT_ROOT)
+        project_root = PROJECT_ROOT.resolve()
+        if not str(abs_path).startswith(str(project_root)):
+            raise HTTPException(status_code=400, detail="Path is outside allowed directories")
+        
+        # Ensure the directory exists
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Add metadata
+        workflow_data = {
+            **template_save_data.workflow,
+            "timestamp": time.time(),
+            "version": "1.0"
+        }
+        
+        # Write the template to the specified path
+        with open(abs_path, 'w', encoding='utf-8') as f:
+            json.dump(workflow_data, f, indent=2, ensure_ascii=False)
+        
+        return {"status": "success", "message": f"Template saved to '{template_save_data.path}' successfully"}
     except HTTPException:
         raise
     except Exception as e:

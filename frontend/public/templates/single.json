@@ -63,7 +63,7 @@
         "resolution": "1024",
         "train_batch_size": 1,
         "num_train_epochs": 10,
-        "learning_rate": 1e-4,
+        "learning_rate": 0.0001,
         "optimizer": "adamw",
         "mixed_precision": "bf16",
         "seed": 4321,
@@ -75,11 +75,11 @@
         "validation_epochs": 1,
         "validation_ratio": 0.1,
         "weighting_scheme": "logit_normal",
-        "logit_mean": 0.0,
-        "logit_std": 1.0,
+        "logit_mean": 0,
+        "logit_std": 1,
         "mode_scale": 1.29,
-        "guidance_scale": 1.0,
-        "mask_dropout": 0.0,
+        "guidance_scale": 1,
+        "mask_dropout": 0,
         "freeze_transformer_layers": "",
         "freeze_single_transformer_layers": "",
         "pinned": true
@@ -113,7 +113,7 @@
         "train_data_dir": "F:/ImageSet/longcat"
       },
       "width": 348,
-      "height": 502
+      "height": 526
     },
     {
       "id": "img_list",
@@ -328,6 +328,6 @@
       "targetHandle": "in"
     }
   ],
-  "timestamp": 1766056860887,
+  "timestamp": 1767521008.5713792,
   "version": "1.0"
 }

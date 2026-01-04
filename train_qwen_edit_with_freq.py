@@ -1460,6 +1460,7 @@ def main(args, config_args):
                     cache_datarows = cache_datarows + cache_datarows.copy()
                     validation_ratio = 0.5
                     train_ratio = 0.5
+                print("len(cache_datarows): ", len(cache_datarows))
                 training_datarows, validation_datarows = train_test_split(
                     cache_datarows,
                     train_size=train_ratio,

@@ -21,6 +21,7 @@ interface LoadWorkflowPanelProps {
   setNodes: (nodes: any[]) => void;
   setEdges: (edges: any[]) => void;
   lang: 'en' | 'cn';
+  addToast?: (message: string, type?: 'success' | 'error' | 'info' | 'warning', duration?: number) => void;
 }
 
 export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
@@ -34,7 +35,8 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
   currentWorkflow,
   setNodes,
   setEdges,
-  lang
+  lang,
+  addToast
 }) => {
   const t = (key: keyof typeof TRANSLATIONS.en) => TRANSLATIONS[lang][key] || key;
   
@@ -307,6 +309,44 @@ export const LoadWorkflowPanel: React.FC<LoadWorkflowPanelProps> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Are you sure you want to save the current workflow to replace template '${template.name}'?`)) {
+                          // Save the current workflow to replace the template at its exact path
+                          fetch('/api/templates/save_to_path', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              path: `frontend/public${template.path}`,
+                              workflow: currentWorkflow
+                            })
+                          })
+                          .then(response => {
+                            if (!response.ok) {
+                              return response.json().then(err => { throw new Error(err.detail || 'Failed to save template'); });
+                            }
+                            return response.json();
+                          })
+                          .then(result => {
+                            console.log('Template saved:', result);
+                            // Refresh templates in LoadWorkflowPanel
+                            window.dispatchEvent(new CustomEvent('refreshTemplates'));
+                            // Show success toast
+                            if (addToast) addToast('Template saved successfully!', 'success');
+                          })
+                          .catch(error => {
+                            console.error('Error saving template:', error);
+                            if (addToast) addToast('Failed to save template: ' + error.message, 'error');
+                          });
+                        }
+                      }}
+                      className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors"
+                      title="Save current workflow to this template"
+                    >
+                      Save
+                    </button>
                     <button
                       onClick={() => handleLoadTemplate(template.path)}
                       className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"

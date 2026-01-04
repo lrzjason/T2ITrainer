@@ -1,0 +1,438 @@
+T2ITrainer使用文档：
+参考config_new_pairs.json设置
+output_dir: 在无影灵构上一般为/media/user_datadisk/output
+/media/user_datadisk是数据盘，默认40GB
+
+pretrained_model_name_or_path: /root/T2ITrainer/qwen_models/qwen_image_edit_2511
+暂时只下载了qwen_image_edit_2511，别的模型需要自行下载到数据盘，然后设置链接
+
+resolution: 优先选择768或者512，多图参考需要占用比较多的计算资源，低分辨率比较合适
+
+dataset_configs: 训练集配置
+dataset_configs里面可以存在多个训练集配置，每个训练集配置会被随机选择进行训练，可以配置多个不同的训练集进行训练
+每个dataset_config存在以下几个主要设置：
+train_data_dir: 文件夹路径
+resolution: 分桶分辨率，支持：2048, 1536, 1328, 1024, 768, 512
+recreate_cache: 是否重新缓存
+repeats: 该训练集在一个epoch里面重复多少次
+image_configs: 数据集图像配对，例子：
+{
+    "train": {
+        "suffix": "_T"
+    },
+    "reference": {
+        "suffix": "_R"
+    },
+    "details": {
+        "suffix": "_D"
+    }
+},
+这样的配置说明训练集里面包含xxxx_T以及xxxx_R的训练配对，
+可以在后面的配置中用train和reference指代xxxx_T, xxxx_R的图像文件
+
+target_configs: 训练目标配置，例子：
+{
+    "target_train": [
+        {
+            "image": "train"
+        }
+    ]
+},
+target_train为该target_config的名字和图像没有直接关联，
+target_train是一个列表，允许设置多于一张的训练目标，不过暂时我们只设置一张
+里面的"image": 对应的是前面image_configs设置的图片，名字需要和在image_configs里面设置的一致
+
+reference_configs: 参考目标配置，例子：
+{
+    "reference_train": [
+        {
+            "image": "reference"
+        },
+        {
+            "image": "details"
+        }
+    ],
+}
+和target_configs基本一致，不过在参考配置中，我们进行多图训练更有可能会设置多于一张参考图,
+实际图片的排序和设置的先后次序有关，第一张会排左边，然后到第二，如此类推
+reference_configs也可以设置不同的先后次序，比如：
+{
+    "reference_train1": [
+        {
+            "image": "reference"
+        },
+        {
+            "image": "details"
+        }
+    ],
+    "reference_train2": [
+        {
+            "image": "details"
+        },
+        {
+            "image": "reference"
+        }
+    ],
+}
+这样就有两个不同的顺序，在后面的设置中可以用到
+
+caption_configs: 标注配置，例子：
+{
+    "train_caption": {
+        "image": "train",
+        "ext": ".txt",
+        "reference_list": {
+            "reference_config": "reference_train",
+            "resize": "384",
+            "dropout": 0,
+            "min_length": 1
+        }
+    }
+}
+train_caption是这一个caption_config的名字，后面会用到
+image是找到上面image_configs里面设置的图像文件，然后根据这个图像文件
+ext根据image指定的文件替换后缀，比如: 
+"image": "train",
+"ext": ".txt",
+首先会找到xxxx_T.png，然后找到对应的xxxx_T.txt，图像后缀.jpg, .png. webp等都能找到
+reference_list会把选定的reference_config送到vl里面一起编码进embedding
+reference_config指定在reference_configs里设置的名字，比如reference_train
+resize指定图像缩放的分桶，默认384，也可以尝试512，不推荐其他分桶
+dropout会随机丢弃参考图送到vl的概率，默认为0
+min_length保留最少有多少张图送到vl编码，默认为1，dropout为0的话不用管
+
+"batch_configs": 训练批次配置，例子：
+[
+    {
+        "target_config": "target_train",
+        "caption_config": "train_caption",
+        "caption_dropout": 0.1,
+        "reference_config": "target_train"
+    }
+]
+训练批次配置允许存在多个不同的配置，会随机从不同的配置中选择进行训练
+target_config指定使用在前面target_configs中配置的名字，比如target_train
+caption_config指定使用在前面caption_configs中配置的名字，比如train_caption
+caption_dropout有多少概率会零化condition embedding，
+reference_config指定使用在前面reference_configs中配置的名字，比如reference_train
+
+下面是一个更复杂的配置例子：
+"dataset_configs": [
+    {
+        "train_data_dir": "/media/user_datadisk/dataset/any2real_dataset_output",
+        "resolution": "512",
+        "recreate_cache": true,
+        "repeats": 8,
+        "image_configs": {
+            "D": {
+                "suffix": "_D"
+            },
+            "F": {
+                "suffix": "_F"
+            },
+            "G": {
+                "suffix": "_G"
+            },
+            "L": {
+                "suffix": "_L"
+            },
+            "O": {
+                "suffix": "_O"
+            },
+            "S": {
+                "suffix": "_S"
+            },
+            "T": {
+                "suffix": "_T"
+            }
+        },
+        "target_configs": {
+            "T": [
+                {
+                    "image": "T"
+                }
+            ]
+        },
+        "reference_configs": {
+            "train_D": [
+                {
+                    "image": "D"
+                }
+            ],
+            "train_F": [
+                {
+                    "image": "F"
+                }
+            ],
+            "train_G": [
+                {
+                    "image": "G"
+                }
+            ],
+            "train_L": [
+                {
+                    "image": "L"
+                }
+            ],
+            "train_O": [
+                {
+                    "image": "O"
+                }
+            ],
+            "train_S": [
+                {
+                    "image": "S"
+                }
+            ]
+        },
+        "caption_configs": {
+            "train_D": {
+                "ext": ".txt",
+                "image": "D",
+                "reference_list": {
+                    "reference_config": "train_D",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_F": {
+                "ext": ".txt",
+                "image": "F",
+                "reference_list": {
+                    "reference_config": "train_F",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_G": {
+                "ext": ".txt",
+                "image": "G",
+                "reference_list": {
+                    "reference_config": "train_G",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_L": {
+                "ext": ".txt",
+                "image": "L",
+                "reference_list": {
+                    "reference_config": "train_L",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_O": {
+                "ext": ".txt",
+                "image": "O",
+                "reference_list": {
+                    "reference_config": "train_O",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_S": {
+                "ext": ".txt",
+                "image": "S",
+                "reference_list": {
+                    "reference_config": "train_S",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            }
+        },
+        "batch_configs": [
+            {
+                "target_config": "T",
+                "caption_config": "train_D",
+                "caption_dropout": 0.1,
+                "reference_config": "train_D"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_F",
+                "caption_dropout": 0.1,
+                "reference_config": "train_F"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_G",
+                "caption_dropout": 0.1,
+                "reference_config": "train_G"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_L",
+                "caption_dropout": 0.1,
+                "reference_config": "train_L"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_O",
+                "caption_dropout": 0.1,
+                "reference_config": "train_O"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_S",
+                "caption_dropout": 0.1,
+                "reference_config": "train_S"
+            }
+        ]
+    },
+    {
+        "train_data_dir": "/media/user_datadisk/dataset/old_dataset",
+        "resolution": "512",
+        "recreate_cache": true,
+        "repeats": 30,
+        "image_configs": {
+            "DT": {
+                "suffix": "_DT"
+            },
+            "FT": {
+                "suffix": "_FT"
+            },
+            "GT": {
+                "suffix": "_GT"
+            },
+            "LT": {
+                "suffix": "_R"
+            },
+            "T": {
+                "suffix": "_T"
+            },
+            "WT": {
+                "suffix": "_WT"
+            },
+            "R": {
+                "suffix": "_R"
+            }
+        },
+        "target_configs": {
+            "T": [
+                {
+                    "image": "T",
+                    "from_image": "DT"
+                }
+            ]
+        },
+        "reference_configs": {
+            "train_FT": [
+                {
+                    "image": "FT"
+                }
+            ],
+            "train_GT": [
+                {
+                    "image": "GT"
+                }
+            ],
+            "train_LT": [
+                {
+                    "image": "LT"
+                }
+            ],
+            "train_R": [
+                {
+                    "image": "R"
+                }
+            ],
+            "train_WT": [
+                {
+                    "image": "WT"
+                }
+            ]
+        },
+        "caption_configs": {
+            "train_FT": {
+                "ext": ".txt",
+                "image": "FT",
+                "reference_list": {
+                    "reference_config": "train_FT",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_GT": {
+                "ext": ".txt",
+                "image": "GT",
+                "reference_list": {
+                    "reference_config": "train_GT",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_LT": {
+                "ext": ".txt",
+                "image": "LT",
+                "reference_list": {
+                    "reference_config": "train_LT",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_R": {
+                "ext": ".txt",
+                "image": "R",
+                "reference_list": {
+                    "reference_config": "train_R",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            },
+            "train_WT": {
+                "ext": ".txt",
+                "image": "WT",
+                "reference_list": {
+                    "reference_config": "train_WT",
+                    "resize": "384",
+                    "dropout": 0,
+                    "min_length": 1
+                }
+            }
+        },
+        "batch_configs": [
+            {
+                "target_config": "T",
+                "caption_config": "train_FT",
+                "caption_dropout": 0.1,
+                "reference_config": "train_FT"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_GT",
+                "caption_dropout": 0.1,
+                "reference_config": "train_GT"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_LT",
+                "caption_dropout": 0.1,
+                "reference_config": "train_LT"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_R",
+                "caption_dropout": 0.1,
+                "reference_config": "train_R"
+            },
+            {
+                "target_config": "T",
+                "caption_config": "train_WT",
+                "caption_dropout": 0.1,
+                "reference_config": "train_WT"
+            }
+        ]
+    }
+]
+这个例子使用多个数据集配置，多个标注配置，多个单图参考配置，多个批次配置，训练目标是多个不同的“单”图参考组合训练，他们的训练目标都是T这一张图
