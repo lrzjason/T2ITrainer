@@ -915,32 +915,6 @@ def main(args, config_args):
             print(f"Error parsing freeze_transformer_layers: {e}")
             raise
     
-    # Apply unfrozen target modules filtering if not using LoKr
-    if not args.use_lokr:
-        # Import the function to get unfrozen target modules
-        import re
-        
-        # Create transformer instance first to access its structure
-        target_modules = []
-        for name, module in transformer.named_modules():
-            # Check if it's one of our target module types
-            if any(target in name for target in base_target_modules):
-                # Extract layer number for Qwen model - looking for patterns like transformer_blocks.0.attn.to_k
-                layer_match = re.search(r'transformer_blocks\.(\d+)', name)
-                if layer_match:
-                    layer_num = int(layer_match.group(1))
-                    # Only add if this layer is NOT in frozen layers
-                    if layer_num not in freezed_layers:
-                        target_modules.append(name)
-                else:
-                    # If no layer number found (like norm layers, input/output), include it
-                    target_modules.append(name)
-        
-        print(f"Filtered target modules to exclude frozen layers. Total: {len(target_modules)} modules")
-    else:
-        # For LoKr, use the original base_target_modules
-        target_modules = base_target_modules
-    
     def collate_fn(examples):
         return examples
     
@@ -1561,6 +1535,32 @@ def main(args, config_args):
     # transformer.select_rope(args.use_new_rope)
     flush()
 
+    # Apply unfrozen target modules filtering if not using LoKr
+    if not args.use_lokr:
+        # Import the function to get unfrozen target modules
+        import re
+        
+        # Create transformer instance first to access its structure
+        target_modules = []
+        for name, module in transformer.named_modules():
+            # Check if it's one of our target module types
+            if any(target in name for target in base_target_modules):
+                # Extract layer number for Qwen model - looking for patterns like transformer_blocks.0.attn.to_k
+                layer_match = re.search(r'transformer_blocks\.(\d+)', name)
+                if layer_match:
+                    layer_num = int(layer_match.group(1))
+                    # Only add if this layer is NOT in frozen layers
+                    if layer_num not in freezed_layers:
+                        target_modules.append(name)
+                else:
+                    # If no layer number found (like norm layers, input/output), include it
+                    target_modules.append(name)
+        
+        print(f"Filtered target modules to exclude frozen layers. Total: {len(target_modules)} modules")
+    else:
+        # For LoKr, use the original base_target_modules
+        target_modules = base_target_modules
+    
     if "quantization_config" in transformer.config:
         transformer = prepare_model_for_kbit_training(transformer, use_gradient_checkpointing=False)
     else:

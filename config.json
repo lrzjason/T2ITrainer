@@ -1,13 +1,14 @@
 {
     "script": "train_qwen_image_edit_new.py",
     "config_path": "config_new_pairs_multiple.json",
+    "output_dir": "F:\\models\\Lora\\q2511",
+    "train_data_dir": "F:\\ImageSet\\q2511_test",
+    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
     "seed": 4321,
     "mixed_precision": "bf16",
     "report_to": "all",
     "lr_warmup_steps": 0,
-    "output_dir": "F:\\models\\Lora\\q2511",
     "save_name": "q2511_test",
-    "train_data_dir": "F:\\ImageSet\\q2511_test",
     "optimizer": "adamw",
     "lr_scheduler": "constant",
     "learning_rate": 0.0001,
@@ -22,7 +23,6 @@
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
     "model_path": "",
     "resume_from_checkpoint": null,
     "recreate_cache": false,
@@ -30,7 +30,7 @@
     "caption_dropout": 0.1,
     "cosine_restarts": 1,
     "max_time_steps": 0,
-    "blocks_to_swap": 1,
+    "blocks_to_swap": 0,
     "mask_dropout": 0.0,
     "reg_ratio": 0.0,
     "reg_timestep": 0,
@@ -40,9 +40,8 @@
     "use_lokr": false,
     "rank_alpha": 16.0,
     "lokr_factor": 8,
-    "image_configs": {},
-    "caption_configs": {},
-    "training_set": null,
+    "use_freq_loss": true,
+    "freeze_transformer_layers": "0-10, 50-59",
     "dataset_configs": [
         {
             "train_data_dir": "F:\\ImageSet\\q2511_test\\dataset1",
@@ -91,6 +90,11 @@
                     {
                         "sample_type": "from_same_name",
                         "image": "AT"
+                    }
+                ],
+                "train_GT": [
+                    {
+                        "image": "GT"
                     }
                 ],
                 "train_FT": [
@@ -236,5 +240,8 @@
                 }
             ]
         }
-    ]
+    ],
+    "image_configs": {},
+    "caption_configs": {},
+    "training_set": null
 }

@@ -1,31 +1,31 @@
 {
     "script": "train_qwen_image_edit_new.py",
     "config_path": "config_new_pairs_multiple.json",
-    "output_dir": "F:/models/qwen/q2511",
-    "train_data_dir": "F:\\ImageSet\\general_editing\\any2real_dataset_test",
-    "pretrained_model_name_or_path": "F:/HF_Models/Qwen/qwen_image_edit_2511_nf4",
+    "output_dir": "F:\\models\\Lora\\q2511",
+    "train_data_dir": "F:\\ImageSet\\q2511_test",
+    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
     "seed": 4321,
     "mixed_precision": "bf16",
     "report_to": "all",
     "lr_warmup_steps": 0,
-    "save_name": "any2real",
+    "save_name": "q2511_test",
     "optimizer": "adamw",
-    "lr_scheduler": "cosine",
+    "lr_scheduler": "constant",
     "learning_rate": 0.0001,
     "train_batch_size": 1,
-    "repeats": 8,
+    "repeats": 1,
     "gradient_accumulation_steps": 1,
     "num_train_epochs": 10,
     "save_model_epochs": 1,
     "validation_epochs": 1,
-    "rank": 32,
+    "rank": 16,
     "skip_epoch": 0,
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
     "model_path": "",
-    "resume_from_checkpoint": "",
-    "recreate_cache": true,
+    "resume_from_checkpoint": null,
+    "recreate_cache": false,
     "resolution": "1024",
     "caption_dropout": 0.1,
     "cosine_restarts": 1,
@@ -44,146 +44,151 @@
     "freeze_transformer_layers": "0-10, 50-59",
     "dataset_configs": [
         {
-            "train_data_dir": "F:\\ImageSet\\general_editing\\any2real_dataset_test",
-            "resolution": "512",
+            "train_data_dir": "F:\\ImageSet\\q2511_test\\dataset1",
+            "resolution": "1024",
             "recreate_cache": false,
-            "repeats": 8,
+            "repeats": 1,
             "image_configs": {
-                "A": {
-                    "suffix": "_A"
+                "AT": {
+                    "suffix": "_AT"
                 },
-                "D": {
-                    "suffix": "_D"
+                "DT": {
+                    "suffix": "_DT"
                 },
-                "F": {
-                    "suffix": "_F"
+                "FT": {
+                    "suffix": "_FT"
                 },
-                "G": {
-                    "suffix": "_G"
+                "GT": {
+                    "suffix": "_GT"
                 },
-                "L": {
-                    "suffix": "_L"
+                "LT": {
+                    "suffix": "_LT"
                 },
-                "O": {
-                    "suffix": "_O"
+                "R": {
+                    "suffix": "_R"
                 },
-                "S": {
-                    "suffix": "_S"
+                "ST": {
+                    "suffix": "_ST"
                 },
                 "T": {
                     "suffix": "_T"
+                },
+                "WT": {
+                    "suffix": "_WT"
                 }
             },
             "target_configs": {
                 "T": [
                     {
-                        "image": "T"
+                        "image": "T",
+                        "from_image": "DT"
                     }
                 ]
             },
             "reference_configs": {
-                "train_A": [
+                "train_AT": [
                     {
-                        "image": "A"
+                        "sample_type": "from_same_name",
+                        "image": "AT"
                     }
                 ],
-                "train_D": [
+                "train_GT": [
                     {
-                        "image": "D"
+                        "image": "GT"
                     }
                 ],
-                "train_F": [
+                "train_FT": [
                     {
-                        "image": "F"
+                        "image": "FT"
                     }
                 ],
-                "train_G": [
+                "train_LT": [
                     {
-                        "image": "G"
+                        "image": "LT"
                     }
                 ],
-                "train_L": [
+                "train_ST": [
                     {
-                        "image": "L"
+                        "image": "ST"
                     }
                 ],
-                "train_O": [
+                "train_R": [
                     {
-                        "image": "O"
+                        "image": "R"
                     }
                 ],
-                "train_S": [
+                "train_WT": [
                     {
-                        "image": "S"
+                        "image": "WT"
                     }
                 ]
             },
             "caption_configs": {
-                "train_A": {
+                "train_AT": {
                     "ext": ".txt",
-                    "image": "A",
+                    "image": "AT",
                     "reference_list": {
-                        "reference_config": "train_A",
+                        "reference_config": "AT",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_D": {
+                "train_GT": {
                     "ext": ".txt",
-                    "image": "D",
+                    "image": "GT",
                     "reference_list": {
-                        "reference_config": "train_D",
+                        "reference_config": "GT",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_F": {
+                "train_FT": {
                     "ext": ".txt",
-                    "image": "F",
+                    "image": "FT",
                     "reference_list": {
-                        "reference_config": "train_F",
+                        "reference_config": "FT",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_G": {
+                "train_LT": {
                     "ext": ".txt",
-                    "image": "G",
+                    "image": "LT",
                     "reference_list": {
-                        "reference_config": "train_G",
+                        "reference_config": "LT",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_L": {
+                "train_ST": {
                     "ext": ".txt",
-                    "image": "L",
+                    "image": "ST",
                     "reference_list": {
-                        "reference_config": "train_L",
+                        "reference_config": "ST",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_O": {
+                "train_R": {
                     "ext": ".txt",
-                    "image": "O",
+                    "image": "R",
                     "reference_list": {
-                        "reference_config": "train_O",
+                        "reference_config": "R",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
                     }
                 },
-                "train_S": {
+                "train_WT": {
                     "ext": ".txt",
-                    "image": "S",
+                    "image": "WT",
                     "reference_list": {
-                        "reference_config": "train_S",
+                        "reference_config": "WT",
                         "resize": "384",
                         "dropout": 0,
                         "min_length": 1
@@ -193,47 +198,50 @@
             "batch_configs": [
                 {
                     "target_config": "T",
-                    "caption_config": "train_A",
+                    "caption_config": "train_AT",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_A"
+                    "reference_config": "train_AT"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_D",
+                    "caption_config": "train_GT",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_D"
+                    "reference_config": "train_GT"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_F",
+                    "caption_config": "train_FT",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_F"
+                    "reference_config": "train_FT"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_G",
+                    "caption_config": "train_LT",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_G"
+                    "reference_config": "train_LT"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_L",
+                    "caption_config": "train_ST",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_L"
+                    "reference_config": "train_ST"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_O",
+                    "caption_config": "train_R",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_O"
+                    "reference_config": "train_R"
                 },
                 {
                     "target_config": "T",
-                    "caption_config": "train_S",
+                    "caption_config": "train_WT",
                     "caption_dropout": 0.1,
-                    "reference_config": "train_S"
+                    "reference_config": "train_WT"
                 }
             ]
         }
-    ]
+    ],
+    "image_configs": {},
+    "caption_configs": {},
+    "training_set": null
 }
