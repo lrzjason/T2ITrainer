@@ -885,7 +885,7 @@ def main(args, config_args):
     )
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
-    if args.lora_layers is not None and args.lora_layers != "":
+    if args.lora_layers is not None and (args.lora_layers != "" or args.lora_layers != "all"):
         base_target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
         base_target_modules = [
@@ -1227,11 +1227,11 @@ def main(args, config_args):
                                 subfolder="tokenizer",
                             )
 
-                        if processor is None:
-                            processor = Qwen2VLProcessor.from_pretrained(
-                                args.pretrained_model_name_or_path,
-                                subfolder="processor",
-                            )
+                        # if processor is None:
+                        #     processor = Qwen2VLProcessor.from_pretrained(
+                        #         args.pretrained_model_name_or_path,
+                        #         subfolder="processor",
+                        #     )
                         
                         if text_encoder_one is None:
                             text_encoder_one = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -1297,10 +1297,12 @@ def main(args, config_args):
                             json_file = os.path.join(target_cache_dir, f"{basename}.json")
                             
                             if os.path.exists(json_file) and not recreate_cache:
+                                temp_dataset = embedding_objects['dataset']
+                                temp_bucket = embedding_object["bucket"]
                                 cache_datarows.append({
                                     "json_path": json_file,
-                                    "bucket": f"{embedding_objects["dataset"]}_{embedding_object["bucket"]}",
-                                    "dataset": embedding_objects["dataset"]
+                                    "bucket": f"{temp_dataset}_{temp_bucket}",
+                                    "dataset": temp_dataset
                                 })
                                 continue
                             
@@ -1344,29 +1346,29 @@ def main(args, config_args):
                                 
                                 if recreate_cache_caption or not os.path.exists(npz_path):
                                     image_list = []
-                                    if "reference_list" in caption_config:
-                                        reference_list_config = caption_config["reference_list"]
-                                        reference_key = reference_list_config["reference_config"]
-                                        # default resize is 384
-                                        resize = int(reference_list_config["resize"]) if "resize" in reference_list_config else 384
-                                        dropout = reference_list_config["dropout"] if "dropout" in reference_list_config else 0.0
-                                        min_length = reference_list_config["min_length"] if "min_length" in reference_list_config else 0
-                                        references = embedding_object["references"]
-                                        references_list = references[reference_key] if reference_key in references else []
-                                        if len(references_list) == 0:
-                                            print(f"Warning: no references found for reference key {reference_key} in image pair {mapping_key}")
-                                        # if dropout is 0.1, random is 0.2
-                                        # it means use image as reference
-                                        # if dropout is 0.2, random is 0.1
-                                        # it means use only text as reference
-                                        # because dropout is cache, each recreate cache will have different reference
+                                    # if "reference_list" in caption_config:
+                                        # reference_list_config = caption_config["reference_list"]
+                                        # reference_key = reference_list_config["reference_config"]
+                                        # # default resize is 384
+                                        # resize = int(reference_list_config["resize"]) if "resize" in reference_list_config else 384
+                                        # dropout = reference_list_config["dropout"] if "dropout" in reference_list_config else 0.0
+                                        # min_length = reference_list_config["min_length"] if "min_length" in reference_list_config else 0
+                                        # references = embedding_object["references"]
+                                        # references_list = references[reference_key] if reference_key in references else []
+                                        # if len(references_list) == 0:
+                                        #     print(f"Warning: no references found for reference key {reference_key} in image pair {mapping_key}")
+                                        # # if dropout is 0.1, random is 0.2
+                                        # # it means use image as reference
+                                        # # if dropout is 0.2, random is 0.1
+                                        # # it means use only text as reference
+                                        # # because dropout is cache, each recreate cache will have different reference
                                         
-                                        for ref_image_obj in references_list:
-                                            # use original image as reference path avoid double compression
-                                            original_image_path = ref_image_obj["original_image_path"]
-                                            if dropout < random.random() or len(image_list) <= min_length:
-                                                image = crop_image(original_image_path,resolution=resize)
-                                                image_list.append(image)
+                                        # for ref_image_obj in references_list:
+                                        #     # use original image as reference path avoid double compression
+                                        #     original_image_path = ref_image_obj["original_image_path"]
+                                        #     if dropout < random.random() or len(image_list) <= min_length:
+                                        #         image = crop_image(original_image_path,resolution=resize)
+                                        #         image_list.append(image)
                                         
                                     prompt_embeds, prompt_embeds_mask, prompt_embed_length, drop_index = compute_text_embeddings(
                                         text_encoders,
@@ -1399,10 +1401,12 @@ def main(args, config_args):
                             with open(json_file, "w") as f:
                                 json.dump(embedding_object, f, indent=4)
                             
+                            temp_dataset = embedding_objects["dataset"]
+                            temp_bucket = embedding_object["bucket"]
                             cache_datarows.append({
                                 "json_path": json_file,
-                                "bucket": f"{embedding_objects["dataset"]}_{embedding_object["bucket"]}",
-                                "dataset": embedding_objects["dataset"]
+                                "bucket": f"{temp_dataset}_{temp_bucket}",
+                                "dataset": temp_dataset
                             })
                         
                         text_encoder_one.to("cpu")
@@ -1467,7 +1471,7 @@ def main(args, config_args):
         with open(val_metadata_path, "w", encoding='utf-8') as outfile:
             outfile.write(json.dumps(val_dataset_datarows))
     
-        del vae, tokenizer_one, processor, text_encoder_one
+        del vae, tokenizer_one, text_encoder_one
         flush()
     
     # del accelerator to release memory
@@ -1600,6 +1604,7 @@ def main(args, config_args):
         print("\nAdding LoRA adapters to the model...")
         # print gpu rank
         print(f"GPU rank: {accelerator.process_index}")
+        print("target_modules: ", target_modules)
         # now we will add new LoRA weights to the attention layers
         transformer_lora_config = LoraConfig(
             # use_dora=args.use_dora,

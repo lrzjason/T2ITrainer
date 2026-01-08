@@ -909,7 +909,7 @@ def main(args, config_args):
     )
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
-    if args.lora_layers is not None and args.lora_layers != "":
+    if args.lora_layers is not None and (args.lora_layers != "" or args.lora_layers != "all"):
         base_target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
         base_target_modules = [
@@ -1323,7 +1323,7 @@ def main(args, config_args):
                             if os.path.exists(json_file) and not recreate_cache:
                                 cache_datarows.append({
                                     "json_path": json_file,
-                                    "bucket": f"{embedding_objects["dataset"]}_{embedding_object["bucket"]}",
+                                    "bucket": f"{embedding_objects['dataset']}_{embedding_object['bucket']}",
                                     "dataset": embedding_objects["dataset"]
                                 })
                                 continue

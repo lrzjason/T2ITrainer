@@ -40,6 +40,8 @@
     "use_two_captions": false,
     "slider_positive_scale": 1,
     "slider_negative_scale": -1,
+    "freeze_transformer_layers": "",
+    "freeze_single_transformer_layers": "",
     "dataset_configs":
     [
         {
