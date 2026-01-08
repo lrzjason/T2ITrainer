@@ -8,39 +8,31 @@
         "y": 300
       },
       "data": {
-        "scriptName": "train_qwen_image_new.py",
+        "scriptName": "train_longcat.py",
         "configPath": "config_new.json"
       },
       "width": 265,
-      "height": 380,
-      "selected": false,
-      "dragging": false
+      "height": 380
     },
     {
       "id": "dir",
       "type": "directoryNode",
       "position": {
-        "x": 445.93953456801535,
-        "y": -14.210828265730498
+        "x": 448.6026832460733,
+        "y": -12.879253926701546
       },
       "data": {
-        "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_nf4",
-        "output_dir": "F:\\models\\qwen\\qwen_image_test",
-        "save_name": "test_single",
-        "logging_dir": "F:\\models\\qwen\\qwen_image_test\\logs",
-        "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo",
+        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
+        "output_dir": "F:/ImageSet/longcat_test_edit_output",
+        "save_name": "test_edit",
+        "logging_dir": "/home/waas/kontext_output/logs",
+        "train_data_dir": "F:/ImageSet/longcat",
         "model_path": "",
         "vae_path": "",
         "pinned": true
       },
       "width": 514,
-      "height": 341,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 445.93953456801535,
-        "y": -14.210828265730498
-      }
+      "height": 341
     },
     {
       "id": "lora",
@@ -100,7 +92,7 @@
       "type": "datasetListNode",
       "position": {
         "x": 450,
-        "y": 1000
+        "y": 997.854139331251
       },
       "data": {
         "slots": [
@@ -108,7 +100,13 @@
         ]
       },
       "width": 250,
-      "height": 155
+      "height": 155,
+      "selected": true,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 450,
+        "y": 997.854139331251
+      }
     },
     {
       "id": "dataset",
@@ -118,12 +116,10 @@
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo"
+        "train_data_dir": "F:/ImageSet/longcat"
       },
       "width": 348,
-      "height": 526,
-      "selected": true,
-      "dragging": false
+      "height": 526
     },
     {
       "id": "img_list",
@@ -340,6 +336,6 @@
       "targetHandle": "in"
     }
   ],
-  "timestamp": 1767870723.0836658,
+  "timestamp": 1767878277.861862,
   "version": "1.0"
 }

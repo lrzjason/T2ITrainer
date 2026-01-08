@@ -299,6 +299,13 @@ export const FlowEditor = () => {
       );
   }, [setNodes]);
 
+  const removeEdgesBySourceHandle = useCallback((nodeId: string, handleId: string) => {
+    snapshot();
+    setEdges(edges => edges.filter(edge => 
+      !(edge.source === nodeId && edge.sourceHandle === handleId)
+    ));
+  }, [snapshot, setEdges]);
+
   const onUndo = useCallback(() => {
     if (history.length === 0) return;
     const previous = history[history.length - 1];
@@ -948,7 +955,7 @@ export const FlowEditor = () => {
     <FlowContext.Provider value={{
         updateNodeData, deleteNode, copyNode, toggleLock, undo: onUndo, redo: onRedo,
         canUndo: history.length > 0, canRedo: future.length > 0,
-        lang, theme
+        lang, theme, removeEdgesBySourceHandle
     }}>
         <div className="relative h-screen w-screen bg-zinc-200 dark:bg-zinc-950 overflow-hidden transition-colors duration-300" onDrop={onDrop} onDragOver={onDragOver}>
             

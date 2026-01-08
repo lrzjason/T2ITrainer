@@ -14,6 +14,7 @@ export interface FlowContextType {
     canRedo: boolean;
     lang: Language;
     theme: Theme;
+    removeEdgesBySourceHandle: (nodeId: string, handleId: string) => void;
 }
 
 export const FlowContext = createContext<FlowContextType>({
@@ -26,7 +27,8 @@ export const FlowContext = createContext<FlowContextType>({
     canUndo: false,
     canRedo: false,
     lang: 'en',
-    theme: 'dark'
+    theme: 'dark',
+    removeEdgesBySourceHandle: () => {}
 });
 
 export const useFlowContext = () => useContext(FlowContext);

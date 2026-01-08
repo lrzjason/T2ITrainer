@@ -11,7 +11,7 @@ const checkboxClass = "appearance-none w-3.5 h-3.5 border border-zinc-400 dark:b
 
 // --- Dataset List Node (Aggregator) ---
 export const DatasetListNode = memo(({ id, data, selected }: NodeProps) => {
-    const { updateNodeData, lang } = useFlowContext();
+    const { updateNodeData, lang, removeEdgesBySourceHandle } = useFlowContext();
     const t = TRANSLATIONS[lang];
     const [slots, setSlots] = useState<string[]>(data.slots || ['dataset_0']);
 
@@ -32,7 +32,12 @@ export const DatasetListNode = memo(({ id, data, selected }: NodeProps) => {
     };
 
     const removeSlot = (slotToRemove: string) => {
-        updateSlots(slots.filter(s => s !== slotToRemove));
+        // Remove the slot from the local state
+        const filteredSlots = slots.filter(s => s !== slotToRemove);
+        updateSlots(filteredSlots);
+        
+        // Remove any edges connected to this slot
+        removeEdgesBySourceHandle(id, slotToRemove);
     };
 
     return (

@@ -8,13 +8,11 @@
         "y": 300
       },
       "data": {
-        "scriptName": "train_qwen_image_edit_new.py",
-        "configPath": "config_new_pairs_multiple.json"
+        "scriptName": "train_longcat.py",
+        "configPath": "config_new.json"
       },
       "width": 265,
-      "height": 380,
-      "selected": false,
-      "dragging": false
+      "height": 380
     },
     {
       "id": "dir",
@@ -24,19 +22,17 @@
         "y": -12.879253926701546
       },
       "data": {
-        "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
-        "output_dir": "F:\\models\\Lora\\q2511",
-        "save_name": "q2511_test",
-        "logging_dir": "",
-        "train_data_dir": "F:\\ImageSet\\q2511_test",
+        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
+        "output_dir": "F:/ImageSet/longcat_test_edit_output",
+        "save_name": "test_edit",
+        "logging_dir": "/home/waas/kontext_output/logs",
+        "train_data_dir": "F:/ImageSet/longcat",
         "model_path": "",
         "vae_path": "",
         "pinned": true
       },
       "width": 514,
-      "height": 341,
-      "selected": false,
-      "dragging": false
+      "height": 341
     },
     {
       "id": "lora",
@@ -54,9 +50,7 @@
         "pinned": true
       },
       "width": 429,
-      "height": 249,
-      "selected": false,
-      "dragging": false
+      "height": 249
     },
     {
       "id": "misc",
@@ -76,7 +70,7 @@
         "gradient_checkpointing": true,
         "caption_dropout": 0.1,
         "save_model_epochs": 1,
-        "blocks_to_swap": 0,
+        "blocks_to_swap": 10,
         "recreate_cache": false,
         "validation_epochs": 1,
         "validation_ratio": 0.1,
@@ -91,77 +85,63 @@
         "pinned": true
       },
       "width": 786,
-      "height": 768,
-      "selected": false,
-      "dragging": false
+      "height": 869
     },
     {
       "id": "ds_list",
       "type": "datasetListNode",
       "position": {
         "x": 450,
-        "y": 1000
+        "y": 997.854139331251
       },
       "data": {
         "slots": [
-          "dataset_0",
-          "dataset_1"
+          "dataset_0"
         ]
       },
       "width": 250,
-      "height": 188,
-      "selected": false
+      "height": 155,
+      "selected": true,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 450,
+        "y": 997.854139331251
+      }
     },
     {
-      "id": "dataset1",
+      "id": "dataset",
       "type": "datasetConfigNode",
       "position": {
         "x": 762.2724476439791,
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:\\ImageSet\\q2511_test\\dataset1"
+        "train_data_dir": "F:/ImageSet/longcat"
       },
       "width": 348,
-      "height": 526,
-      "selected": false,
-      "dragging": false
+      "height": 526
     },
     {
-      "id": "img_list1",
+      "id": "img_list",
       "type": "imageListNode",
       "position": {
-        "x": 1201.1592027909123,
-        "y": 803.477608372737
+        "x": 1200,
+        "y": 800
       },
       "data": {
         "slots": [
-          "img_0",
-          "img_g1dtb",
-          "img_la8b6",
-          "img_y592k",
-          "img_vmkhs",
-          "img_7ixp2",
-          "img_om66u",
-          "img_8yc20",
-          "img_oayu6"
+          "img_0"
         ]
       },
       "width": 250,
-      "height": 449,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 1201.1592027909123,
-        "y": 803.477608372737
-      }
+      "height": 183
     },
     {
-      "id": "tgt_list1",
+      "id": "tgt_list",
       "type": "targetListNode",
       "position": {
-        "x": 1196.9408454944025,
-        "y": 1313.7238720557013
+        "x": 1200,
+        "y": 1000
       },
       "data": {
         "slots": [
@@ -169,946 +149,98 @@
         ]
       },
       "width": 250,
-      "height": 183,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1196.9408454944025,
-        "y": 1313.7238720557013
-      },
-      "dragging": false
+      "height": 183
     },
     {
-      "id": "ref_list1",
-      "type": "referenceListNode",
-      "position": {
-        "x": 1198.4704227472012,
-        "y": 1559.6111896396665
-      },
-      "data": {
-        "slots": [
-          "ref_0",
-          "ref_1qvwj",
-          "ref_8d22n",
-          "ref_mm6y1",
-          "ref_ghku1",
-          "ref_wrmvy",
-          "ref_qlazy"
-        ]
-      },
-      "width": 250,
-      "height": 383,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1198.4704227472012,
-        "y": 1559.6111896396665
-      },
-      "dragging": false
-    },
-    {
-      "id": "cap_list1",
+      "id": "cap_list",
       "type": "captionListNode",
       "position": {
-        "x": 1161.628275294498,
-        "y": 2786.738658577503
+        "x": 1206.08217443617,
+        "y": 1300.504678493624
       },
       "data": {
         "slots": [
-          "cap_0",
-          "cap_pxv0w",
-          "cap_i1unk",
-          "cap_7o599",
-          "cap_femf2",
-          "cap_z3dzu",
-          "cap_ft1z6"
+          "cap_0"
         ]
       },
       "width": 250,
-      "height": 383,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1161.628275294498,
-        "y": 2786.738658577503
-      },
-      "dragging": false
+      "height": 183
     },
     {
-      "id": "batch_list1",
+      "id": "batch_list",
       "type": "batchListNode",
       "position": {
-        "x": 1133.2995891547798,
-        "y": 4203.81912852181
+        "x": 1203.649304661702,
+        "y": 1567.6609365383058
       },
       "data": {
         "slots": [
-          "batch_0",
-          "batch_4nhwg",
-          "batch_728fi",
-          "batch_8r8dt",
-          "batch_1y8qv",
-          "batch_ijjtp",
-          "batch_1o6qa"
+          "batch_0"
         ]
       },
       "width": 250,
-      "height": 383,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1133.2995891547798,
-        "y": 4203.81912852181
-      },
-      "dragging": false
+      "height": 183
     },
     {
-      "id": "img_1_1",
+      "id": "img_1",
       "type": "imageConfigNode",
       "position": {
-        "x": 1603.0591545055975,
-        "y": 742.6168133174176
+        "x": 1600,
+        "y": 800
       },
       "data": {
-        "key": "AT",
-        "suffix": "_AT"
+        "key": "train",
+        "suffix": ""
       },
       "width": 348,
       "height": 136,
       "selected": false,
-      "positionAbsolute": {
-        "x": 1603.0591545055975,
-        "y": 742.6168133174176
-      },
       "dragging": false
     },
     {
-      "id": "tgt_1_1",
+      "id": "tgt_1",
       "type": "targetConfigNode",
       "position": {
-        "x": 2412.972579100083,
-        "y": 1275.7768468385627
+        "x": 1600,
+        "y": 1000
       },
       "data": {
-        "key": "T",
-        "image": "T",
-        "from_image": "DT"
+        "key": "train",
+        "image": "train",
+        "from_image": ""
       },
       "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2412.972579100083,
-        "y": 1275.7768468385627
-      },
-      "dragging": false
+      "height": 191
     },
     {
-      "id": "ref_group_1_1",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1587.9336239192307,
-        "y": 1587.6727220019025
-      },
-      "data": {
-        "key": "train_AT",
-        "slots": [
-          "entry_0"
-        ]
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1587.9336239192307,
-        "y": 1587.6727220019025
-      },
-      "dragging": false
-    },
-    {
-      "id": "ref_entry_1_1",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1954.3761695630828,
-        "y": 1571.5697614204066
-      },
-      "data": {
-        "sample_type": "from_same_name",
-        "image": "AT"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1954.3761695630828,
-        "y": 1571.5697614204066
-      },
-      "dragging": false
-    },
-    {
-      "id": "cap_1_1",
+      "id": "cap_1",
       "type": "captionConfigNode",
       "position": {
-        "x": 1576.5208178785833,
-        "y": 2770.6612910208696
+        "x": 1570.805562706384,
+        "y": 1299.2882436063899
       },
       "data": {
-        "key": "train_AT",
+        "key": "train",
         "ext": ".txt",
-        "image": "AT",
-        "reference_list": {
-          "reference_config": "AT",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
+        "image": "train"
       },
       "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1576.5208178785833,
-        "y": 2770.6612910208696
-      },
-      "dragging": false
+      "height": 185
     },
     {
-      "id": "batch_1_1",
+      "id": "batch_1",
       "type": "batchConfigNode",
       "position": {
-        "x": 1558.5867641911234,
-        "y": 4202.599697419655
+        "x": 1565.939823157448,
+        "y": 1561.578762102136
       },
       "data": {
-        "target_config": "T",
-        "caption_config": "train_AT",
-        "reference_config": "train_AT",
+        "target_config": "train",
+        "caption_config": "train",
         "caption_dropout": 0.1
       },
       "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1558.5867641911234,
-        "y": 4202.599697419655
-      },
-      "dragging": false
-    },
-    {
-      "id": "imageConfigNode_ucrsqr",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 2428.0136059478527,
-        "y": 888.0545483088626
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "DT",
-        "suffix": "_DT"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2428.0136059478527,
-        "y": 888.0545483088626
-      },
-      "dragging": false
-    },
-    {
-      "id": "imageConfigNode_579tag",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1597.4117626550496,
-        "y": 882.9622559536549
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "FT",
-        "suffix": "_FT"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 1597.4117626550496,
-        "y": 882.9622559536549
-      }
-    },
-    {
-      "id": "imageConfigNode_kzs667",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1989.489473623339,
-        "y": 742.2850926150318
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "GT",
-        "suffix": "_GT"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 1989.489473623339,
-        "y": 742.2850926150318
-      }
-    },
-    {
-      "id": "imageConfigNode_m4wa2x",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1990.6959092670365,
-        "y": 898.1353812416324
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "LT",
-        "suffix": "_LT"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1990.6959092670365,
-        "y": 898.1353812416324
-      },
-      "dragging": false
-    },
-    {
-      "id": "imageConfigNode_yfiwg2",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1976.4710752833787,
-        "y": 1045.85362457843
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "R",
-        "suffix": "_R"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1976.4710752833787,
-        "y": 1045.85362457843
-      },
-      "dragging": false
-    },
-    {
-      "id": "imageConfigNode_jeq5q5",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1594.403870880758,
-        "y": 1049.4347219572849
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "ST",
-        "suffix": "_ST"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 1594.403870880758,
-        "y": 1049.4347219572849
-      }
-    },
-    {
-      "id": "imageConfigNode_w771wc",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 2431.5247561350475,
-        "y": 731.4857999796933
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "T",
-        "suffix": "_T"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2431.5247561350475,
-        "y": 731.4857999796933
-      },
-      "dragging": false
-    },
-    {
-      "id": "imageConfigNode_t6adoy",
-      "type": "imageConfigNode",
-      "position": {
-        "x": 1592.0117545280275,
-        "y": 1202.4893825035
-      },
-      "data": {
-        "label": "Image Item",
-        "key": "WT",
-        "suffix": "_WT"
-      },
-      "width": 348,
-      "height": 136,
-      "selected": false,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 1592.0117545280275,
-        "y": 1202.4893825035
-      }
-    },
-    {
-      "id": "referenceConfigNode_cu3jmq",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1582.7891059680198,
-        "y": 1852.132591362229
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_FT"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1582.7891059680198,
-        "y": 1852.132591362229
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_u1pmbc",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1942.3884999753468,
-        "y": 1911.728533551435
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "FT"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1942.3884999753468,
-        "y": 1911.728533551435
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceConfigNode_m0eub0",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 2346.140392865163,
-        "y": 1545.4569479136576
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_GT"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2346.140392865163,
-        "y": 1545.4569479136576
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_tlmiz5",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 2705.73978687249,
-        "y": 1605.0528901028636
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "GT"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2705.73978687249,
-        "y": 1605.0528901028636
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceConfigNode_uc0j5c",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 2341.208645075438,
-        "y": 1853.6936485172776
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_LT"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2341.208645075438,
-        "y": 1853.6936485172776
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_g0wb5p",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 2700.808039082765,
-        "y": 1901.1798549952457
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "LT"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2700.808039082765,
-        "y": 1901.1798549952457
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceConfigNode_b0rojs",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1578.2952952674493,
-        "y": 2142.3090163017814
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_ST"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1578.2952952674493,
-        "y": 2142.3090163017814
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_cfpx4j",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1937.8946892747763,
-        "y": 2201.904958490987
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "ST"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1937.8946892747763,
-        "y": 2201.904958490987
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceConfigNode_hgyw9j",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 2336.7148343748677,
-        "y": 2143.8700734568297
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_R"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2336.7148343748677,
-        "y": 2143.8700734568297
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_jdf3df",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 2696.3142283821944,
-        "y": 2191.356279934798
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "R"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2696.3142283821944,
-        "y": 2191.356279934798
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceConfigNode_pef8w1",
-      "type": "referenceConfigNode",
-      "position": {
-        "x": 1579.3991202923398,
-        "y": 2468.357416244889
-      },
-      "data": {
-        "label": "Ref Group",
-        "slots": [
-          "entry_0"
-        ],
-        "key": "train_WT"
-      },
-      "width": 250,
-      "height": 238,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1579.3991202923398,
-        "y": 2468.357416244889
-      },
-      "dragging": false
-    },
-    {
-      "id": "referenceEntryNode_rkdks3",
-      "type": "referenceEntryNode",
-      "position": {
-        "x": 1934.961935729254,
-        "y": 2515.843622722857
-      },
-      "data": {
-        "label": "Ref Source",
-        "image": "WT"
-      },
-      "width": 348,
-      "height": 137,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1934.961935729254,
-        "y": 2515.843622722857
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_d1x22n",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 2318.7940427043486,
-        "y": 2758.094323179474
-      },
-      "data": {
-        "key": "train_GT",
-        "ext": ".txt",
-        "image": "GT",
-        "reference_list": {
-          "reference_config": "GT",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2318.7940427043486,
-        "y": 2758.094323179474
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_y1muk4",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 1570.0087178928065,
-        "y": 3093.130344523722
-      },
-      "data": {
-        "key": "train_FT",
-        "ext": ".txt",
-        "image": "FT",
-        "reference_list": {
-          "reference_config": "FT",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1570.0087178928065,
-        "y": 3093.130344523722
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_q5ao4y",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 2312.281942718572,
-        "y": 3080.5633766823266
-      },
-      "data": {
-        "key": "train_LT",
-        "ext": ".txt",
-        "image": "LT",
-        "reference_list": {
-          "reference_config": "LT",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2312.281942718572,
-        "y": 3080.5633766823266
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_k9wk3d",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 1568.5606783329674,
-        "y": 3430.4019590407484
-      },
-      "data": {
-        "key": "train_ST",
-        "ext": ".txt",
-        "image": "ST",
-        "reference_list": {
-          "reference_config": "ST",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1568.5606783329674,
-        "y": 3430.4019590407484
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_txjeo0",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 2310.833903158733,
-        "y": 3417.8349911993528
-      },
-      "data": {
-        "key": "train_R",
-        "ext": ".txt",
-        "image": "R",
-        "reference_list": {
-          "reference_config": "R",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2310.833903158733,
-        "y": 3417.8349911993528
-      },
-      "dragging": false
-    },
-    {
-      "id": "captionConfigNode_dhgx1o",
-      "type": "captionConfigNode",
-      "position": {
-        "x": 1562.0485783471906,
-        "y": 3752.871012543601
-      },
-      "data": {
-        "key": "train_WT",
-        "ext": ".txt",
-        "image": "WT",
-        "reference_list": {
-          "reference_config": "WT",
-          "resize": "384",
-          "dropout": 0,
-          "min_length": 1
-        }
-      },
-      "width": 506,
-      "height": 284,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1562.0485783471906,
-        "y": 3752.871012543601
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_uygzbj",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 2286.797593605645,
-        "y": 4198.131988321598
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_GT",
-        "reference_config": "train_GT",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2286.797593605645,
-        "y": 4198.131988321598
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_64qjgd",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 1557.6331008413276,
-        "y": 4426.544961958613
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_FT",
-        "reference_config": "train_FT",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1557.6331008413276,
-        "y": 4426.544961958613
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_spwf4m",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 2285.843930255849,
-        "y": 4422.077252860557
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_LT",
-        "reference_config": "train_LT",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2285.843930255849,
-        "y": 4422.077252860557
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_3k0sj6",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 1547.4036740791705,
-        "y": 4677.822173697727
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_ST",
-        "reference_config": "train_ST",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1547.4036740791705,
-        "y": 4677.822173697727
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_j5cmps",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 2275.614503493692,
-        "y": 4671.336175314464
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_R",
-        "reference_config": "train_R",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 2275.614503493692,
-        "y": 4671.336175314464
-      },
-      "dragging": false
-    },
-    {
-      "id": "batchConfigNode_lqttow",
-      "type": "batchConfigNode",
-      "position": {
-        "x": 1546.4500107293748,
-        "y": 4901.767438236685
-      },
-      "data": {
-        "target_config": "T",
-        "caption_config": "train_WT",
-        "reference_config": "train_WT",
-        "caption_dropout": 0.1
-      },
-      "width": 348,
-      "height": 191,
-      "selected": false,
-      "positionAbsolute": {
-        "x": 1546.4500107293748,
-        "y": 4901.767438236685
-      },
-      "dragging": false
+      "height": 191
     }
   ],
   "edges": [
@@ -1144,491 +276,66 @@
       "id": "e5",
       "source": "ds_list",
       "sourceHandle": "dataset_0",
-      "target": "dataset1",
+      "target": "dataset",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e6",
+      "source": "dataset",
+      "sourceHandle": "image_config",
+      "target": "img_list",
       "targetHandle": "in"
     },
     {
       "id": "e7",
-      "source": "dataset1",
-      "sourceHandle": "image_config",
-      "target": "img_list1",
-      "targetHandle": "in"
-    },
-    {
-      "id": "e8",
-      "source": "dataset1",
+      "source": "dataset",
       "sourceHandle": "target_config",
-      "target": "tgt_list1",
-      "targetHandle": "in",
-      "selected": false
+      "target": "tgt_list",
+      "targetHandle": "in"
     },
     {
       "id": "e9",
-      "source": "dataset1",
-      "sourceHandle": "reference_config",
-      "target": "ref_list1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "id": "e10",
-      "source": "dataset1",
+      "source": "dataset",
       "sourceHandle": "caption_config",
-      "target": "cap_list1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "id": "e11",
-      "source": "dataset1",
-      "sourceHandle": "batch_config",
-      "target": "batch_list1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "id": "e17",
-      "source": "img_list1",
-      "sourceHandle": "img_0",
-      "target": "img_1_1",
+      "target": "cap_list",
       "targetHandle": "in"
     },
     {
-      "id": "e18",
-      "source": "tgt_list1",
+      "id": "e10",
+      "source": "dataset",
+      "sourceHandle": "batch_config",
+      "target": "batch_list",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e11",
+      "source": "img_list",
+      "sourceHandle": "img_0",
+      "target": "img_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e12",
+      "source": "tgt_list",
       "sourceHandle": "tgt_0",
-      "target": "tgt_1_1",
-      "targetHandle": "in",
-      "selected": false
+      "target": "tgt_1",
+      "targetHandle": "in"
     },
     {
-      "id": "e19",
-      "source": "ref_list1",
-      "sourceHandle": "ref_0",
-      "target": "ref_group_1_1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "id": "e20",
-      "source": "ref_group_1_1",
-      "sourceHandle": "entry_0",
-      "target": "ref_entry_1_1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "id": "e21",
-      "source": "cap_list1",
+      "id": "e14",
+      "source": "cap_list",
       "sourceHandle": "cap_0",
-      "target": "cap_1_1",
-      "targetHandle": "in",
-      "selected": false
+      "target": "cap_1",
+      "targetHandle": "in"
     },
     {
-      "id": "e22",
-      "source": "batch_list1",
+      "id": "e15",
+      "source": "batch_list",
       "sourceHandle": "batch_0",
-      "target": "batch_1_1",
-      "targetHandle": "in",
-      "selected": false
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_g1dtb",
-      "target": "imageConfigNode_ucrsqr",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_g1dtb-imageConfigNode_ucrsqrin"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_la8b6",
-      "target": "imageConfigNode_579tag",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_la8b6-imageConfigNode_579tagin"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_y592k",
-      "target": "imageConfigNode_kzs667",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_y592k-imageConfigNode_kzs667in"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_vmkhs",
-      "target": "imageConfigNode_m4wa2x",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_vmkhs-imageConfigNode_m4wa2xin"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_7ixp2",
-      "target": "imageConfigNode_yfiwg2",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_7ixp2-imageConfigNode_yfiwg2in"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_om66u",
-      "target": "imageConfigNode_jeq5q5",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_om66u-imageConfigNode_jeq5q5in"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_8yc20",
-      "target": "imageConfigNode_w771wc",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_8yc20-imageConfigNode_w771wcin"
-    },
-    {
-      "source": "img_list1",
-      "sourceHandle": "img_oayu6",
-      "target": "imageConfigNode_t6adoy",
-      "targetHandle": "in",
-      "id": "reactflow__edge-img_list1img_oayu6-imageConfigNode_t6adoyin"
-    },
-    {
-      "source": "referenceConfigNode_cu3jmq",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_u1pmbc",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_cu3jmqentry_0-referenceEntryNode_u1pmbcin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_1qvwj",
-      "target": "referenceConfigNode_m0eub0",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_1qvwj-referenceConfigNode_m0eub0in",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_8d22n",
-      "target": "referenceConfigNode_cu3jmq",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_8d22n-referenceConfigNode_cu3jmqin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_mm6y1",
-      "target": "referenceConfigNode_uc0j5c",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_mm6y1-referenceConfigNode_uc0j5cin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "referenceConfigNode_uc0j5c",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_g0wb5p",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_uc0j5centry_0-referenceEntryNode_g0wb5pin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "referenceConfigNode_b0rojs",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_cfpx4j",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_b0rojsentry_0-referenceEntryNode_cfpx4jin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "referenceConfigNode_hgyw9j",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_jdf3df",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_hgyw9jentry_0-referenceEntryNode_jdf3dfin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_ghku1",
-      "target": "referenceConfigNode_b0rojs",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_ghku1-referenceConfigNode_b0rojsin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_wrmvy",
-      "target": "referenceConfigNode_hgyw9j",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_wrmvy-referenceConfigNode_hgyw9jin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "ref_list1",
-      "sourceHandle": "ref_qlazy",
-      "target": "referenceConfigNode_pef8w1",
-      "targetHandle": "in",
-      "id": "reactflow__edge-ref_list1ref_qlazy-referenceConfigNode_pef8w1in"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "referenceConfigNode_pef8w1",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_rkdks3",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_pef8w1entry_0-referenceEntryNode_rkdks3in"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_pxv0w",
-      "target": "captionConfigNode_d1x22n",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_pxv0w-captionConfigNode_d1x22nin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_i1unk",
-      "target": "captionConfigNode_y1muk4",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_i1unk-captionConfigNode_y1muk4in",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_7o599",
-      "target": "captionConfigNode_q5ao4y",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_7o599-captionConfigNode_q5ao4yin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_femf2",
-      "target": "captionConfigNode_k9wk3d",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_femf2-captionConfigNode_k9wk3din"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_z3dzu",
-      "target": "captionConfigNode_txjeo0",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_z3dzu-captionConfigNode_txjeo0in"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "cap_list1",
-      "sourceHandle": "cap_ft1z6",
-      "target": "captionConfigNode_dhgx1o",
-      "targetHandle": "in",
-      "id": "reactflow__edge-cap_list1cap_ft1z6-captionConfigNode_dhgx1oin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_4nhwg",
-      "target": "batchConfigNode_uygzbj",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_4nhwg-batchConfigNode_uygzbjin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_728fi",
-      "target": "batchConfigNode_64qjgd",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_728fi-batchConfigNode_64qjgdin",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_8r8dt",
-      "target": "batchConfigNode_spwf4m",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_8r8dt-batchConfigNode_spwf4min",
-      "selected": false
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_1y8qv",
-      "target": "batchConfigNode_3k0sj6",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_1y8qv-batchConfigNode_3k0sj6in"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_ijjtp",
-      "target": "batchConfigNode_j5cmps",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_ijjtp-batchConfigNode_j5cmpsin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "batch_list1",
-      "sourceHandle": "batch_1o6qa",
-      "target": "batchConfigNode_lqttow",
-      "targetHandle": "in",
-      "id": "reactflow__edge-batch_list1batch_1o6qa-batchConfigNode_lqttowin"
-    },
-    {
-      "type": "default",
-      "animated": false,
-      "style": {
-        "strokeWidth": 2,
-        "stroke": "#a1a1aa"
-      },
-      "interactionWidth": 15,
-      "source": "referenceConfigNode_m0eub0",
-      "sourceHandle": "entry_0",
-      "target": "referenceEntryNode_tlmiz5",
-      "targetHandle": "in",
-      "id": "reactflow__edge-referenceConfigNode_m0eub0entry_0-referenceEntryNode_tlmiz5in"
+      "target": "batch_1",
+      "targetHandle": "in"
     }
   ],
-  "timestamp": 1767680339.0121915,
+  "timestamp": 1767878275.9080386,
   "version": "1.0"
 }
