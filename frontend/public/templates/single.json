@@ -8,31 +8,39 @@
         "y": 300
       },
       "data": {
-        "scriptName": "train_longcat.py",
+        "scriptName": "train_qwen_image_new.py",
         "configPath": "config_new.json"
       },
       "width": 265,
-      "height": 380
+      "height": 380,
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "dir",
       "type": "directoryNode",
       "position": {
-        "x": 448.6026832460733,
-        "y": -12.879253926701546
+        "x": 445.93953456801535,
+        "y": -14.210828265730498
       },
       "data": {
-        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
-        "output_dir": "F:/ImageSet/longcat_test_edit_output",
-        "save_name": "test_edit",
-        "logging_dir": "/home/waas/kontext_output/logs",
-        "train_data_dir": "F:/ImageSet/longcat",
+        "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_nf4",
+        "output_dir": "F:\\models\\qwen\\qwen_image_test",
+        "save_name": "test_single",
+        "logging_dir": "F:\\models\\qwen\\qwen_image_test\\logs",
+        "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo",
         "model_path": "",
         "vae_path": "",
         "pinned": true
       },
       "width": 514,
-      "height": 341
+      "height": 341,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 445.93953456801535,
+        "y": -14.210828265730498
+      }
     },
     {
       "id": "lora",
@@ -110,10 +118,12 @@
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:/ImageSet/longcat"
+        "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo"
       },
       "width": 348,
-      "height": 526
+      "height": 526,
+      "selected": true,
+      "dragging": false
     },
     {
       "id": "img_list",
@@ -184,10 +194,12 @@
       },
       "data": {
         "key": "train",
-        "suffix": "_T"
+        "suffix": ""
       },
       "width": 348,
-      "height": 136
+      "height": 136,
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "tgt_1",
@@ -328,6 +340,6 @@
       "targetHandle": "in"
     }
   ],
-  "timestamp": 1767521008.5713792,
+  "timestamp": 1767870723.0836658,
   "version": "1.0"
 }

@@ -1853,7 +1853,7 @@ def main(args, config_args):
                 del loss
                 flush()
                 # ensure model in cuda
-                # transformer.to(accelerator.device)
+                transformer.to(accelerator.device)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()

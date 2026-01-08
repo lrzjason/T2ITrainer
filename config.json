@@ -25,7 +25,7 @@
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2509_14B_nf4",
+    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_nf4",
     "model_path": "",
     "resume_from_checkpoint": "",
     "recreate_cache": false,
@@ -40,27 +40,41 @@
     "use_two_captions": false,
     "slider_positive_scale": 1,
     "slider_negative_scale": -1,
-    "image_configs": {
-        "train": {
-            "suffix": ""
-        }
-    },
-    "caption_configs": {
-        "train": {
-            "ext": ".txt"
-        }
-    },
-    "training_set": [
+    "dataset_configs":
+    [
         {
-            "training_layout_configs": {
-                "train": {
-                    "target": "train",
-                    "noised": true
+            "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo",
+            "resolution": "512",
+            "recreate_cache": false,
+            "repeats": 1,
+            "image_configs": {
+                "train":{
+                    "suffix":""
                 }
             },
-            "captions_selection": {
-                "target": "train"
-            }
+            "target_configs": {
+                "train": [
+                    {
+                        "image":"train"
+                    }
+                ]
+            },
+            "reference_configs": {
+                
+            },
+            "caption_configs": {
+                "train": {
+                    "image":"train",
+                    "ext": ".txt"
+                }
+            },
+            "batch_configs":[
+                {
+                    "target_config": "train",
+                    "caption_config": "train",
+                    "caption_dropout": 0.1
+                }
+            ]
         }
     ]
 }
