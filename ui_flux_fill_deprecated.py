@@ -419,7 +419,8 @@ default_config = {
     "reg_timestep": 0,
     "use_two_captions": False,
     "slider_positive_scale": 1.0,
-    "slider_negative_scale": -1.0
+    "slider_negative_scale": -1.0,
+    "json_editor": ""
 }
 
 def save_config(
@@ -521,7 +522,49 @@ def load_first_template():
 
 def load_config(config_path):
     if not os.path.isfile(config_path):
-        save_config(**default_config)
+        # save_config(**default_config)
+        save_config(default_config["config_path"], 
+            default_config["script"], 
+            default_config["seed"], 
+            default_config["mixed_precision"], 
+            default_config["report_to"], 
+            default_config["lr_warmup_steps"],
+            default_config["output_dir"], 
+            default_config["save_name"], 
+            default_config["train_data_dir"], 
+            default_config["optimizer"], 
+            default_config["lr_scheduler"], 
+            default_config["learning_rate"],
+            default_config["train_batch_size"], 
+            default_config["repeats"], 
+            default_config["gradient_accumulation_steps"], 
+            default_config["num_train_epochs"],
+            default_config["save_model_epochs"], 
+            default_config["validation_epochs"], 
+            default_config["rank"], 
+            default_config["skip_epoch"], 
+            default_config["skip_step"],
+            default_config["gradient_checkpointing"], 
+            default_config["validation_ratio"], 
+            default_config["pretrained_model_name_or_path"],
+            default_config["model_path"], 
+            default_config["resume_from_checkpoint"], 
+            default_config["recreate_cache"], 
+            default_config["resolution"],
+            default_config["caption_dropout"], 
+            default_config["cosine_restarts"], 
+            default_config["max_time_steps"], 
+            default_config["blocks_to_swap"],
+            default_config["mask_dropout"], 
+            default_config["reg_ratio"], 
+            default_config["reg_timestep"], 
+            default_config["use_two_captions"],
+            default_config["slider_positive_scale"], 
+            default_config["slider_negative_scale"],
+            default_config["use_lokr"],
+            default_config["rank_alpha"],
+            default_config["lokr_factor"],
+            default_config["json_editor"])
     with open(config_path, 'r') as f:
         config = json.load(f)
     for k in config:

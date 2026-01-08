@@ -499,7 +499,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_qwen_single.json",
+        default="config.json",
         help="Path to the config file.",
     )
     parser.add_argument(
@@ -1468,16 +1468,18 @@ def main(args, config_args):
         optimizer, train_dataloader, lr_scheduler
     )
     
-    # load transformer to cpu
-    transformer.to("cuda")
-    flush()
     
-    if args.use_lokr:
-        lycoris_net = accelerator.prepare(lycoris_net, device_placement=[not is_swapping_blocks])
-        transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
-    else:
-        transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
-    
+    if not "quantization_config" in transformer.config:
+        # load transformer to cpu
+        transformer.to("cuda")
+        flush()
+        
+        if args.use_lokr:
+            lycoris_net = accelerator.prepare(lycoris_net, device_placement=[not is_swapping_blocks])
+            transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
+        else:
+            transformer = accelerator.prepare(transformer, device_placement=[not is_swapping_blocks])
+        
 
     # We need to initialize the trackers we use, and also store our configuration.
     # The trackers initializes automatically on the main process.
@@ -1851,7 +1853,7 @@ def main(args, config_args):
                 del loss
                 flush()
                 # ensure model in cuda
-                transformer.to(accelerator.device)
+                # transformer.to(accelerator.device)
                 optimizer.step()
                 lr_scheduler.step()
                 optimizer.zero_grad()
