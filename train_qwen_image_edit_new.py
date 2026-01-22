@@ -1400,7 +1400,7 @@ def main(args, config_args):
                             
                             cache_datarows.append({
                                 "json_path": json_file,
-                                "bucket": f"{embedding_objects["dataset"]}_{embedding_object["bucket"]}",
+                                "bucket": f"{embedding_objects['dataset']}_{embedding_object['bucket']}",
                                 "dataset": embedding_objects["dataset"]
                             })
                         
