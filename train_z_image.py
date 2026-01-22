@@ -2400,8 +2400,8 @@ def main(args, config_args):
         model_input = model_input.to(dtype=weight_dtype)
         caption_dropout = args.caption_dropout if hasattr(args, "caption_dropout") else 0.0
         # override caption dropout from caption_config
-        if "caption_dropout" in caption_config:
-            caption_dropout = caption_config["caption_dropout"]
+        if "caption_dropout" in batch_config:
+            caption_dropout = batch_config["caption_dropout"]
         if caption_dropout > 0 and random.random() < caption_dropout:
             prompt_embeds = torch.zeros_like(prompt_embeds)
             prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)

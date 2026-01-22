@@ -767,7 +767,7 @@ def main(args, config_args):
     )
     noise_scheduler_copy = copy.deepcopy(noise_scheduler)
     
-    if args.lora_layers is not None and (args.lora_layers != "" or args.lora_layers != "all"):
+    if args.lora_layers is not None and (args.lora_layers != "" and args.lora_layers != "all"):
         target_modules = [layer.strip() for layer in args.lora_layers.split(",")]
     else:
         # same as flux
@@ -2167,8 +2167,8 @@ def main(args, config_args):
             
         caption_dropout = args.caption_dropout if hasattr(args, "caption_dropout") else 0.0
         # override caption dropout from caption_config
-        if "caption_dropout" in caption_config:
-            caption_dropout = caption_config["caption_dropout"]
+        if "caption_dropout" in batch_config:
+            caption_dropout = batch_config["caption_dropout"]
         if caption_dropout > 0 and random.random() < caption_dropout:
             prompt_embeds = torch.zeros_like(prompt_embeds)
             # prompt_embeds_mask = torch.zeros_like(prompt_embeds_mask)

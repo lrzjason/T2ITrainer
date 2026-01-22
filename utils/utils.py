@@ -10,6 +10,7 @@ import math
 from collections.abc import Iterable
 from itertools import repeat
 from torchvision import transforms as T
+from torchvision.transforms import functional as TF
 import random
 from PIL import Image
 from hashlib import md5
@@ -106,7 +107,7 @@ class ToTensorUniversal:
     def __call__(self, pic):
         # --- PIL Image -------------------------------------------------------
         if isinstance(pic, Image.Image):
-            return F.to_tensor(pic)          # already returns CHW float32/255
+            return TF.to_tensor(pic)          # already returns CHW float32/255
 
         # --- NumPy array -----------------------------------------------------
         if isinstance(pic, np.ndarray):
