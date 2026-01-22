@@ -561,7 +561,7 @@ def parse_args(input_args=None):
     parser.add_argument(
         "--config_path",
         type=str,
-        default="config_new_pairs_multiple.json",
+        default="config.json",
         help="Path to the config file.",
     )
         # default="config_qwen_edit_pairs.json",

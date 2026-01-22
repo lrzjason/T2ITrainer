@@ -1,13 +1,13 @@
 {
     "config_path": "config.json",
-    "script": "train_flux2_klein.py",
+    "script": "train_qwen_image.py",
     "seed": 4321,
     "mixed_precision": "bf16",
     "report_to": "all",
     "lr_warmup_steps": 0,
-    "output_dir": "F:\\models\\f2k\\output",
-    "save_name": "f2k-test",
-    "train_data_dir": "F:\\ImageSet\\aigate_demo\\f2k_test",
+    "output_dir": "F:\\models\\qwen\\output",
+    "save_name": "qwen-test",
+    "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo",
     "optimizer": "adamw",
     "lr_scheduler": "constant",
     "learning_rate": 0.0001,
@@ -25,7 +25,7 @@
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:\\HF_Models\\Flux2\\flux2_klein_base_4b",
+    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
     "model_path": "",
     "resume_from_checkpoint": "",
     "recreate_cache": false,
@@ -38,73 +38,59 @@
     "reg_ratio": 0,
     "reg_timestep": 0,
     "use_two_captions": false,
+    "slider_positive_scale": 1,
+    "slider_negative_scale": -1,
     "freeze_transformer_layers": "",
     "freeze_single_transformer_layers": "",
-    "dataset_configs":
-    [
-        {
-            "train_data_dir": "F:\\ImageSet\\ObjectRemoval\\jimeng_RORD_qwen",
-            "resolution": "1024",
-            "recreate_cache": false,
-            "repeats": 10,
-            "image_configs": {
-                "train":{
-                    "suffix":"_G"
-                },
-                "reference":{
-                    "suffix":"_F"
-                },
-                "mask":{
-                    "suffix":"_M"
-                }
-            },
-            "target_configs": {
-                "train": [
-                    {
-                        "image":"train"
-                    }
-                ]
-            },
-            "caption_configs": {
-                "train": {
-                    "image":"train",
-                    "ext": ".txt"
-                }
-            },
-            "reference_configs": {
-                "train": [
-                    {
-                        "image": "reference"
-                    },
-                    {
-                        "image": "mask"
-                    }
-                ],
-                "train2": [
-                    {
-                        "image": "reference",
-                        "resize": 512
-                    },
-                    {
-                        "image": "mask",
-                        "resize": 512
-                    }
-                ]
-            },
-            "batch_configs":[
-                {
-                    "target_config": "train",
-                    "reference_config": "train",
-                    "caption_config": "train",
-                    "caption_dropout": 0.1
-                },
-                {
-                    "target_config": "train",
-                    "reference_config": "train2",
-                    "caption_config": "train",
-                    "caption_dropout": 0.1
-                }
-            ]
+    "dataset_configs": [
+    {
+      "train_data_dir": "F:\\ImageSet\\aigate_demo\\f2k_test",
+      "resolution": "1024",
+      "recreate_cache": false,
+      "repeats": 1,
+      "image_configs": {
+        "train": {
+          "suffix": "_T"
+        },
+        "ref": {
+          "suffix": "_R"
         }
-    ]
+      },
+      "target_configs": {
+        "train_target": [
+          {
+            "image": "train"
+          }
+        ]
+      },
+      "reference_configs": {
+        "ref_list": [
+          {
+            "sample_type": "from_same_name",
+            "image": "ref"
+          }
+        ]
+      },
+      "caption_configs": {
+        "train_caption": {
+          "ext": ".txt",
+          "image": "train",
+          "reference_list": {
+            "reference_config": "ref_list",
+            "resize": "384",
+            "dropout": 0.1,
+            "min_length": 1
+          }
+        }
+      },
+      "batch_configs": [
+        {
+          "target_config": "train_target",
+          "caption_config": "train_caption",
+          "caption_dropout": 0.1,
+          "reference_config": "ref_list"
+        }
+      ]
+    }
+  ]
 }

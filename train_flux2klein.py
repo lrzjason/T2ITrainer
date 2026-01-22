@@ -115,7 +115,6 @@ from utils.lokr_utils.adapter import get_lycoris_preset, apply_lycoris
 from diffusers.models import AutoencoderKLFlux2
 
 logger = get_logger(__name__)
-from longcat.model_utils import prepare_pos_ids
 
 def print_params_require_grad(model):
     for name, param in model.named_parameters():
@@ -727,7 +726,7 @@ def main(args, config_args):
     latent_path_key = f"{latent_key}_path"
     from_latent_path_key = f'from_{latent_key}_path'
     from_latent_key = f'from_{latent_key}'
-    npsuffix = "longcat"
+    npsuffix = "f2k"
     cache_ext= f".np{npsuffix}"
     latent_ext= f".np{npsuffix}latent"
     dataset_configs = config_args['dataset_configs']
@@ -953,10 +952,10 @@ def main(args, config_args):
             
             train_transforms = transforms.Compose([ToTensorUniversal(), transforms.Normalize([0.5], [0.5])])
                             
-            def get_cache_dir(train_data_dir, image_path):
+            def get_cache_dir(image_path):
                 dir_name = os.path.dirname(image_path)
                 # create subdir
-                if not Path(dir_name).resolve() == Path(train_data_dir).resolve():
+                if not Path(dir_name).resolve() == Path(args.train_data_dir).resolve():
                     # get subdir name
                     subdir_name = os.path.basename(dir_name)
                     # create subdir in temp dir
@@ -967,7 +966,7 @@ def main(args, config_args):
         
             def cache_image(vae, train_data_dir, image_path, config, recreate_cache=False):
                 # get dir name
-                working_dir = get_cache_dir(train_data_dir, image_path)
+                working_dir = get_cache_dir(image_path)
                 # convert to int
                 resize = int(config["resize"]) if "resize" in config else int(resolution)
                 filename, image_ext = os.path.splitext(image_path)
@@ -1166,7 +1165,7 @@ def main(args, config_args):
                             embedding_object = embedding_objects[mapping_key]
                         # second loop to cache all text embeddings
                         # for mapping_key, embedding_object in tqdm(embedding_objects.items()):
-                            target_cache_dir = get_cache_dir(train_data_dir, mapping_key)
+                            target_cache_dir = get_cache_dir(mapping_key)
                             basename = os.path.basename(mapping_key)
                             json_file = os.path.join(target_cache_dir, f"{basename}.json")
                             
@@ -1191,7 +1190,7 @@ def main(args, config_args):
                                 # ref_image_dropout = 0
                                     
                                 image_path = image_pair[image_target]
-                                working_dir = get_cache_dir(train_data_dir, image_path)
+                                working_dir = get_cache_dir(image_path)
                                 filename = os.path.basename(image_path)
                                 folder_path = os.path.dirname(image_path)
                                 # get filename and ext from file

@@ -9,7 +9,7 @@
       },
       "data": {
         "scriptName": "train_longcat.py",
-        "configPath": "config_new.json"
+        "configPath": "config_new_pairs.json"
       },
       "width": 265,
       "height": 380
@@ -24,7 +24,7 @@
       "data": {
         "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
         "output_dir": "F:/ImageSet/longcat_test_edit_output",
-        "save_name": "test_edit",
+        "save_name": "test_edit_pairs",
         "logging_dir": "/home/waas/kontext_output/logs",
         "train_data_dir": "F:/ImageSet/longcat",
         "model_path": "",
@@ -92,7 +92,7 @@
       "type": "datasetListNode",
       "position": {
         "x": 450,
-        "y": 997.854139331251
+        "y": 1000
       },
       "data": {
         "slots": [
@@ -101,12 +101,8 @@
       },
       "width": 250,
       "height": 155,
-      "selected": true,
-      "dragging": false,
-      "positionAbsolute": {
-        "x": 450,
-        "y": 997.854139331251
-      }
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "dataset",
@@ -125,23 +121,30 @@
       "id": "img_list",
       "type": "imageListNode",
       "position": {
-        "x": 1200,
-        "y": 800
+        "x": 1214.246402930659,
+        "y": 765.0515098596317
       },
       "data": {
         "slots": [
-          "img_0"
+          "img_0",
+          "img_vcq8f"
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 216,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1214.246402930659,
+        "y": 765.0515098596317
+      },
+      "dragging": false
     },
     {
       "id": "tgt_list",
       "type": "targetListNode",
       "position": {
-        "x": 1200,
-        "y": 1000
+        "x": 1213.7700897638622,
+        "y": 1069.9546808629634
       },
       "data": {
         "slots": [
@@ -149,14 +152,41 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1213.7700897638622,
+        "y": 1069.9546808629634
+      },
+      "dragging": false
+    },
+    {
+      "id": "ref_list",
+      "type": "referenceListNode",
+      "position": {
+        "x": 1217.0333819127382,
+        "y": 1301.3234679978639
+      },
+      "data": {
+        "slots": [
+          "ref_0"
+        ]
+      },
+      "width": 250,
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1217.0333819127382,
+        "y": 1301.3234679978639
+      },
+      "dragging": false
     },
     {
       "id": "cap_list",
       "type": "captionListNode",
       "position": {
-        "x": 1206.08217443617,
-        "y": 1300.504678493624
+        "x": 1210.3293946279164,
+        "y": 1549.6749297427532
       },
       "data": {
         "slots": [
@@ -164,14 +194,20 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1210.3293946279164,
+        "y": 1549.6749297427532
+      },
+      "dragging": false
     },
     {
       "id": "batch_list",
       "type": "batchListNode",
       "position": {
-        "x": 1203.649304661702,
-        "y": 1567.6609365383058
+        "x": 1210.7280049812794,
+        "y": 1754.5386249751525
       },
       "data": {
         "slots": [
@@ -179,68 +215,166 @@
         ]
       },
       "width": 250,
-      "height": 183
+      "height": 183,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1210.7280049812794,
+        "y": 1754.5386249751525
+      },
+      "dragging": false
     },
     {
       "id": "img_1",
       "type": "imageConfigNode",
       "position": {
-        "x": 1600,
-        "y": 800
+        "x": 1614.1574006391552,
+        "y": 729.2129968042246
       },
       "data": {
         "key": "train",
-        "suffix": ""
+        "suffix": "_T"
       },
       "width": 348,
       "height": 136,
       "selected": false,
+      "positionAbsolute": {
+        "x": 1614.1574006391552,
+        "y": 729.2129968042246
+      },
       "dragging": false
     },
     {
       "id": "tgt_1",
       "type": "targetConfigNode",
       "position": {
-        "x": 1600,
-        "y": 1000
+        "x": 1621.0580963757252,
+        "y": 1089.7437400485032
       },
       "data": {
-        "key": "train",
+        "key": "train_target",
         "image": "train",
         "from_image": ""
       },
       "width": 348,
-      "height": 191
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1621.0580963757252,
+        "y": 1089.7437400485032
+      },
+      "dragging": false
+    },
+    {
+      "id": "ref_group_1",
+      "type": "referenceConfigNode",
+      "position": {
+        "x": 1621.2361009587325,
+        "y": 1307.5962448575785
+      },
+      "data": {
+        "key": "ref_list",
+        "slots": [
+          "entry_0"
+        ]
+      },
+      "width": 250,
+      "height": 238,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1621.2361009587325,
+        "y": 1307.5962448575785
+      },
+      "dragging": false
+    },
+    {
+      "id": "ref_entry_1",
+      "type": "referenceEntryNode",
+      "position": {
+        "x": 1985.5896084536985,
+        "y": 1307.690149985411
+      },
+      "data": {
+        "sample_type": "from_same_name",
+        "image": "ref"
+      },
+      "width": 348,
+      "height": 137,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1985.5896084536985,
+        "y": 1307.690149985411
+      },
+      "dragging": false
     },
     {
       "id": "cap_1",
       "type": "captionConfigNode",
       "position": {
-        "x": 1570.805562706384,
-        "y": 1299.2882436063899
+        "x": 1628.85090532692,
+        "y": 1571.143693577209
       },
       "data": {
-        "key": "train",
+        "key": "train_caption",
         "ext": ".txt",
-        "image": "train"
+        "image": "train",
+        "reference_list": {
+          "reference_config": "ref_list",
+          "resize": "384",
+          "dropout": 0.1,
+          "min_length": 2
+        }
       },
       "width": 506,
-      "height": 185
+      "height": 284,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1628.85090532692,
+        "y": 1571.143693577209
+      },
+      "dragging": false
     },
     {
       "id": "batch_1",
       "type": "batchConfigNode",
       "position": {
-        "x": 1565.939823157448,
-        "y": 1561.578762102136
+        "x": 1626.8166459058148,
+        "y": 1881.5360165470404
       },
       "data": {
-        "target_config": "train",
-        "caption_config": "train",
+        "target_config": "train_target",
+        "caption_config": "train_caption",
+        "reference_config": "ref_list",
         "caption_dropout": 0.1
       },
       "width": 348,
-      "height": 191
+      "height": 191,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1626.8166459058148,
+        "y": 1881.5360165470404
+      },
+      "dragging": false
+    },
+    {
+      "id": "imageConfigNode_obbbr3",
+      "type": "imageConfigNode",
+      "position": {
+        "x": 1615.6163674727043,
+        "y": 896.6873153757205
+      },
+      "data": {
+        "label": "Image Item",
+        "suffix": "_R",
+        "key": "ref"
+      },
+      "width": 348,
+      "height": 136,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 1615.6163674727043,
+        "y": 896.6873153757205
+      }
     }
   ],
   "edges": [
@@ -294,6 +428,13 @@
       "targetHandle": "in"
     },
     {
+      "id": "e8",
+      "source": "dataset",
+      "sourceHandle": "reference_config",
+      "target": "ref_list",
+      "targetHandle": "in"
+    },
+    {
       "id": "e9",
       "source": "dataset",
       "sourceHandle": "caption_config",
@@ -322,6 +463,20 @@
       "targetHandle": "in"
     },
     {
+      "id": "e13",
+      "source": "ref_list",
+      "sourceHandle": "ref_0",
+      "target": "ref_group_1",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e13b",
+      "source": "ref_group_1",
+      "sourceHandle": "entry_0",
+      "target": "ref_entry_1",
+      "targetHandle": "in"
+    },
+    {
       "id": "e14",
       "source": "cap_list",
       "sourceHandle": "cap_0",
@@ -334,8 +489,22 @@
       "sourceHandle": "batch_0",
       "target": "batch_1",
       "targetHandle": "in"
+    },
+    {
+      "type": "default",
+      "animated": false,
+      "style": {
+        "strokeWidth": 2,
+        "stroke": "#a1a1aa"
+      },
+      "interactionWidth": 15,
+      "source": "img_list",
+      "sourceHandle": "img_vcq8f",
+      "target": "imageConfigNode_obbbr3",
+      "targetHandle": "in",
+      "id": "reactflow__edge-img_listimg_vcq8f-imageConfigNode_obbbr3in"
     }
   ],
-  "timestamp": 1767878275.9080386,
+  "timestamp": 1769099301.154863,
   "version": "1.0"
 }
