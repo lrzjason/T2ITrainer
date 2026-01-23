@@ -793,7 +793,21 @@ def main(args, config_args):
     else:
         # same as flux
         target_modules = [
-            "to_k", "to_q", "to_v", "to_out.0"
+            # "to_k", "to_q", "to_v", "to_out.0"
+            "to_out.0",
+            "to_q", "to_k", "to_v",
+            "to_qkv_mlp_proj",
+            "add_q_proj", "add_k_proj", "add_v_proj",
+            "to_add_out",
+            
+            # FFN layers
+            "linear_in", "linear_out",
+            "ff_context.linear_in", "ff_context.linear_out",
+            
+            # Modulation layers
+            # "double_stream_modulation_img.linear",
+            # "double_stream_modulation_txt.linear",
+            # "single_stream_modulation.linear",
         ]
     
     def collate_fn(examples):

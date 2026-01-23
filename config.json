@@ -44,7 +44,7 @@
     "freeze_single_transformer_layers": "",
     "dataset_configs": [
     {
-      "train_data_dir": "F:\\ImageSet\\aigate_demo\\f2k_test",
+      "train_data_dir": "F:\\ImageSet\\aigate_demo\\test_pairs",
       "resolution": "1024",
       "recreate_cache": false,
       "repeats": 1,
