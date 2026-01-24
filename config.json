@@ -1,13 +1,13 @@
 {
-    "config_path": "config.json",
-    "script": "train_qwen_image.py",
+    "script": "train_flux2klein.py",
+    "config_path": "/root/T2ITrainer/config.json",
     "seed": 4321,
     "mixed_precision": "bf16",
     "report_to": "all",
     "lr_warmup_steps": 0,
-    "output_dir": "F:\\models\\qwen\\output",
-    "save_name": "qwen-test",
-    "train_data_dir": "F:\\ImageSet\\aigate_demo\\qwen_demo",
+    "output_dir": "/home/waas/f2k_output",
+    "save_name": "f2k-allinone",
+    "train_data_dir": "/home/waas/f2k_test",
     "optimizer": "adamw",
     "lr_scheduler": "constant",
     "learning_rate": 0.0001,
@@ -17,80 +17,332 @@
     "num_train_epochs": 5,
     "save_model_epochs": 1,
     "validation_epochs": 1,
-    "rank": 16,
-    "use_lokr": false,
-    "rank_alpha": 1,
-    "lokr_factor": 2,
+    "rank": 64,
     "skip_epoch": 0,
     "skip_step": 0,
     "gradient_checkpointing": true,
     "validation_ratio": 0.1,
-    "pretrained_model_name_or_path": "F:\\HF_Models\\Qwen\\qwen_image_edit_2511_nf4",
+    "pretrained_model_name_or_path": "/datasets/studio/huggingface/models/FLUX.2-klein-base-9B",
     "model_path": "",
     "resume_from_checkpoint": "",
     "recreate_cache": false,
     "resolution": "512",
-    "caption_dropout": 0.1,
+    "caption_dropout": 0.3,
     "cosine_restarts": 1,
     "max_time_steps": 0,
     "blocks_to_swap": 0,
-    "mask_dropout": 0,
-    "reg_ratio": 0,
-    "reg_timestep": 0,
-    "use_two_captions": false,
-    "slider_positive_scale": 1,
-    "slider_negative_scale": -1,
+    "use_lokr": false,
+    "rank_alpha": 16.0,
+    "lokr_factor": 8,
+    "use_freq_loss": false,
     "freeze_transformer_layers": "",
-    "freeze_single_transformer_layers": "",
     "dataset_configs": [
-    {
-      "train_data_dir": "F:\\ImageSet\\aigate_demo\\test_pairs",
-      "resolution": "1024",
-      "recreate_cache": false,
-      "repeats": 1,
-      "image_configs": {
-        "train": {
-          "suffix": "_T"
-        },
-        "ref": {
-          "suffix": "_R"
-        }
-      },
-      "target_configs": {
-        "train_target": [
-          {
-            "image": "train"
-          }
-        ]
-      },
-      "reference_configs": {
-        "ref_list": [
-          {
-            "sample_type": "from_same_name",
-            "image": "ref"
-          }
-        ]
-      },
-      "caption_configs": {
-        "train_caption": {
-          "ext": ".txt",
-          "image": "train",
-          "reference_list": {
-            "reference_config": "ref_list",
-            "resize": "384",
-            "dropout": 0.1,
-            "min_length": 1
-          }
-        }
-      },
-      "batch_configs": [
         {
-          "target_config": "train_target",
-          "caption_config": "train_caption",
-          "caption_dropout": 0.1,
-          "reference_config": "ref_list"
+            "train_data_dir": "/home/waas/consis_dataset",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 1,
+            "image_configs": {
+                "10L": {
+                    "suffix": "_10L"
+                },
+                "20L": {
+                    "suffix": "_20L"
+                },
+                "30L": {
+                    "suffix": "_30L"
+                },
+                "H": {
+                    "suffix": "_H"
+                }
+            },
+            "target_configs": {
+                "H": [
+                    {
+                        "image": "H"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "10L": [
+                    {
+                        "image": "10L"
+                    }
+                ],
+                "20L": [
+                    {
+                        "image": "20L"
+                    }
+                ],
+                "30L": [
+                    {
+                        "image": "30L"
+                    }
+                ],
+                "20L10L": [
+                    {
+                        "image": "20L"
+                    },
+                    {
+                        "image": "10L"
+                    }
+                ],
+                "30L20L10L": [
+                    {
+                        "image": "30L",
+                        "resize": "512"
+                    },
+                    {
+                        "image": "20L",
+                        "resize": "512"
+                    },
+                    {
+                        "image": "10L",
+                        "resize": "512"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "H": {
+                    "ext": ".txt",
+                    "image": "H"
+                }
+            },
+            "batch_configs": [
+                {
+                    "target_config": "H",
+                    "caption_config": "H",
+                    "caption_dropout": 0.1,
+                    "reference_config": "10L"
+                },
+                {
+                    "target_config": "H",
+                    "caption_config": "H",
+                    "caption_dropout": 0.1,
+                    "reference_config": "20L"
+                },
+                {
+                    "target_config": "H",
+                    "caption_config": "H",
+                    "caption_dropout": 0.1,
+                    "reference_config": "30L"
+                },
+                {
+                    "target_config": "H",
+                    "caption_config": "H",
+                    "caption_dropout": 0.1,
+                    "reference_config": "30L20L10L"
+                },
+                {
+                    "target_config": "H",
+                    "caption_config": "H",
+                    "caption_dropout": 0.1,
+                    "reference_config": "20L10L"
+                }
+            ]
+        },
+        {
+            "train_data_dir": "/home/waas/remove_dataset",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 1,
+            "image_configs": {
+                "G": {
+                    "suffix": "_G"
+                },
+                "F": {
+                    "suffix": "_F"
+                },
+                "M": {
+                    "suffix": "_M"
+                }
+            },
+            "target_configs": {
+                "G": [
+                    {
+                        "image": "G"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "F": [
+                    {
+                        "image": "F"
+                    }
+                ],
+                "FM": [
+                    {
+                        "image": "F"
+                    },
+                    {
+                        "image": "M"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "F": {
+                    "ext": ".txt",
+                    "image": "F"
+                }
+            },
+            "batch_configs": [
+                {
+                    "target_config": "G",
+                    "caption_config": "F",
+                    "caption_dropout": 0.1,
+                    "reference_config": "F"
+                },
+                {
+                    "target_config": "G",
+                    "caption_config": "F",
+                    "caption_dropout": 0.1,
+                    "reference_config": "FM"
+                }
+            ]
+        },
+        {
+            "train_data_dir": "/home/waas/anything2real",
+            "resolution": "1024",
+            "recreate_cache": false,
+            "repeats": 1,
+            "image_configs": {
+                "T": {
+                    "suffix": "_T"
+                },
+                "DT": {
+                    "suffix": "_DT"
+                },
+                "FT": {
+                    "suffix": "_FT"
+                },
+                "GT": {
+                    "suffix": "_GT"
+                },
+                "LT": {
+                    "suffix": "_LT"
+                },
+                "R": {
+                    "suffix": "_R"
+                },
+                "WT": {
+                    "suffix": "_WT"
+                }
+            },
+            "target_configs": {
+                "T": [
+                    {
+                        "image": "T",
+                        "from_image": "DT"
+                    }
+                ]
+            },
+            "reference_configs": {
+                "FT": [
+                    {
+                        "image": "FT"
+                    }
+                ],
+                "GT": [
+                    {
+                        "image": "GT"
+                    }
+                ],
+                "LT": [
+                    {
+                        "image": "LT"
+                    }
+                ],
+                "R": [
+                    {
+                        "image": "R"
+                    }
+                ],
+                "WT": [
+                    {
+                        "image": "WT"
+                    }
+                ],
+                "R_WT": [
+                    {
+                        "image": "R"
+                    },
+                    {
+                        "image": "WT"
+                    }
+                ],
+                "LT_FT": [
+                    {
+                        "image": "LT"
+                    },
+                    {
+                        "image": "FT"
+                    }
+                ],
+                "GT_WT": [
+                    {
+                        "image": "GT"
+                    },
+                    {
+                        "image": "WT"
+                    }
+                ]
+            },
+            "caption_configs": {
+                "T": {
+                    "ext": ".txt",
+                    "image": "T"
+                }
+            },
+            "batch_configs": [
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "FT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "GT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "LT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "R"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "WT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "R_WT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "LT_FT"
+                },
+                {
+                    "target_config": "T",
+                    "caption_config": "T",
+                    "caption_dropout": 0.1,
+                    "reference_config": "GT_WT"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }

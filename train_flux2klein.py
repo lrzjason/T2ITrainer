@@ -2019,14 +2019,14 @@ def main(args, config_args):
                 latent = (latent - latents_bn_mean) / latents_bn_std
                 latent = latent.squeeze(0)
                 
-                target_list.append(latent)
                 if from_latent_path_key in target:
                     # from_latent_path = target[from_latent_path_key]
                     # from_latent = get_latent(from_latent_path)
-                    from_latent = target[from_latent_key]
-                    noised_latent_list.append(from_latent)
+                    latent = target[from_latent_key]
+                    noised_latent_list.append(latent)
                 else:
                     noised_latent_list.append(latent)
+                target_list.append(latent)
             
             for reference in batch_references:
                 # latent_path = reference[latent_path_key]
