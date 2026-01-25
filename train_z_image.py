@@ -2252,14 +2252,14 @@ def main(args, config_args):
                 # latent = get_latent(latent_path)
                 latent = target[latent_key]
                 
-                target_list.append(latent)
                 if from_latent_path_key in target:
                     # from_latent_path = target[from_latent_path_key]
                     # from_latent = get_latent(from_latent_path)
-                    from_latent = target[from_latent_key]
-                    noised_latent_list.append(from_latent)
+                    latent = target[from_latent_key]
+                    noised_latent_list.append(latent)
                 else:
                     noised_latent_list.append(latent)
+                target_list.append(latent)
             
             for reference in batch_references:
                 # latent_path = reference[latent_path_key]

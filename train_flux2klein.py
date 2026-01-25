@@ -1969,6 +1969,15 @@ def main(args, config_args):
             sigma = sigma.unsqueeze(-1)
         return sigma
     
+    def patchify_latents(latent):
+        
+        latent = torch.stack([latent], dim=0)  # (1,16,4,h,w)
+        latent = Flux2KleinPipeline._patchify_latents(latent)
+        latent = latent.to(device=accelerator.device, dtype=weight_dtype)
+        latent = (latent - latents_bn_mean) / latents_bn_std
+        latent = latent.squeeze(0)
+        
+        return latent
     
     # from config
     def train_process(
@@ -2012,35 +2021,20 @@ def main(args, config_args):
             for target in batch_targets:
                 # latent_path = target[latent_path_key]
                 # latent = get_latent(latent_path)
-                latent = torch.stack([target[latent_key]], dim=0)  # (1,16,4,h,w)
-                
-                latent = Flux2KleinPipeline._patchify_latents(latent)
-                latent = latent.to(device=accelerator.device, dtype=weight_dtype)
-                latent = (latent - latents_bn_mean) / latents_bn_std
-                latent = latent.squeeze(0)
-                
+                latent = target[latent_key]
                 if from_latent_path_key in target:
                     # from_latent_path = target[from_latent_path_key]
                     # from_latent = get_latent(from_latent_path)
                     latent = target[from_latent_key]
-                    noised_latent_list.append(latent)
-                else:
-                    noised_latent_list.append(latent)
+                latent = patchify_latents(latent)
                 target_list.append(latent)
             
             for reference in batch_references:
                 # latent_path = reference[latent_path_key]
                 if reference_dropout > random.random():
                     break
-                # latent = get_latent(latent_path)
-                latent = torch.stack([reference[latent_key]], dim=0)  # (1,16,4,h,w)
-                latent = latent.to(device=accelerator.device, dtype=weight_dtype)
-                
-                latent = Flux2KleinPipeline._patchify_latents(latent)
-                latent = latent.to(device=accelerator.device, dtype=weight_dtype)
-                latent = (latent - latents_bn_mean) / latents_bn_std
-                latent = latent.to(device=accelerator.device, dtype=weight_dtype)
-                latent = latent.squeeze(0)
+                latent = reference[latent_key]
+                latent = patchify_latents(latent)
                 reference_list.append(latent)
             
             # cached_npz_path = batch_caption[npz_path_key]
@@ -2050,7 +2044,7 @@ def main(args, config_args):
             prompt_embed = batch_caption[prompt_embed_key]
             
             target_list = torch.stack(target_list, dim=0) # (1,16,1,h,w)
-            noised_latent_list = torch.stack(noised_latent_list, dim=0)
+            noised_latent_list = target_list.clone()
             
             
             if prompt_embeds is None:
@@ -2119,6 +2113,7 @@ def main(args, config_args):
         # zt = (1 - texp) * x + texp * z1
         sigmas = get_sigmas(timesteps, n_dim=noised_latents.ndim, dtype=noised_latents.dtype)
         
+        # print("noised_latents.shape", noised_latents.shape)
         noisy_model_input = (1.0 - sigmas) * noised_latents + sigmas * noise
         
         latents = noisy_model_input
@@ -2140,8 +2135,16 @@ def main(args, config_args):
         
         # # handle partial noised
         # packed_ref_latents = None
-        cond_model_input = torch.stack(reference_list, dim=0) if len(reference_list) > 0 else None
-        if cond_model_input.shape[0] > 0:
+        try:
+            cond_model_input = torch.stack(reference_list, dim=0) if len(reference_list) > 0 else None
+        except:
+            # print image file path
+            # rollback to single image reference
+            cond_model_input = torch.stack([reference_list[0]], dim=0) if len(reference_list) > 0 else None
+            for i in range(len(reference_list)):
+                print("reference_list cat error size:", reference_list[i].shape)
+            print("original image path ", batch_targets[0]['original_image_path'])
+        if len(reference_list) > 0:
             # cond_model_input_list = [cond_model_input[i].unsqueeze(0) for i in range(cond_model_input.shape[0])]
             ref_latents_ids = Flux2KleinPipeline._prepare_image_ids(reference_list).to(
                 device=accelerator.device
@@ -2152,6 +2155,10 @@ def main(args, config_args):
             packed_ref_latents = Flux2KleinPipeline._pack_latents(cond_model_input)
             # convert packed_ref_latents from (x, d, c) to (1, x*d, c)
             packed_ref_latents = packed_ref_latents.reshape(model_input.shape[0], -1, packed_ref_latents.shape[-1])
+            
+            # print("model_input.shape", model_input.shape)
+            # print("packed_ref_latents.shape", packed_ref_latents.shape)
+            
             model_input = torch.cat([model_input, packed_ref_latents], dim=1)
             model_input_ids = torch.cat([model_input_ids, ref_latents_ids], dim=1)
             
