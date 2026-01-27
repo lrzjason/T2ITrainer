@@ -1139,7 +1139,7 @@ def main(args, config_args):
                         tokenizers = [tokenizer_one]
                         text_encoders = [text_encoder_one]
                         if accelerator.is_main_process:
-                            create_empty_embedding(tokenizers,text_encoders)
+                            create_empty_embedding(tokenizers,text_encoders, recreate=True)
                             create_latent_config(vae)
                             
                         embedding_objects = {
