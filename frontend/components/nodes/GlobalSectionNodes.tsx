@@ -288,6 +288,16 @@ export const MiscNode = memo(({ id, data, selected }: NodeProps) => {
                      <input className={inputClass}
                         placeholder="Single layers..." value={data.freeze_single_transformer_layers || ''} onChange={(e) => update('freeze_single_transformer_layers', e.target.value)} />
                  </div>
+                 
+                 <div>
+                     <label className={labelClass}>{t.report_to}</label>
+                     <select className={inputClass}
+                        value={data.report_to || 'tensorboard'} onChange={(e) => update('report_to', e.target.value)}>
+                        <option value="tensorboard">tensorboard</option>
+                        <option value="wandb">wandb</option>
+                        <option value="none">none</option>
+                    </select>
+                 </div>
           </div>
       </BaseNode>
     );

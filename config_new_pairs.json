@@ -3,7 +3,7 @@
     "config_path": "config_new_pairs.json",
     "seed": 4321,
     "mixed_precision": "bf16",
-    "report_to": "all",
+    "report_to": "tensorboard",
     "lr_warmup_steps": 0,
     "output_dir": "E:\\T2ITrainer_output\\klein",
     "save_name": "test_edit_pairs",

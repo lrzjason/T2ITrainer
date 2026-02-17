@@ -42,7 +42,8 @@ export const DEFAULT_GLOBAL_CONFIG = {
   blocks_to_swap: 10,
   mask_dropout: 0.0,
   freeze_transformer_layers: "",
-  freeze_single_transformer_layers: ""
+  freeze_single_transformer_layers: "",
+  report_to: "tensorboard"
 };
 
 export const TRANSLATIONS = {
@@ -132,6 +133,7 @@ export const TRANSLATIONS = {
     logit_std: "Logit Standard Deviation",
     mode_scale: "Mode Scale",
     guidance_scale: "Guidance Scale",
+    report_to: "Report To",
 
     key: "Key",
     suffix: "Suffix",
@@ -318,6 +320,7 @@ export const TRANSLATIONS = {
     logit_std: "Logit 标准差",
     mode_scale: "Mode 缩放",
     guidance_scale: "引导缩放",
+    report_to: "报告到",
 
     key: "键 (Key)",
     suffix: "后缀",
