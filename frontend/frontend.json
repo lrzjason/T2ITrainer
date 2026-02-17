@@ -23,6 +23,10 @@
     {
       "name": "train_qwen_edit_with_freq.py",
       "type": "new"
+    },
+    {
+      "name": "train_flux2klein.py",
+      "type": "new"
     }
   ]
 }

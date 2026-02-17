@@ -8,11 +8,13 @@
         "y": 300
       },
       "data": {
-        "scriptName": "train_longcat.py",
+        "scriptName": "train_flux2klein.py",
         "configPath": "config_new_pairs.json"
       },
-      "width": 265,
-      "height": 380
+      "width": 283,
+      "height": 382,
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "dir",
@@ -22,17 +24,19 @@
         "y": -12.879253926701546
       },
       "data": {
-        "pretrained_model_name_or_path": "F:/T2ITrainer_pulic/T2ITrainer/longcat_models/LongCat-Image-Edit",
-        "output_dir": "F:/ImageSet/longcat_test_edit_output",
+        "pretrained_model_name_or_path": "E:\\hf_models\\klein\\klein4b",
+        "output_dir": "E:\\T2ITrainer_output\\klein",
         "save_name": "test_edit_pairs",
-        "logging_dir": "/home/waas/kontext_output/logs",
-        "train_data_dir": "F:/ImageSet/longcat",
+        "logging_dir": "E:\\T2ITrainer_output\\log",
+        "train_data_dir": "E:\\data\\dataset",
         "model_path": "",
         "vae_path": "",
         "pinned": true
       },
-      "width": 514,
-      "height": 341
+      "width": 532,
+      "height": 341,
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "lora",
@@ -49,22 +53,22 @@
         "lora_layers": "all",
         "pinned": true
       },
-      "width": 429,
+      "width": 438,
       "height": 249
     },
     {
       "id": "misc",
       "type": "miscNode",
       "position": {
-        "x": 973.9886430145234,
-        "y": -97.09904702172521
+        "x": 1065.5494553572082,
+        "y": -114.80467335988742
       },
       "data": {
         "resolution": "1024",
         "train_batch_size": 1,
         "num_train_epochs": 10,
-        "learning_rate": 0.0001,
-        "optimizer": "adamw",
+        "learning_rate": 1,
+        "optimizer": "prodigy",
         "mixed_precision": "bf16",
         "seed": 4321,
         "gradient_checkpointing": true,
@@ -84,8 +88,14 @@
         "freeze_single_transformer_layers": "",
         "pinned": true
       },
-      "width": 786,
-      "height": 869
+      "width": 817,
+      "height": 766,
+      "selected": false,
+      "positionAbsolute": {
+        "x": 1065.5494553572082,
+        "y": -114.80467335988742
+      },
+      "dragging": false
     },
     {
       "id": "ds_list",
@@ -100,7 +110,7 @@
         ]
       },
       "width": 250,
-      "height": 155,
+      "height": 156,
       "selected": false,
       "dragging": false
     },
@@ -112,10 +122,12 @@
         "y": 983.2321989528796
       },
       "data": {
-        "train_data_dir": "F:/ImageSet/longcat"
+        "train_data_dir": "E:\\data\\dataset"
       },
-      "width": 348,
-      "height": 526
+      "width": 346,
+      "height": 529,
+      "selected": false,
+      "dragging": false
     },
     {
       "id": "img_list",
@@ -131,7 +143,7 @@
         ]
       },
       "width": 250,
-      "height": 216,
+      "height": 218,
       "selected": false,
       "positionAbsolute": {
         "x": 1214.246402930659,
@@ -152,7 +164,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
+      "height": 184,
       "selected": false,
       "positionAbsolute": {
         "x": 1213.7700897638622,
@@ -173,7 +185,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
+      "height": 184,
       "selected": false,
       "positionAbsolute": {
         "x": 1217.0333819127382,
@@ -194,7 +206,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
+      "height": 184,
       "selected": false,
       "positionAbsolute": {
         "x": 1210.3293946279164,
@@ -215,7 +227,7 @@
         ]
       },
       "width": 250,
-      "height": 183,
+      "height": 184,
       "selected": false,
       "positionAbsolute": {
         "x": 1210.7280049812794,
@@ -234,8 +246,8 @@
         "key": "train",
         "suffix": "_T"
       },
-      "width": 348,
-      "height": 136,
+      "width": 346,
+      "height": 137,
       "selected": false,
       "positionAbsolute": {
         "x": 1614.1574006391552,
@@ -255,8 +267,8 @@
         "image": "train",
         "from_image": ""
       },
-      "width": 348,
-      "height": 191,
+      "width": 346,
+      "height": 192,
       "selected": false,
       "positionAbsolute": {
         "x": 1621.0580963757252,
@@ -278,7 +290,7 @@
         ]
       },
       "width": 250,
-      "height": 238,
+      "height": 240,
       "selected": false,
       "positionAbsolute": {
         "x": 1621.2361009587325,
@@ -297,8 +309,8 @@
         "sample_type": "from_same_name",
         "image": "ref"
       },
-      "width": 348,
-      "height": 137,
+      "width": 346,
+      "height": 138,
       "selected": false,
       "positionAbsolute": {
         "x": 1985.5896084536985,
@@ -324,8 +336,8 @@
           "min_length": 2
         }
       },
-      "width": 506,
-      "height": 284,
+      "width": 502,
+      "height": 286,
       "selected": false,
       "positionAbsolute": {
         "x": 1628.85090532692,
@@ -346,8 +358,8 @@
         "reference_config": "ref_list",
         "caption_dropout": 0.1
       },
-      "width": 348,
-      "height": 191,
+      "width": 346,
+      "height": 192,
       "selected": false,
       "positionAbsolute": {
         "x": 1626.8166459058148,
@@ -367,8 +379,8 @@
         "suffix": "_R",
         "key": "ref"
       },
-      "width": 348,
-      "height": 136,
+      "width": 346,
+      "height": 137,
       "selected": false,
       "dragging": false,
       "positionAbsolute": {
@@ -505,6 +517,6 @@
       "id": "reactflow__edge-img_listimg_vcq8f-imageConfigNode_obbbr3in"
     }
   ],
-  "timestamp": 1769099301.154863,
+  "timestamp": 1771308905.322458,
   "version": "1.0"
 }

@@ -1,1 +1,3 @@
-hf download"lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+hf download "lrzjason/flux-fill-nf4" --local-dir flux_models/fill/ 
+
+hf download black-forest-labs/FLUX.2-klein-base-4B --local-dir E:\hf_models\klein\klein4b
