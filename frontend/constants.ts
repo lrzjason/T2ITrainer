@@ -43,7 +43,8 @@ export const DEFAULT_GLOBAL_CONFIG = {
   mask_dropout: 0.0,
   freeze_transformer_layers: "",
   freeze_single_transformer_layers: "",
-  report_to: "tensorboard"
+  report_to: "tensorboard",
+  resume_from: ""
 };
 
 export const TRANSLATIONS = {
@@ -134,6 +135,7 @@ export const TRANSLATIONS = {
     mode_scale: "Mode Scale",
     guidance_scale: "Guidance Scale",
     report_to: "Report To",
+    resume_from: "Resume From",
 
     key: "Key",
     suffix: "Suffix",
@@ -321,6 +323,7 @@ export const TRANSLATIONS = {
     mode_scale: "Mode 缩放",
     guidance_scale: "引导缩放",
     report_to: "报告到",
+    resume_from: "从...恢复",
 
     key: "键 (Key)",
     suffix: "后缀",

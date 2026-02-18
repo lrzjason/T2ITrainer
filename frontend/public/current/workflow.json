@@ -26,7 +26,7 @@
       "data": {
         "pretrained_model_name_or_path": "E:\\hf_models\\klein\\klein4b",
         "output_dir": "E:\\T2ITrainer_output\\klein",
-        "save_name": "test_edit_pairs",
+        "save_name": "anything2real_face",
         "logging_dir": "E:\\T2ITrainer_output\\log",
         "train_data_dir": "E:\\data\\dataset",
         "model_path": "",
@@ -43,30 +43,36 @@
       "type": "loraNode",
       "position": {
         "x": 451.3973167539267,
-        "y": 350
+        "y": 347.8681919203351
       },
       "data": {
-        "rank": 16,
-        "rank_alpha": 16,
+        "rank": 64,
+        "rank_alpha": 64,
         "use_lokr": false,
-        "lokr_factor": 8,
+        "lokr_factor": 4,
         "lora_layers": "all",
         "pinned": true
       },
       "width": 438,
-      "height": 249
+      "height": 249,
+      "selected": false,
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 451.3973167539267,
+        "y": 347.8681919203351
+      }
     },
     {
       "id": "misc",
       "type": "miscNode",
       "position": {
-        "x": 1065.5494553572082,
-        "y": -114.80467335988742
+        "x": 1059.1540311182137,
+        "y": -115.87057739971982
       },
       "data": {
-        "resolution": "1024",
+        "resolution": "512",
         "train_batch_size": 1,
-        "num_train_epochs": 10,
+        "num_train_epochs": 20,
         "learning_rate": 1,
         "optimizer": "prodigy",
         "mixed_precision": "bf16",
@@ -75,7 +81,7 @@
         "caption_dropout": 0.1,
         "save_model_epochs": 1,
         "blocks_to_swap": 10,
-        "recreate_cache": false,
+        "recreate_cache": true,
         "validation_epochs": 1,
         "validation_ratio": 0.1,
         "weighting_scheme": "logit_normal",
@@ -86,14 +92,16 @@
         "mask_dropout": 0,
         "freeze_transformer_layers": "",
         "freeze_single_transformer_layers": "",
-        "pinned": true
+        "pinned": true,
+        "lr_scheduler": "constant",
+        "report_to": "wandb"
       },
       "width": 817,
       "height": 821,
       "selected": false,
       "positionAbsolute": {
-        "x": 1065.5494553572082,
-        "y": -114.80467335988742
+        "x": 1059.1540311182137,
+        "y": -115.87057739971982
       },
       "dragging": false
     },
@@ -118,16 +126,21 @@
       "id": "dataset",
       "type": "datasetConfigNode",
       "position": {
-        "x": 762.2724476439791,
-        "y": 983.2321989528796
+        "x": 743.5005002104551,
+        "y": 998.1548555105335
       },
       "data": {
-        "train_data_dir": "E:\\data\\dataset"
+        "train_data_dir": "E:\\data\\anything2real_face\\",
+        "repeats": 10
       },
       "width": 346,
       "height": 529,
       "selected": false,
-      "dragging": false
+      "dragging": false,
+      "positionAbsolute": {
+        "x": 743.5005002104551,
+        "y": 998.1548555105335
+      }
     },
     {
       "id": "img_list",
@@ -239,19 +252,19 @@
       "id": "img_1",
       "type": "imageConfigNode",
       "position": {
-        "x": 1614.1574006391552,
-        "y": 729.2129968042246
+        "x": 1607.7619764001606,
+        "y": 728.1470927643921
       },
       "data": {
         "key": "train",
-        "suffix": "_T"
+        "suffix": "_g"
       },
       "width": 346,
       "height": 137,
       "selected": false,
       "positionAbsolute": {
-        "x": 1614.1574006391552,
-        "y": 729.2129968042246
+        "x": 1607.7619764001606,
+        "y": 728.1470927643921
       },
       "dragging": false
     },
@@ -376,7 +389,7 @@
       },
       "data": {
         "label": "Image Item",
-        "suffix": "_R",
+        "suffix": "_r",
         "key": "ref"
       },
       "width": 346,
@@ -517,6 +530,6 @@
       "id": "reactflow__edge-img_listimg_vcq8f-imageConfigNode_obbbr3in"
     }
   ],
-  "timestamp": 1771320969.319079,
+  "timestamp": 1771343670.246113,
   "version": "1.0"
 }

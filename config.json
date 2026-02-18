@@ -6,7 +6,7 @@
     "report_to": "tensorboard",
     "lr_warmup_steps": 0,
     "output_dir": "E:\\T2ITrainer_output\\klein",
-    "save_name": "test_edit_pairs",
+    "save_name": "anything2real_face",
     "train_data_dir": "E:\\data\\dataset",
     "optimizer": "prodigy",
     "lr_scheduler": "constant",
@@ -14,10 +14,10 @@
     "train_batch_size": 1,
     "repeats": 1,
     "gradient_accumulation_steps": 1,
-    "num_train_epochs": 10,
+    "num_train_epochs": 20,
     "save_model_epochs": 1,
     "validation_epochs": 1,
-    "rank": 16,
+    "rank": 64,
     "skip_epoch": 0,
     "skip_step": 0,
     "gradient_checkpointing": true,
@@ -25,8 +25,8 @@
     "pretrained_model_name_or_path": "E:\\hf_models\\klein\\klein4b",
     "model_path": "",
     "resume_from_checkpoint": null,
-    "recreate_cache": false,
-    "resolution": "1024",
+    "recreate_cache": true,
+    "resolution": "512",
     "caption_dropout": 0.1,
     "cosine_restarts": 1,
     "max_time_steps": 0,
@@ -38,23 +38,23 @@
     "slider_positive_scale": 1.0,
     "slider_negative_scale": -1.0,
     "use_lokr": false,
-    "rank_alpha": 16.0,
-    "lokr_factor": 8,
+    "rank_alpha": 64.0,
+    "lokr_factor": 4,
     "image_configs": {},
     "caption_configs": {},
     "training_set": null,
     "dataset_configs": [
         {
-            "train_data_dir": "E:\\data\\dataset",
-            "resolution": "1024",
+            "train_data_dir": "E:\\data\\anything2real_face\\",
+            "resolution": "512",
             "recreate_cache": false,
-            "repeats": 1,
+            "repeats": 10,
             "image_configs": {
                 "train": {
-                    "suffix": "_T"
+                    "suffix": "_g"
                 },
                 "ref": {
-                    "suffix": "_R"
+                    "suffix": "_r"
                 }
             },
             "target_configs": {

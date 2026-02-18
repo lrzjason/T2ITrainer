@@ -298,6 +298,12 @@ export const MiscNode = memo(({ id, data, selected }: NodeProps) => {
                         <option value="none">none</option>
                     </select>
                  </div>
+                 
+                 <div>
+                    <label className={labelClass}>{t.resume_from}</label>
+                    <input className={inputClass}
+                        placeholder="Path to saved directory..." value={data.resume_from || ''} onChange={(e) => update('resume_from', e.target.value)} />
+                </div>
           </div>
       </BaseNode>
     );
