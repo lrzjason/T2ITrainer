@@ -6,7 +6,7 @@
     "report_to": "tensorboard",
     "lr_warmup_steps": 0,
     "output_dir": "E:\\T2ITrainer_output\\klein",
-    "save_name": "anything2real_face",
+    "save_name": "freq_test",
     "train_data_dir": "E:\\data\\dataset",
     "optimizer": "prodigy",
     "lr_scheduler": "constant",
@@ -17,7 +17,7 @@
     "num_train_epochs": 20,
     "save_model_epochs": 1,
     "validation_epochs": 1,
-    "rank": 64,
+    "rank": 128,
     "skip_epoch": 0,
     "skip_step": 0,
     "gradient_checkpointing": true,
@@ -26,7 +26,7 @@
     "model_path": "",
     "resume_from_checkpoint": null,
     "recreate_cache": true,
-    "resolution": "512",
+    "resolution": "1024",
     "caption_dropout": 0.1,
     "cosine_restarts": 1,
     "max_time_steps": 0,
@@ -45,51 +45,54 @@
     "training_set": null,
     "dataset_configs": [
         {
-            "train_data_dir": "E:\\data\\anything2real_face\\",
-            "resolution": "512",
+            "train_data_dir": "E:\\images\\girls_output_test",
+            "resolution": "1024",
             "recreate_cache": false,
-            "repeats": 10,
+            "repeats": 1,
             "image_configs": {
                 "train": {
-                    "suffix": "_g"
+                    "suffix": "_T"
                 },
-                "ref": {
-                    "suffix": "_r"
+                "10_high": {
+                    "suffix": "_10_high"
+                },
+                "10_low": {
+                    "suffix": "_10_low"
                 }
             },
             "target_configs": {
-                "train_target": [
+                "train": [
                     {
                         "image": "train"
                     }
                 ]
             },
             "reference_configs": {
-                "ref_list": [
+                "10": [
                     {
-                        "sample_type": "from_same_name",
-                        "image": "ref"
+                        "image": "10_low"
+                    },
+                    {
+                        "image": "10_high"
                     }
                 ]
             },
             "caption_configs": {
-                "train_caption": {
+                "train": {
                     "ext": ".txt",
-                    "image": "train",
-                    "reference_list": {
-                        "reference_config": "ref_list",
-                        "resize": "384",
-                        "dropout": 0.1,
-                        "min_length": 2
-                    }
+                    "image": "train"
                 }
             },
             "batch_configs": [
                 {
-                    "target_config": "train_target",
-                    "caption_config": "train_caption",
+                    "target_config": "train",
+                    "caption_config": "train",
                     "caption_dropout": 0.1,
-                    "reference_config": "ref_list"
+                    "reference_config": "10",
+                    "reference_config_extra": {
+                        "dropout": 0.5,
+                        "min": 1
+                    }
                 }
             ]
         }

@@ -795,6 +795,9 @@ def main(args, config_args):
         target_modules = [
             # "to_k", "to_q", "to_v", "to_out.0"
             "to_out.0",
+            # "to_out.weight",
+            # "to_out.0.weight",
+            # "to_out",
             "to_q", "to_k", "to_v",
             "to_qkv_mlp_proj",
             "add_q_proj", "add_k_proj", "add_v_proj",
@@ -808,6 +811,30 @@ def main(args, config_args):
             # "double_stream_modulation_img.linear",
             # "double_stream_modulation_txt.linear",
             # "single_stream_modulation.linear",
+            "single_transformer_blocks.0.attn.to_out",
+            "single_transformer_blocks.1.attn.to_out",
+            "single_transformer_blocks.2.attn.to_out",
+            "single_transformer_blocks.3.attn.to_out",
+            "single_transformer_blocks.4.attn.to_out",
+            "single_transformer_blocks.5.attn.to_out",
+            "single_transformer_blocks.6.attn.to_out",
+            "single_transformer_blocks.7.attn.to_out",
+            "single_transformer_blocks.8.attn.to_out",
+            "single_transformer_blocks.9.attn.to_out",
+            "single_transformer_blocks.10.attn.to_out",
+            "single_transformer_blocks.11.attn.to_out",
+            "single_transformer_blocks.12.attn.to_out",
+            "single_transformer_blocks.13.attn.to_out",
+            "single_transformer_blocks.14.attn.to_out",
+            "single_transformer_blocks.15.attn.to_out",
+            "single_transformer_blocks.16.attn.to_out",
+            "single_transformer_blocks.17.attn.to_out",
+            "single_transformer_blocks.18.attn.to_out",
+            "single_transformer_blocks.19.attn.to_out",
+            "single_transformer_blocks.20.attn.to_out",
+            "single_transformer_blocks.21.attn.to_out",
+            "single_transformer_blocks.22.attn.to_out",
+            "single_transformer_blocks.23.attn.to_out"
         ]
     
     def collate_fn(examples):
@@ -2003,6 +2030,9 @@ def main(args, config_args):
             if "reference_config" in batch_config:
                 reference_config = batch_config["reference_config"]
                 reference_dropout = batch_config["reference_dropout"] if "reference_dropout" in batch_config else 0
+                reference_config_extra = batch_config["reference_config_extra"] if "reference_config_extra" in batch_config else 0
+                reference_dropout = reference_config_extra["dropout"]  if "dropout" in reference_config_extra else 0
+                reference_min = reference_config_extra["min"]  if "min" in reference_config_extra else 0
                 batch_references = batch[batch_references_key][reference_config]
             
             caption_config_key = batch_config["caption_config"]
@@ -2031,7 +2061,7 @@ def main(args, config_args):
             
             for reference in batch_references:
                 # latent_path = reference[latent_path_key]
-                if reference_dropout > random.random():
+                if reference_dropout > random.random() and len(reference_list) >= reference_min:
                     break
                 latent = reference[latent_key]
                 latent = patchify_latents(latent)
