@@ -266,7 +266,8 @@ def get_empty_embedding(cache_path="cache/empty_embedding.npf2k"):
 
 def create_empty_embedding(tokenizers, text_encoders, cache_path="cache/empty_embedding.npf2k", recreate=False):
     if recreate:
-        os.remove(cache_path)
+        if os.path.exists(cache_path):
+            os.remove(cache_path)
 
     if os.path.exists(cache_path):
         return torch.load(cache_path, weights_only=True)
